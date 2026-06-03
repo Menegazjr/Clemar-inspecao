@@ -110,7 +110,7 @@ async function fazerLogout() {
 // ═══════════════════════════════════════════════
 //  NAVEGAÇÃO ENTRE VIEWS
 // ═══════════════════════════════════════════════
-function exibirLista() {
+async function exibirLista() {
   document.getElementById('viewLista').style.display = 'flex';
   document.getElementById('viewForm').style.display  = 'none';
   document.getElementById('navLista').style.display  = 'block';
