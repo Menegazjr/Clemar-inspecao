@@ -21566,7 +21566,8 @@ async function salvar() {
     .single();
 
   const versaoAtual = atual?.versao || atual?.atualizado_em || null;
-  if (_versaoAberta && versaoAtual && versaoAtual !== _versaoAberta) {
+  const isNovoRelatorio = !_versaoAberta;
+  if (!isNovoRelatorio && versaoAtual && versaoAtual !== _versaoAberta) {
     const quem = atual?.atualizado_por ? fmtUsuario(atual.atualizado_por) : 'outro usuário';
     const confirmar = window.confirm(
       `⚠️ Atenção: "${quem}" modificou este relatório enquanto você editava.\n\n` +
