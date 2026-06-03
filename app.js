@@ -120,8 +120,8 @@ function exibirLista() {
   const fab = document.getElementById('fabNovo');
   if (window.innerWidth <= 600) fab.style.display = 'flex';
   window.scrollTo({ top: 0, behavior: 'instant' });
-  carregarPastas();
-  carregarLista();
+  await carregarPastas();
+  await carregarLista();
 }
 
 function exibirForm() {
