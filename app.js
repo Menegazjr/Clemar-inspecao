@@ -1462,44 +1462,20 @@ async function exportarWord() {
 
     const children = [];
 
-    // ── Logo no cabeçalho do Word ──
-    // Usar a logo mobile (ícone colorido) que fica bem em fundo branco
-    async function logoParaBuffer() {
-      try {
-        // Prefere a logo mobile (ícone), que tem fundo transparente colorido
-        const imgEl = document.querySelector('.topnav-logo-mobile img')
-                   || document.querySelector('.topnav-logo img');
-        if (!imgEl) return null;
-        // Redimensionar via canvas para garantir qualidade e fundo branco
-        const img = new Image();
-        await new Promise((res, rej) => {
-          img.onload = res; img.onerror = rej; img.src = imgEl.src;
-        });
-        const h = 60, w = Math.round(img.naturalWidth * h / img.naturalHeight);
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
-        const b64 = canvas.toDataURL('image/png').split(',')[1];
-        const bin = atob(b64);
-        const arr = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-        return { arr, w, h };
-      } catch(e) { return null; }
-    }
-    const logoBuf = await logoParaBuffer();
-    if (logoBuf) {
+    // ── Logo no cabeçalho do Word — mesmo arquivo do login ──
+    try {
+      const resp = await fetch('logo-clemar-cores.png');
+      const buf  = await resp.arrayBuffer();
+      const arr  = new Uint8Array(buf);
       children.push(new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { before: 0, after: 120 },
         children: [new ImageRun({
-          data: logoBuf.arr,
-          transformation: { width: logoBuf.w, height: logoBuf.h },
+          data: arr,
+          transformation: { width: 200, height: 60 },
         })],
       }));
-    }
+    } catch(e) { console.warn('Logo Word:', e); }
 
     // ── Cabeçalho do documento ──
     children.push(new Paragraph({
