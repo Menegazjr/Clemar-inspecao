@@ -110,7 +110,7 @@ async function fazerLogout() {
 // ═══════════════════════════════════════════════
 //  NAVEGAÇÃO ENTRE VIEWS
 // ═══════════════════════════════════════════════
-async function exibirLista() {
+function exibirLista() {
   document.getElementById('viewLista').style.display = 'flex';
   document.getElementById('viewForm').style.display  = 'none';
   document.getElementById('navLista').style.display  = 'block';
@@ -120,8 +120,8 @@ async function exibirLista() {
   const fab = document.getElementById('fabNovo');
   if (window.innerWidth <= 600) fab.style.display = 'flex';
   window.scrollTo({ top: 0, behavior: 'instant' });
-  await carregarPastas();
-  await carregarLista();
+  carregarPastas();
+  carregarLista();
 }
 
 function exibirForm() {
@@ -163,6 +163,8 @@ async function voltarLista() {
 // ═══════════════════════════════════════════════
 async function carregarLista() {
   if (!currentUser) return;
+  // Garante que pastas estão carregadas antes de renderizar
+  if (pastas.length === 0) await carregarPastas();
   const sub = document.getElementById('listSubtitle');
   sub.textContent = 'Carregando...';
   const { data, error } = await supa
