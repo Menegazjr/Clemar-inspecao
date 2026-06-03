@@ -117,7 +117,6 @@ function exibirLista() {
   document.getElementById('navForm').style.display   = 'none';
   document.getElementById('btnSair').style.display   = '';
   document.getElementById('mobileBarForm').classList.remove('visivel');
-  const fab = document.getElementById('fabNovo');
   if (window.innerWidth <= 600) fab.style.display = 'flex';
   window.scrollTo({ top: 0, behavior: 'instant' });
   carregarPastas();
@@ -131,7 +130,6 @@ function exibirForm() {
   document.getElementById('navForm').style.display   = 'flex';
   document.getElementById('btnSair').style.display   = 'none';
   document.getElementById('mobileBarForm').classList.add('visivel');
-  document.getElementById('fabNovo').style.display   = 'none';
 }
 
 async function voltarLista() {
