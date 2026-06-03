@@ -1543,7 +1543,7 @@ async function exportarWord() {
     msg.textContent = 'Inserindo fotos no documento...';
     await new Promise(x => setTimeout(x, 30));
 
-    children.push(secTitle('03 — REGISTRO FOTOGRÁFICO POR LOCAL'));
+    children.push(secTitle('03 — REGISTRO FOTOGRÁFICO'));
 
     if (!r.fotos || r.fotos.length === 0) {
       children.push(bloco('Nenhuma foto registrada nesta visita.'));
