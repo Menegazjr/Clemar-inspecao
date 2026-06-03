@@ -117,7 +117,6 @@ function exibirLista() {
   document.getElementById('navForm').style.display   = 'none';
   document.getElementById('btnSair').style.display   = '';
   document.getElementById('mobileBarForm').classList.remove('visivel');
-  if (window.innerWidth <= 600) fab.style.display = 'flex';
   window.scrollTo({ top: 0, behavior: 'instant' });
   carregarPastas();
   carregarLista();
