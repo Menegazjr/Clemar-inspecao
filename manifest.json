@@ -2,7 +2,7 @@
   "name": "Inspeção",
   "short_name": "Inspeção",
   "description": "Sistema de Relatório de Visita de Obra",
-  "start_url": "/",
+  "start_url": "/Clemar-inspecao/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#1a2940",

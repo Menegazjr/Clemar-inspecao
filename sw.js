@@ -1,14 +1,14 @@
 const CACHE = 'clemar-v1';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/libs.js',
-  '/logo-clemar.png',
-  '/logo-clemar-pequeno.png',
-  '/logo-clemar-cores.png',
-  '/manifest.json',
+  '/Clemar-inspecao/',
+  '/Clemar-inspecao/index.html',
+  '/Clemar-inspecao/style.css',
+  '/Clemar-inspecao/app.js',
+  '/Clemar-inspecao/libs.js',
+  '/Clemar-inspecao/logo-clemar.png',
+  '/Clemar-inspecao/logo-clemar-pequeno.png',
+  '/Clemar-inspecao/logo-clemar-cores.png',
+  '/Clemar-inspecao/manifest.json',
 ];
 
 self.addEventListener('install', e => {
