@@ -1,0 +1,25 @@
+{
+  "name": "Inspeção",
+  "short_name": "Inspeção",
+  "description": "Sistema de Relatório de Visita de Obra",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a2940",
+  "theme_color": "#1a2940",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "logo-clemar-pequeno.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo-clemar-pequeno.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
