@@ -25,15 +25,35 @@ function toggleForm(showCad) {
 }
 
 async function fazerLogin() {
-  const email = document.getElementById('authEmail').value.trim();
-  const senha = document.getElementById('authPassword').value;
-  const msg = document.getElementById('authMsg');
+  const email    = document.getElementById('authEmail').value.trim();
+  const senha    = document.getElementById('authPassword').value;
+  const lembrar  = document.getElementById('lembrarMe')?.checked || false;
+  const msg      = document.getElementById('authMsg');
   msg.style.display = 'none';
   if (!email || !senha) { msg.textContent = 'Preencha e-mail e senha.'; msg.style.display='block'; return; }
+
+  // Salvar e-mail se marcou lembrar
+  if (lembrar) {
+    localStorage.setItem('clemar_email', email);
+  } else {
+    localStorage.removeItem('clemar_email');
+  }
+
   const { data, error } = await supa.auth.signInWithPassword({ email, password: senha });
   if (error) { msg.textContent = error.message; msg.style.display='block'; return; }
   aoLogar(data.user);
 }
+
+// Preencher e-mail salvo ao carregar
+(function() {
+  const saved = localStorage.getItem('clemar_email');
+  if (saved) {
+    const el = document.getElementById('authEmail');
+    const cb = document.getElementById('lembrarMe');
+    if (el) el.value = saved;
+    if (cb) cb.checked = true;
+  }
+})();
 
 async function fazerCadastro() {
   const nome  = document.getElementById('authNome').value.trim();

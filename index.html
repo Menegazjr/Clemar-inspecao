@@ -45,6 +45,10 @@
         <label>Senha</label>
         <input type="password" id="authPassword" placeholder="••••••••" autocomplete="current-password">
       </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <input type="checkbox" id="lembrarMe" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
+        <label for="lembrarMe" style="font-size:13px;color:var(--ink-light);cursor:pointer;user-select:none">Lembrar de mim</label>
+      </div>
       <button class="auth-btn auth-btn-primary" onclick="fazerLogin()">Entrar</button>
       <div class="auth-divider">Não tem conta? <a onclick="toggleForm(true)">Criar conta</a></div>
     </div>
@@ -491,8 +495,18 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/Clemar-inspecao/sw.js')
-          .then(r => console.log('SW registrado:', r.scope))
+          .then(reg => {
+            // Verifica atualização a cada 60 segundos
+            setInterval(() => reg.update(), 60000);
+          })
           .catch(e => console.warn('SW erro:', e));
+
+        // Recarrega automaticamente quando nova versão estiver pronta
+        navigator.serviceWorker.addEventListener('message', e => {
+          if (e.data?.type === 'SW_UPDATED') {
+            window.location.reload();
+          }
+        });
       });
     }
   </script>
