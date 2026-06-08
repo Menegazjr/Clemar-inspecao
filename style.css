@@ -595,3 +595,57 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
     font-family: var(--font-cond); font-size: 15px; font-weight: 700;
     color: var(--ink-mid); cursor: pointer; touch-action: manipulation;
   }
+
+/* ── Feedback de clique nos cards ── */
+.relatorio-card {
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  cursor: pointer;
+}
+.relatorio-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15) !important;
+}
+
+/* ── Ripple nos botões ── */
+.btn {
+  position: relative;
+  overflow: hidden;
+}
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.18);
+  border-radius: inherit;
+  opacity: 0;
+  transform: scale(0.4);
+  transition: transform 0.35s ease, opacity 0.35s ease;
+  pointer-events: none;
+}
+.btn:active::after {
+  transform: scale(2.2);
+  opacity: 1;
+  transition: 0s;
+}
+
+/* Ripple em botões escuros (steel/primary) já tem cor clara, nos outline usar escuro */
+.btn-outline::after,
+.btn-steel::after {
+  background: rgba(0,0,0,0.08);
+}
+
+/* ── Feedback nos chips de pasta ── */
+.pasta-chip {
+  transition: transform 0.1s ease;
+}
+.pasta-chip:active {
+  transform: scale(0.94);
+}
+
+/* ── Feedback nos botões de admin e ícones ── */
+.admin-icon-btn {
+  transition: transform 0.1s ease;
+}
+.admin-icon-btn:active {
+  transform: scale(0.88);
+}
