@@ -607,11 +607,11 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 }
 
 /* ── Ripple nos botões ── */
-.btn {
+.btn, .auth-btn {
   position: relative;
   overflow: hidden;
 }
-.btn::after {
+.btn::after, .auth-btn::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -621,11 +621,16 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
   transform: scale(0.4);
   transition: transform 0.35s ease, opacity 0.35s ease;
   pointer-events: none;
+  z-index: 0;
 }
-.btn:active::after {
+.btn:active::after, .auth-btn:active::after {
   transform: scale(2.2);
   opacity: 1;
   transition: 0s;
+}
+.btn > *, .auth-btn > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Ripple em botões escuros (steel/primary) já tem cor clara, nos outline usar escuro */
