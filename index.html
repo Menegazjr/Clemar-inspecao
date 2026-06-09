@@ -22,8 +22,28 @@
 
   <!-- Estilos -->
   <link rel="stylesheet" href="style.css">
+  <style>
+    @keyframes girar { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
+<div id="bannerUpdate" style="display:none;position:fixed;top:0;left:0;right:0;z-index:10000;background:var(--steel);color:#fff;padding:14px 20px;display:none;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-family:var(--font-cond)">
+  <div style="display:flex;align-items:center;gap:10px">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+    <span style="font-size:14px;font-weight:600">Nova versão disponível — atualize para continuar usando</span>
+  </div>
+  <button onclick="aplicarAtualizacao()" style="background:var(--accent);color:var(--steel);border:none;border-radius:8px;padding:8px 18px;font-family:var(--font-cond);font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap">
+    🔄 Atualizar agora
+  </button>
+</div>
+<div id="bannerProgresso" style="display:none;position:fixed;top:0;left:0;right:0;z-index:10001;background:var(--steel);color:#fff;padding:14px 20px;align-items:center;justify-content:center;gap:12px;font-family:var(--font-cond)">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;animation:girar 1s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+  <span style="font-size:14px;font-weight:600">Atualizando...</span>
+  <div style="flex:1;max-width:200px;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;overflow:hidden">
+    <div id="barraProgresso" style="height:100%;width:0%;background:var(--accent);border-radius:2px;transition:width 0.8s ease"></div>
+  </div>
+</div>
+
 <div id="bannerOffline" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9998;background:#c0392b;color:#fff;text-align:center;padding:10px 16px;font-family:sans-serif;font-size:14px;font-weight:600">
   📵 Sem conexão com a internet — não é possível salvar ou carregar relatórios
 </div>
@@ -493,20 +513,51 @@
     window.addEventListener('offline', atualizarOffline);
     atualizarOffline();
 
+    let _swRegistration = null;
+
+    function aplicarAtualizacao() {
+      const progresso = document.getElementById('bannerProgresso');
+      const barra = document.getElementById('barraProgresso');
+      const update = document.getElementById('bannerUpdate');
+      update.style.display = 'none';
+      progresso.style.display = 'flex';
+      // Animar barra
+      setTimeout(() => { barra.style.width = '60%'; }, 50);
+      setTimeout(() => { barra.style.width = '90%'; }, 600);
+      // Ativar novo SW e recarregar
+      if (_swRegistration && _swRegistration.waiting) {
+        _swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+      setTimeout(() => {
+        barra.style.width = '100%';
+        setTimeout(() => window.location.reload(), 300);
+      }, 1200);
+    }
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/Clemar-inspecao/sw.js')
           .then(reg => {
+            _swRegistration = reg;
             // Verifica atualização a cada 60 segundos
             setInterval(() => reg.update(), 60000);
+
+            // Nova versão encontrada durante a sessão
+            reg.addEventListener('updatefound', () => {
+              const newSW = reg.installing;
+              newSW.addEventListener('statechange', () => {
+                if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+                  // Há nova versão — mostrar banner obrigatório
+                  document.getElementById('bannerUpdate').style.display = 'flex';
+                  document.body.style.paddingTop = '56px';
+                }
+              });
+            });
           })
           .catch(e => console.warn('SW erro:', e));
 
-        // Recarrega automaticamente quando nova versão estiver pronta
-        navigator.serviceWorker.addEventListener('message', e => {
-          if (e.data?.type === 'SW_UPDATED') {
-            window.location.reload();
-          }
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          window.location.reload();
         });
       });
     }

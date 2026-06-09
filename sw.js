@@ -1,5 +1,5 @@
 // Versão do cache — altere este número a cada deploy para forçar atualização
-const VERSION = '1.0.3';
+const VERSION = '1.0.4';
 const CACHE = `clemar-${VERSION}`;
 
 const ASSETS = [
@@ -15,6 +15,10 @@ const ASSETS = [
 ];
 
 // Instala e faz cache dos assets
+self.addEventListener('message', e => {
+  if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
