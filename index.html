@@ -534,25 +534,38 @@
       }, 1200);
     }
 
+    function mostrarBannerUpdate() {
+      const b = document.getElementById('bannerUpdate');
+      if (b) {
+        b.style.display = 'flex';
+        document.body.style.paddingTop = '56px';
+      }
+    }
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/Clemar-inspecao/sw.js')
           .then(reg => {
             _swRegistration = reg;
-            // Verifica atualização a cada 60 segundos
-            setInterval(() => reg.update(), 60000);
 
-            // Nova versão encontrada durante a sessão
+            // Já tem SW waiting ao abrir? Mostra banner imediatamente
+            if (reg.waiting) {
+              mostrarBannerUpdate();
+            }
+
+            // Nova versão sendo instalada durante a sessão
             reg.addEventListener('updatefound', () => {
               const newSW = reg.installing;
               newSW.addEventListener('statechange', () => {
                 if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-                  // Há nova versão — mostrar banner obrigatório
-                  document.getElementById('bannerUpdate').style.display = 'flex';
-                  document.body.style.paddingTop = '56px';
+                  mostrarBannerUpdate();
                 }
               });
             });
+
+            // Verifica atualização imediatamente ao abrir e depois a cada 60s
+            reg.update();
+            setInterval(() => reg.update(), 60000);
           })
           .catch(e => console.warn('SW erro:', e));
 
