@@ -19,6 +19,9 @@
 
   <!-- docx bundled lib -->
   <script src="libs.js"></script>
+  <!-- Quill rich text editor -->
+  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
 
   <!-- Estilos -->
   <link rel="stylesheet" href="style.css">
@@ -267,7 +270,10 @@
           <div class="card">
             <div class="card-header"><span class="card-header-title">02 — Objetivo da Visita</span></div>
             <div class="card-body">
-              <div class="field"><textarea id="fieldObjetivo" rows="3" placeholder="Descreva o objetivo da visita..."></textarea></div>
+              <div class="field">
+                <div class="quill-toolbar" id="toolbarObjetivo"></div>
+                <div class="quill-editor" id="fieldObjetivo"></div>
+              </div>
             </div>
           </div>
 
@@ -299,7 +305,10 @@
           <div class="card">
             <div class="card-header"><span class="card-header-title">04 — Observações Gerais</span></div>
             <div class="card-body">
-              <div class="field"><textarea id="fieldObservacoes" rows="4" placeholder="Observações adicionais, pendências identificadas..."></textarea></div>
+              <div class="field">
+                <div class="quill-toolbar" id="toolbarObservacoes"></div>
+                <div class="quill-editor" id="fieldObservacoes"></div>
+              </div>
             </div>
           </div>
 
@@ -318,7 +327,11 @@
                   </select>
                 </div>
               </div>
-              <div class="field" style="margin-top:12px"><label>Parecer Técnico</label><textarea id="fieldParecer" rows="3" placeholder="Conclusão técnica da visita..."></textarea></div>
+              <div class="field" style="margin-top:12px">
+                <label>Parecer Técnico</label>
+                <div class="quill-toolbar" id="toolbarParecer"></div>
+                <div class="quill-editor" id="fieldParecer"></div>
+              </div>
             </div>
           </div>
 

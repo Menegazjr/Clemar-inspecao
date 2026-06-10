@@ -143,6 +143,8 @@ function exibirLista() {
 }
 
 function exibirForm() {
+  // Iniciar editores Quill na primeira vez
+  setTimeout(iniciarEditores, 50);
   document.getElementById('viewLista').style.display = 'none';
   document.getElementById('viewForm').style.display  = 'flex';
   document.getElementById('navLista').style.display  = 'none';
@@ -219,9 +221,14 @@ function renderizarLista() {
       </div>`;
     return;
   }
+  // Coletar todos os IDs de pastas visíveis (pasta ativa + suas subpastas recursivamente)
+  function idsRecursivos(paiId) {
+    const filhos = pastas.filter(p => p.pasta_pai_id === paiId);
+    return [paiId, ...filhos.flatMap(f => idsRecursivos(f.id))];
+  }
   const listaFiltrada = pastaAtivaId === null ? relatorios
     : pastaAtivaId === 'sem-pasta' ? relatorios.filter(r => !r.pasta_id)
-    : relatorios.filter(r => r.pasta_id === pastaAtivaId);
+    : relatorios.filter(r => idsRecursivos(pastaAtivaId).includes(r.pasta_id));
   if (listaFiltrada.length === 0 && pastaAtivaId !== null) {
     container.innerHTML = `<div class="lista-vazia">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:52px;height:52px;color:var(--border-strong);margin-bottom:14px"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
@@ -378,10 +385,10 @@ async function salvar() {
   r.localidade     = document.getElementById('fieldLocalidade').value;
   r.responsavel    = document.getElementById('fieldResponsavel').value;
   r.cargo          = document.getElementById('fieldCargo').value;
-  r.objetivo       = document.getElementById('fieldObjetivo').value;
-  r.observacoes    = document.getElementById('fieldObservacoes').value;
+  r.objetivo       = getEditorHtml(_quillObjetivo);
+  r.observacoes    = getEditorHtml(_quillObservacoes);
   r.situacao       = document.getElementById('fieldSituacao').value;
-  r.parecer        = document.getElementById('fieldParecer').value;
+  r.parecer        = getEditorHtml(_quillParecer);
   r.assin_nome     = document.getElementById('fieldAssinNome').value;
 
   r.assin_data     = document.getElementById('fieldAssinData').value;
@@ -449,6 +456,93 @@ let _excluirTargetId = null;
 
 // ── Relatório recém criado (sem edição) ──
 let _relatorioRecemCriado = null;
+let _pastaPaiAtualId = null;  // pasta pai sendo navegada (null = raiz)
+let _quillObjetivo    = null;
+let _quillObservacoes = null;
+let _quillParecer     = null;
+
+function iniciarEditores() {
+  if (_quillObjetivo) return; // já iniciados
+  const toolbar = [
+    [{ 'color': ['#000000','#1a2940','#c0392b','#e67e22','#27ae60','#2980b9','#8e44ad'] }],
+    ['bold', 'italic'],
+    ['clean']
+  ];
+  _quillObjetivo    = new Quill('#fieldObjetivo',    { theme:'snow', placeholder:'Descreva o objetivo da visita...', modules:{ toolbar: { container: toolbar, handlers:{} } } });
+  _quillObservacoes = new Quill('#fieldObservacoes', { theme:'snow', placeholder:'Observações adicionais, pendências identificadas...', modules:{ toolbar: { container: toolbar, handlers:{} } } });
+  _quillParecer     = new Quill('#fieldParecer',     { theme:'snow', placeholder:'Conclusão técnica da visita...', modules:{ toolbar: { container: toolbar, handlers:{} } } });
+  // Mover toolbars para os containers corretos
+  ['Objetivo','Observacoes','Parecer'].forEach(id => {
+    const editor = document.getElementById('field'+id);
+    const toolbar = editor?.previousElementSibling;
+    const qlToolbar = editor?.querySelector('.ql-toolbar');
+    if (qlToolbar && toolbar) toolbar.appendChild(qlToolbar);
+  });
+}
+
+// Helpers para ler/escrever HTML nos editores
+function getEditorHtml(quill) {
+  if (!quill) return '';
+  const html = quill.getSemanticHTML();
+  // Se só tem parágrafo vazio, retorna string vazia
+  return html === '<p></p>' || html === '<p><br></p>' ? '' : html;
+}
+
+function setEditorHtml(quill, html) {
+  if (!quill) return;
+  if (!html) { quill.setContents([]); return; }
+  quill.clipboard.dangerouslyPasteHTML(html);
+}
+
+// Converte HTML rico em texto puro (para Word paragraph por paragraph)
+function htmlParaParas(html) {
+  if (!html) return ['—'];
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const paras = [];
+  div.querySelectorAll('p, br').forEach(el => {
+    paras.push(el.textContent || '');
+  });
+  return paras.length > 0 ? paras : [div.textContent || '—'];
+}
+
+// Converte HTML rico em runs do Word com formatação
+function htmlParaRuns(html) {
+  if (!html) return [new TextRun({ text: '—', size: 20, font: 'Arial' })];
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const runs = [];
+
+  function processNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.textContent) runs.push({ text: node.textContent });
+      return;
+    }
+    const tag = node.tagName?.toLowerCase();
+    const style = node.getAttribute?.('style') || '';
+    const colorMatch = style.match(/color:\s*([^;]+)/);
+    const color = colorMatch ? colorMatch[1].trim().replace('#','') : null;
+    const bold = tag === 'strong' || tag === 'b';
+    const italic = tag === 'em' || tag === 'i';
+
+    node.childNodes.forEach(child => {
+      if (child.nodeType === Node.TEXT_NODE && child.textContent) {
+        runs.push({ text: child.textContent, bold, italic, color });
+      } else {
+        processNode(child);
+      }
+    });
+  }
+
+  div.childNodes.forEach(processNode);
+  return runs.map(r => new TextRun({
+    text: r.text || '',
+    bold: r.bold || false,
+    italics: r.italic || false,
+    color: r.color || undefined,
+    size: 20, font: 'Arial'
+  }));
+}
 
 // ── Presença / lock ──
 let _presencaInterval = null;   // heartbeat de atividade
@@ -843,11 +937,11 @@ function carregarFormulario() {
   document.getElementById('fieldLocalidade').value  = r.localidade || '';
   document.getElementById('fieldResponsavel').value = r.responsavel || '';
   document.getElementById('fieldCargo').value       = r.cargo || '';
-  document.getElementById('fieldObjetivo').value    = r.objetivo || '';
-  document.getElementById('fieldObservacoes').value = r.observacoes || '';
+  setTimeout(() => { setEditorHtml(_quillObjetivo, r.objetivo || ''); }, 80);
+  setTimeout(() => { setEditorHtml(_quillObservacoes, r.observacoes || ''); }, 80);
   document.getElementById('fieldSituacao').value    = r.situacao || '';
 
-  document.getElementById('fieldParecer').value     = r.parecer || '';
+  setTimeout(() => { setEditorHtml(_quillParecer, r.parecer || ''); }, 80);
   document.getElementById('fieldAssinNome').value   = r.assin_nome || '';
   document.getElementById('fieldAssinData').value   = r.assin_data || '';
   renderizarFotos();
@@ -1083,10 +1177,10 @@ async function exportarPDF() {
   r.localidade     = document.getElementById('fieldLocalidade').value;
   r.responsavel    = document.getElementById('fieldResponsavel').value;
   r.cargo          = document.getElementById('fieldCargo').value;
-  r.objetivo       = document.getElementById('fieldObjetivo').value;
-  r.observacoes    = document.getElementById('fieldObservacoes').value;
+  r.objetivo       = getEditorHtml(_quillObjetivo);
+  r.observacoes    = getEditorHtml(_quillObservacoes);
   r.situacao       = document.getElementById('fieldSituacao').value;
-  r.parecer        = document.getElementById('fieldParecer').value;
+  r.parecer        = getEditorHtml(_quillParecer);
   r.assin_nome     = document.getElementById('fieldAssinNome').value;
 
   r.assin_data     = document.getElementById('fieldAssinData').value;
@@ -1125,15 +1219,15 @@ async function exportarPDF() {
         <tr><td>Responsável</td><td>${r.responsavel||'—'}</td></tr>
         <tr><td>Cargo</td><td>${r.cargo||'—'}</td></tr>
       </table>
-      </div><div class="pdf-section-block"><h2>02 — OBJETIVO</h2><p>${r.objetivo||'—'}</p>
+      </div><div class="pdf-section-block"><h2>02 — OBJETIVO</h2><p style="white-space:pre-wrap">${r.objetivo||'—'}</p>
       </div><h2 style="font-size:14px;color:#1a2940;margin:16px 0 6px;border-bottom:2px solid #e8a020;padding-bottom:4px">03 — REGISTRO FOTOGRÁFICO</h2>
       ${fotosHtml||'<p>Nenhuma foto registrada.</p>'}
-      <div class="pdf-section-block"><h2>04 — OBSERVAÇÕES</h2><p>${r.observacoes||'—'}</p>
+      <div class="pdf-section-block"><h2>04 — OBSERVAÇÕES</h2><p style="white-space:pre-wrap">${r.observacoes||'—'}</p>
       </div><div class="pdf-section-block"><h2>05 — CONCLUSÃO</h2>
       <table>
         <tr><td>Situação Geral</td><td>${r.situacao||'—'}</td></tr>
       </table>
-      <p><strong>Parecer:</strong> ${r.parecer||'—'}</p>
+      <p style="white-space:pre-wrap"><strong>Parecer:</strong> ${r.parecer||'—'}</p>
       <div class="pdf-assin">
         <strong>${r.assin_nome||r.responsavel||'—'}</strong><br>
         ${r.cargo||''} ${r.assin_registro?'· '+r.assin_registro:''}<br>
@@ -1414,10 +1508,10 @@ async function exportarWord() {
   r.localidade     = document.getElementById('fieldLocalidade').value;
   r.responsavel    = document.getElementById('fieldResponsavel').value;
   r.cargo          = document.getElementById('fieldCargo').value;
-  r.objetivo       = document.getElementById('fieldObjetivo').value;
-  r.observacoes    = document.getElementById('fieldObservacoes').value;
+  r.objetivo       = getEditorHtml(_quillObjetivo);
+  r.observacoes    = getEditorHtml(_quillObservacoes);
   r.situacao       = document.getElementById('fieldSituacao').value;
-  r.parecer        = document.getElementById('fieldParecer').value;
+  r.parecer        = getEditorHtml(_quillParecer);
   r.assin_nome     = document.getElementById('fieldAssinNome').value;
   r.assin_data     = document.getElementById('fieldAssinData').value;
   r.cc             = document.getElementById('fieldCC').value;
@@ -1472,10 +1566,16 @@ async function exportarWord() {
     }
 
     function bloco(text) {
-      return new Paragraph({
-        spacing: { before: 60, after: 60 },
-        children: [new TextRun({ text: String(text||'—'), size: 20, font: 'Arial' })],
-      });
+      const linhas = String(text||'—').split('\n');
+      return linhas.map((linha, i) => new Paragraph({
+        spacing: { before: i === 0 ? 60 : 0, after: i === linhas.length - 1 ? 60 : 40 },
+        children: [new TextRun({ text: linha, size: 20, font: 'Arial' })],
+      }));
+    }
+
+    function pushBloco(children, text) {
+      const items = bloco(text);
+      items.forEach(p => children.push(p));
     }
 
     const children = [];
@@ -1533,7 +1633,17 @@ async function exportarWord() {
 
     // ── 02 Objetivo ──
     children.push(secTitle('02 — OBJETIVO DA VISITA'));
-    children.push(bloco(r.objetivo));
+    // Objetivo com formatação rica
+    const parasObj = (r.objetivo||'').split(/<\/p>|<br>/).filter(Boolean);
+    if (parasObj.length <= 1) {
+      children.push(new Paragraph({ spacing:{before:60,after:60}, children: htmlParaRuns(r.objetivo) }));
+    } else {
+      const divObj = document.createElement('div');
+      divObj.innerHTML = r.objetivo || '';
+      divObj.querySelectorAll('p').forEach((p,i,arr) => {
+        children.push(new Paragraph({ spacing:{before:i===0?60:0,after:i===arr.length-1?60:30}, children: htmlParaRuns(p.innerHTML) }));
+      });
+    }
 
     // ── 03 Registro Fotográfico ──
     msg.textContent = 'Inserindo fotos no documento...';
@@ -1606,7 +1716,14 @@ async function exportarWord() {
 
     // ── 04 Observações ──
     children.push(secTitle('04 — OBSERVAÇÕES GERAIS'));
-    children.push(bloco(r.observacoes));
+    const divObs = document.createElement('div');
+    divObs.innerHTML = r.observacoes || '—';
+    const pObss = divObs.querySelectorAll('p');
+    if (pObss.length > 0) {
+      pObss.forEach((p,i,arr) => children.push(new Paragraph({ spacing:{before:i===0?60:0,after:i===arr.length-1?60:30}, children: htmlParaRuns(p.innerHTML) })));
+    } else {
+      children.push(new Paragraph({ spacing:{before:60,after:60}, children: htmlParaRuns(r.observacoes) }));
+    }
 
     // ── 05 Conclusão ──
     children.push(secTitle('05 — CONCLUSÃO / PARECER TÉCNICO'));
@@ -1618,7 +1735,14 @@ async function exportarWord() {
       ],
     }));
     children.push(new Paragraph({ spacing: { before: 120, after: 40 }, children: [new TextRun({ text: 'Parecer Técnico:', bold: true, size: 20, font: 'Arial' })] }));
-    children.push(bloco(r.parecer));
+    const divPar = document.createElement('div');
+    divPar.innerHTML = r.parecer || '—';
+    const pPars = divPar.querySelectorAll('p');
+    if (pPars.length > 0) {
+      pPars.forEach((p,i,arr) => children.push(new Paragraph({ spacing:{before:i===0?60:0,after:i===arr.length-1?60:30}, children: htmlParaRuns(p.innerHTML) })));
+    } else {
+      children.push(new Paragraph({ spacing:{before:60,after:60}, children: htmlParaRuns(r.parecer) }));
+    }
 
     // ── 06 Assinatura ──
     children.push(secTitle('06 — RESPONSÁVEL PELO RELATÓRIO'));
@@ -1764,6 +1888,20 @@ async function carregarPastas() {
   renderizarPastasBar();
 }
 
+function pastasNivel(paiId) {
+  return pastas.filter(p => (p.pasta_pai_id || null) === paiId);
+}
+
+function caminhoAte(id) {
+  const caminho = [];
+  let atual = pastas.find(p => p.id === id);
+  while (atual) {
+    caminho.unshift(atual);
+    atual = pastas.find(p => p.id === atual.pasta_pai_id);
+  }
+  return caminho;
+}
+
 function renderizarPastasBar() {
   let bar = document.getElementById('pastasBar');
   if (!bar) {
@@ -1773,6 +1911,54 @@ function renderizarPastasBar() {
     const listaEl = document.getElementById('listaRelatorios');
     if (listaEl) listaEl.parentNode.insertBefore(bar, listaEl);
   }
+
+  const nivelAtual = pastasNivel(_pastaPaiAtualId);
+  const caminho = _pastaPaiAtualId ? caminhoAte(_pastaPaiAtualId) : [];
+
+  // Breadcrumb
+  let breadcrumb = '';
+  if (caminho.length > 0) {
+    const crumbs = [`<button class="pasta-breadcrumb-item" onclick="navegarPasta(null)">Todos</button>`];
+    caminho.forEach((p, i) => {
+      crumbs.push(`<span class="pasta-breadcrumb-sep">›</span>`);
+      if (i < caminho.length - 1) {
+        crumbs.push(`<button class="pasta-breadcrumb-item" onclick="navegarPasta('${p.id}')">${p.nome}</button>`);
+      } else {
+        crumbs.push(`<span class="pasta-breadcrumb-item atual">${p.nome}</span>`);
+      }
+    });
+    breadcrumb = `<div class="pasta-breadcrumb">${crumbs.join('')}</div>`;
+  }
+
+  // Chips do nível atual
+  const chips = nivelAtual.map(p => {
+    const temFilhos = pastas.some(f => f.pasta_pai_id === p.id);
+    return `
+    <button class="pasta-chip ${pastaAtivaId === p.id ? 'ativa' : ''}" onclick="filtrarPasta('${p.id}')">
+      📁 ${p.nome}
+      ${temFilhos ? `<span class="pasta-has-sub" onclick="event.stopPropagation();navegarPasta('${p.id}')" title="Ver subpastas"> ›</span>` : ''}
+      <span class="pasta-del" onclick="event.stopPropagation();confirmarExcluirPasta('${p.id}','${p.nome.replace(/'/g,"\'")}')">×</span>
+    </button>`;
+  }).join('');
+
+  const chipsFixos = _pastaPaiAtualId === null ? `
+    <button class="pasta-chip ${pastaAtivaId === null ? 'ativa' : ''}" onclick="filtrarPasta(null)">Todos</button>
+    <button class="pasta-chip sem-pasta ${pastaAtivaId === 'sem-pasta' ? 'ativa' : ''}" onclick="filtrarPasta('sem-pasta')">Sem pasta</button>
+  ` : `
+    <button class="pasta-chip" onclick="navegarPasta(null);filtrarPasta(null)">← Início</button>
+  `;
+
+  bar.innerHTML = `
+    ${breadcrumb}
+    <div class="pastas-chips-row">
+      ${chipsFixos}
+      ${chips}
+      <button class="btn-nova-pasta" onclick="abrirModalNovaPasta()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nova pasta
+      </button>
+    </div>`;
+}
   const chips = pastas.map(p => `
     <button class="pasta-chip ${pastaAtivaId === p.id ? 'ativa' : ''}"
       onclick="filtrarPasta('${p.id}')">
@@ -1799,6 +1985,13 @@ function filtrarPasta(id) {
   renderizarLista();
 }
 
+function navegarPasta(paiId) {
+  _pastaPaiAtualId = paiId;
+  pastaAtivaId = null;
+  renderizarPastasBar();
+  renderizarLista();
+}
+
 function abrirModalNovaPasta() {
   document.getElementById('inputNovaPasta').value = '';
   document.getElementById('modalNovaPasta').classList.add('open');
@@ -1808,13 +2001,16 @@ function abrirModalNovaPasta() {
 async function criarPasta() {
   const nome = document.getElementById('inputNovaPasta').value.trim();
   if (!nome) return;
-  const { data, error } = await supa.from('pastas').insert([{ nome, criado_por: currentUser?.email }]).select().single();
+  const payload = { nome, criado_por: currentUser?.email };
+  if (_pastaPaiAtualId) payload.pasta_pai_id = _pastaPaiAtualId;
+  const { data, error } = await supa.from('pastas').insert([payload]).select().single();
   if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
   pastas.push(data);
   pastas.sort((a,b) => a.nome.localeCompare(b.nome));
   fecharModal('modalNovaPasta');
   renderizarPastasBar();
-  showAlert(`Pasta "${nome}" criada!`, 'ok');
+  const nivel = _pastaPaiAtualId ? 'Subpasta' : 'Pasta';
+  showAlert(`${nivel} "${nome}" criada!`, 'ok');
 }
 
 async function confirmarExcluirPasta(id, nome) {
