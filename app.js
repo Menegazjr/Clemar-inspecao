@@ -1958,25 +1958,6 @@ function renderizarPastasBar() {
       </button>
     </div>`;
 }
-  const chips = pastas.map(p => `
-    <button class="pasta-chip ${pastaAtivaId === p.id ? 'ativa' : ''}"
-      onclick="filtrarPasta('${p.id}')">
-      📁 ${p.nome}
-      <span class="pasta-del" onclick="event.stopPropagation();confirmarExcluirPasta('${p.id}','${p.nome.replace(/'/g,"\'")}')">×</span>
-    </button>`).join('');
-  bar.innerHTML = `
-    <button class="pasta-chip ${pastaAtivaId === null ? 'ativa' : ''}" onclick="filtrarPasta(null)">
-      Todos
-    </button>
-    <button class="pasta-chip sem-pasta ${pastaAtivaId === 'sem-pasta' ? 'ativa' : ''}" onclick="filtrarPasta('sem-pasta')">
-      Sem pasta
-    </button>
-    ${chips}
-    <button class="btn-nova-pasta" onclick="abrirModalNovaPasta()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Nova pasta
-    </button>`;
-}
 
 function filtrarPasta(id) {
   pastaAtivaId = id;
