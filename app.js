@@ -463,21 +463,20 @@ let _quillParecer     = null;
 
 function iniciarEditores() {
   if (_quillObjetivo) return; // já iniciados
-  const toolbar = [
-    [{ 'color': ['#000000','#1a2940','#c0392b','#e67e22','#27ae60','#2980b9','#8e44ad'] }],
-    ['bold', 'italic'],
-    ['clean']
-  ];
-  _quillObjetivo    = new Quill('#fieldObjetivo',    { theme:'snow', placeholder:'Descreva o objetivo da visita...', modules:{ toolbar: { container: toolbar, handlers:{} } } });
-  _quillObservacoes = new Quill('#fieldObservacoes', { theme:'snow', placeholder:'Observações adicionais, pendências identificadas...', modules:{ toolbar: { container: toolbar, handlers:{} } } });
-  _quillParecer     = new Quill('#fieldParecer',     { theme:'snow', placeholder:'Conclusão técnica da visita...', modules:{ toolbar: { container: toolbar, handlers:{} } } });
-  // Mover toolbars para os containers corretos
-  ['Objetivo','Observacoes','Parecer'].forEach(id => {
-    const editor = document.getElementById('field'+id);
-    const toolbar = editor?.previousElementSibling;
-    const qlToolbar = editor?.querySelector('.ql-toolbar');
-    if (qlToolbar && toolbar) toolbar.appendChild(qlToolbar);
-  });
+  if (!document.getElementById('fieldObjetivo')) return; // DOM não pronto
+  try {
+    const toolbar = [
+      [{ 'color': ['#000000','#1a2940','#c0392b','#e67e22','#27ae60','#2980b9','#8e44ad'] }],
+      ['bold', 'italic'],
+      ['clean']
+    ];
+    _quillObjetivo    = new Quill('#fieldObjetivo',    { theme:'snow', placeholder:'Descreva o objetivo da visita...', modules:{ toolbar: { container: toolbar, handlers:{} } } });
+    _quillObservacoes = new Quill('#fieldObservacoes', { theme:'snow', placeholder:'Observações adicionais, pendências identificadas...', modules:{ toolbar: { container: toolbar, handlers:{} } } });
+    _quillParecer     = new Quill('#fieldParecer',     { theme:'snow', placeholder:'Conclusão técnica da visita...', modules:{ toolbar: { container: toolbar, handlers:{} } } });
+  } catch(e) {
+    console.warn('Quill init erro:', e);
+    _quillObjetivo = _quillObservacoes = _quillParecer = null;
+  }
 }
 
 // Helpers para ler/escrever HTML nos editores
