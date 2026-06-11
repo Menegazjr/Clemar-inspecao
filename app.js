@@ -1905,14 +1905,8 @@ function caminhoAte(id) {
 }
 
 function renderizarPastasBar() {
-  let bar = document.getElementById('pastasBar');
-  if (!bar) {
-    bar = document.createElement('div');
-    bar.id = 'pastasBar';
-    bar.className = 'pastas-bar';
-    const listaEl = document.getElementById('listaRelatorios');
-    if (listaEl) listaEl.parentNode.insertBefore(bar, listaEl);
-  }
+  const bar = document.getElementById('pastasBar');
+  if (!bar) return;
 
   const nivelAtual = pastasNivel(_pastaPaiAtualId);
   const caminho = _pastaPaiAtualId ? caminhoAte(_pastaPaiAtualId) : [];
