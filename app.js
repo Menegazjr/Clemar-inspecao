@@ -2043,11 +2043,15 @@ function menuMoverPasta() {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
       Sem pasta
     </button>
-    ${pastas.map(p => `
+    ${pastas.map(p => {
+      const pai = pastas.find(x => x.id === p.pasta_pai_id);
+      const label = pai ? `${pai.nome} › ${p.nome}` : p.nome;
+      return `
       <button class="pasta-select-item ${r?.pasta_id === p.id ? 'selecionada' : ''}" onclick="moverParaPasta('${p.id}')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-        ${p.nome}
-      </button>`).join('')}`;
+        ${label}
+      </button>`;
+    }).join('')}`;
   document.getElementById('pastaSelectOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -2064,7 +2068,9 @@ async function moverParaPasta(pastaId) {
   if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
   const r = relatorios.find(x => x.id === _moverRelatorioId);
   if (r) r.pasta_id = pastaId;
-  const nomePasta = pastaId ? pastas.find(p => p.id === pastaId)?.nome : 'sem pasta';
+  const pastaAlvo = pastaId ? pastas.find(p => p.id === pastaId) : null;
+  const paiAlvo = pastaAlvo ? pastas.find(p => p.id === pastaAlvo.pasta_pai_id) : null;
+  const nomePasta = pastaAlvo ? (paiAlvo ? `${paiAlvo.nome} › ${pastaAlvo.nome}` : pastaAlvo.nome) : 'sem pasta';
   showAlert(`Movido para: ${nomePasta}`, 'ok');
   renderizarLista();
 }
