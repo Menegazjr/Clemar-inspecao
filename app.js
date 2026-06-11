@@ -1977,6 +1977,22 @@ function navegarPasta(paiId) {
 
 function abrirModalNovaPasta() {
   document.getElementById('inputNovaPasta').value = '';
+
+  // Mostrar onde a pasta será criada
+  const titulo = document.getElementById('modalNovaPastaTitulo');
+  const info   = document.getElementById('novaPastaLocalInfo');
+  if (_pastaPaiAtualId) {
+    const pai = pastas.find(p => p.id === _pastaPaiAtualId);
+    if (titulo) titulo.textContent = '📁 Nova Subpasta';
+    if (info) {
+      info.style.display = 'block';
+      info.innerHTML = `📂 Será criada dentro de: <strong>${pai?.nome || ''}</strong>`;
+    }
+  } else {
+    if (titulo) titulo.textContent = '📁 Nova Pasta';
+    if (info) info.style.display = 'none';
+  }
+
   document.getElementById('modalNovaPasta').classList.add('open');
   setTimeout(() => document.getElementById('inputNovaPasta').focus(), 100);
 }
