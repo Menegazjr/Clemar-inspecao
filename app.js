@@ -1932,7 +1932,7 @@ function renderizarPastasBar() {
     return `
     <button class="pasta-chip ${pastaAtivaId === p.id ? 'ativa' : ''}" onclick="filtrarPasta('${p.id}')">
       📁 ${p.nome}
-      ${temFilhos ? `<span class="pasta-has-sub" onclick="event.stopPropagation();navegarPasta('${p.id}')" title="Ver subpastas"> ›</span>` : ''}
+      <span class="pasta-has-sub" onclick="event.stopPropagation();navegarPasta('${p.id}')" title="Entrar / criar subpastas"> ›</span>
       <span class="pasta-del" onclick="event.stopPropagation();confirmarExcluirPasta('${p.id}','${p.nome.replace(/'/g,"\'")}')">×</span>
     </button>`;
   }).join('');
