@@ -1121,10 +1121,10 @@ function renderizarFotos() {
     return `
       <div class="foto-registro" id="reg_${f.id}">
         <div class="foto-registro-header">
-          <div class="foto-registro-num"><span class="dot"></span>FOTO ${String(idx+1).padStart(2,'0')} ${f.local?`<span style="font-weight:400;color:var(--ink-light);font-size:12px">— ${f.local}</span>`:''}</div>
-          <button class="btn btn-danger btn-sm" onclick="excluirFotoRegistro('${f.id}')">
+          <div class="foto-registro-num" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="dot"></span>FOTO ${String(idx+1).padStart(2,'0')}${f.local?` <span style="font-weight:400;color:var(--ink-light);font-size:12px">— ${f.local}</span>`:''}</div>
+          <button class="btn btn-danger btn-sm" onclick="excluirFotoRegistro('${f.id}')" title="Remover foto">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            Remover
+            <span class="btn-hide-mobile">Remover</span>
           </button>
         </div>
         <div class="foto-registro-body">
@@ -1172,6 +1172,23 @@ function fecharViewerBtn() { document.getElementById('fotoViewer').classList.rem
 // ═══════════════════════════════════════════════
 //  EXPORTAR PDF
 // ═══════════════════════════════════════════════
+function htmlParaPdfParas(html) {
+  if (!html) return '<p>—</p>';
+  // Se for HTML do Quill, retorna os parágrafos preservando formatação
+  if (html.includes('<')) {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    const paras = div.querySelectorAll('p');
+    if (paras.length > 0) {
+      return Array.from(paras).map(p => `<p style="margin:0 0 6px;white-space:pre-wrap">${p.innerHTML||'&nbsp;'}</p>`).join('');
+    }
+    return `<p style="white-space:pre-wrap">${div.textContent}</p>`;
+  }
+  // Texto puro — dividir por quebras de linha
+  return html.split('\n').filter(l=>l.trim())
+    .map(l=>`<p style="margin:0 0 6px;white-space:pre-wrap">${l}</p>`).join('');
+}
+
 async function exportarPDF() {
   const r = getRelatorioAtual();
   if (!r) { showAlert('Nenhum relatório aberto.','warn'); return; }
@@ -1223,15 +1240,16 @@ async function exportarPDF() {
         <tr><td>Responsável</td><td>${r.responsavel||'—'}</td></tr>
         <tr><td>Cargo</td><td>${r.cargo||'—'}</td></tr>
       </table>
-      </div><div class="pdf-section-block"><h2>02 — OBJETIVO</h2><p style="white-space:pre-wrap">${r.objetivo||'—'}</p>
-      </div><h2 style="font-size:14px;color:#1a2940;margin:16px 0 6px;border-bottom:2px solid #e8a020;padding-bottom:4px">03 — REGISTRO FOTOGRÁFICO</h2>
+      </div>
+      <div class="pdf-section-block"><h2>02 — OBJETIVO</h2>${htmlParaPdfParas(r.objetivo)}</div>
+      <h2 style="font-size:14px;color:#1a2940;margin:16px 0 6px;border-bottom:2px solid #e8a020;padding-bottom:4px">03 — REGISTRO FOTOGRÁFICO</h2>
       ${fotosHtml||'<p>Nenhuma foto registrada.</p>'}
-      <div class="pdf-section-block"><h2>04 — OBSERVAÇÕES</h2><p style="white-space:pre-wrap">${r.observacoes||'—'}</p>
-      </div><div class="pdf-section-block"><h2>05 — CONCLUSÃO</h2>
+      <div class="pdf-section-block"><h2>04 — OBSERVAÇÕES</h2>${htmlParaPdfParas(r.observacoes)}</div>
+      <div class="pdf-section-block"><h2>05 — CONCLUSÃO</h2>
       <table>
         <tr><td>Situação Geral</td><td>${r.situacao||'—'}</td></tr>
       </table>
-      <p style="white-space:pre-wrap"><strong>Parecer:</strong> ${r.parecer||'—'}</p>
+      <p><strong>Parecer:</strong></p>${htmlParaPdfParas(r.parecer)}
       <div class="pdf-assin">
         <strong>${r.assin_nome||r.responsavel||'—'}</strong><br>
         ${r.cargo||''} ${r.assin_registro?'· '+r.assin_registro:''}<br>

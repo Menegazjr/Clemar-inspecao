@@ -267,7 +267,7 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .config-section-header { padding: 10px 16px; background: var(--surface-2); border-bottom: 1px solid var(--border); font-family: var(--font-cond); font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-mid); }
 .config-section-body { padding: 16px; }
 .foto-registro { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; background: var(--white); box-shadow: var(--card-shadow); }
-.foto-registro-header { background: var(--surface-2); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+.foto-registro-header { background: var(--surface-2); padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); flex-wrap: nowrap; gap: 8px; overflow: hidden; }
 .foto-registro-num { font-family: var(--font-cond); font-weight: 700; font-size: 13px; color: var(--steel); letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow: hidden; }
 .foto-registro-num span.dot { display: inline-block; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
 .foto-registro-body { display: flex; gap: 0; }
