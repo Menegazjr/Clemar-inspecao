@@ -1152,6 +1152,7 @@ function renderizarFotos() {
               Galeria
             </button>
           </div>
+        </div>
       </div>`;
   }).join('');
 }
