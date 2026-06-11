@@ -546,6 +546,7 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
   .pasta-chip.ativa { background: var(--steel); color: #fff; border-color: var(--steel); }
   .pasta-chip.sem-pasta { border-style: dashed; }
   .pasta-chip .pasta-del {
+    position: relative; z-index: 2;
     width: 16px; height: 16px; border-radius: 50%;
     background: rgba(255,255,255,0.25); border: none; color: inherit;
     display: flex; align-items: center; justify-content: center;
@@ -642,7 +643,9 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 /* ── Feedback nos chips de pasta ── */
 .pasta-chip {
   transition: transform 0.1s ease;
+  position: relative;
 }
+.pasta-chip > * { position: relative; z-index: 2; }
 .pasta-chip:active {
   transform: scale(0.94);
 }
@@ -729,5 +732,6 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
   font-size: 14px; font-weight: 700; color: var(--accent);
   padding: 0 2px; cursor: pointer; border-radius: 3px;
   transition: background 0.1s;
+  position: relative; z-index: 2;
 }
 .pasta-has-sub:hover { background: rgba(232,160,32,0.2); }
