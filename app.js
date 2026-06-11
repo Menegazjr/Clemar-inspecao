@@ -2033,9 +2033,11 @@ async function confirmarExcluirPasta(id, nome) {
 // Mover relatório para pasta
 let _moverRelatorioId = null;
 
-function menuMoverPasta() {
+async function menuMoverPasta() {
   fecharMenuCard();
   _moverRelatorioId = _menuCardId;
+  // Recarregar pastas do banco para garantir dados atualizados
+  await carregarPastas();
   const r = relatorios.find(x => x.id === _menuCardId);
   const list = document.getElementById('pastaSelectList');
   list.innerHTML = `
@@ -2043,11 +2045,16 @@ function menuMoverPasta() {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
       Sem pasta
     </button>
-    ${pastas.map(p => {
+    ${[...pastas].sort((a,b) => {
+      const labelA = (a.pasta_pai_id ? (pastas.find(x=>x.id===a.pasta_pai_id)?.nome||'') + ' › ' : '') + a.nome;
+      const labelB = (b.pasta_pai_id ? (pastas.find(x=>x.id===b.pasta_pai_id)?.nome||'') + ' › ' : '') + b.nome;
+      return labelA.localeCompare(labelB);
+    }).map(p => {
       const pai = pastas.find(x => x.id === p.pasta_pai_id);
       const label = pai ? `${pai.nome} › ${p.nome}` : p.nome;
+      const indent = pai ? 'padding-left:24px;' : '';
       return `
-      <button class="pasta-select-item ${r?.pasta_id === p.id ? 'selecionada' : ''}" onclick="moverParaPasta('${p.id}')">
+      <button class="pasta-select-item ${r?.pasta_id === p.id ? 'selecionada' : ''}" onclick="moverParaPasta('${p.id}')" style="${indent}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
         ${label}
       </button>`;
