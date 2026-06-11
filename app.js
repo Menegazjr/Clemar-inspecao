@@ -264,7 +264,7 @@ function renderizarLista() {
               ${r.localidade ? `<span>📍 ${r.localidade}</span>` : ''}
               ${r.criado_por ? `<span style="color:var(--ink-light);font-size:10px">🧑‍💼 Criado por: ${fmtUsuario(r.criado_por)}</span>` : donoLabel}
               ${r.atualizado_em ? `<span style="color:var(--border-strong)">✏️ ${fmtDataHora(r.atualizado_em)}${r.atualizado_por ? ' · ' + fmtUsuario(r.atualizado_por) : ''}</span>` : ''}
-              ${r.pasta_id ? `<span style="color:var(--accent);font-weight:600">📁 ${pastas.find(p=>p.id===r.pasta_id)?.nome||''}</span>` : ''}
+              ${r.pasta_id ? (() => { const p = pastas.find(x=>x.id===r.pasta_id); const pai = p ? pastas.find(x=>x.id===p.pasta_pai_id) : null; return `<span style="color:var(--accent);font-weight:600">📁 ${pai ? pai.nome+' › ' : ''}${p?.nome||''}</span>`; })() : ''}
               ${r._tamanho ? `<span style="color:var(--border-strong);font-family:var(--font-mono);font-size:10px">💾 ${r._tamanho}</span>` : ''}
             </div>
           </div>
