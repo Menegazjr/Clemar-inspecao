@@ -108,6 +108,7 @@ async function aoLogar(user) {
   if (isAdmin) {
     document.getElementById('btnAdmin').style.display      = 'flex';
     document.getElementById('badgeUsoDb').style.display    = 'flex';
+    document.getElementById('navFormLixeira').style.display = 'inline-flex';
     atualizarBadgeLixeira();
   }
 
@@ -822,14 +823,16 @@ async function atualizarBadgeLixeira() {
   const { count } = await supa.from('relatorios')
     .select('id', { count: 'exact', head: true })
     .not('excluido_em', 'is', null);
-  const badge = document.getElementById('badgeLixeira');
-  if (!badge) return;
-  if (count > 0) {
-    badge.textContent = count;
-    badge.style.display = 'inline-block';
-  } else {
-    badge.style.display = 'none';
-  }
+  ['badgeLixeira','badgeLixeiraForm'].forEach(id => {
+    const badge = document.getElementById(id);
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  });
 }
 
 async function abrirLixeira() {
