@@ -139,6 +139,8 @@ function exibirLista() {
   document.getElementById('btnSair').style.display   = '';
   document.getElementById('mobileBarForm').classList.remove('visivel');
   window.scrollTo({ top: 0, behavior: 'instant' });
+  // Renderizar pastas imediatamente com dados em memória, depois atualizar do banco
+  renderizarPastasBar();
   carregarPastas();
   carregarLista();
 }
