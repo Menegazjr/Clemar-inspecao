@@ -1893,7 +1893,11 @@ async function carregarPastas() {
 }
 
 function pastasNivel(paiId) {
-  return pastas.filter(p => (p.pasta_pai_id || null) === paiId);
+  return pastas.filter(p => {
+    const pai = p.pasta_pai_id || null;
+    // Comparar como string para evitar tipo misto (uuid vs null)
+    return pai === paiId || String(pai) === String(paiId);
+  });
 }
 
 function caminhoAte(id) {
@@ -2003,8 +2007,12 @@ async function criarPasta() {
   pastas.push(data);
   pastas.sort((a,b) => a.nome.localeCompare(b.nome));
   fecharModal('modalNovaPasta');
+  // Recarregar do banco mantendo o nível atual
+  const paiAtual = _pastaPaiAtualId;
+  await carregarPastas();
+  _pastaPaiAtualId = paiAtual; // garantir que não resetou
   renderizarPastasBar();
-  const nivel = _pastaPaiAtualId ? 'Subpasta' : 'Pasta';
+  const nivel = paiAtual ? 'Subpasta' : 'Pasta';
   showAlert(`${nivel} "${nome}" criada!`, 'ok');
 }
 
