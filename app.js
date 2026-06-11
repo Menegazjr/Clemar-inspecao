@@ -1931,16 +1931,12 @@ function renderizarPastasBar() {
     breadcrumb = `<div class="pasta-breadcrumb">${crumbs.join('')}</div>`;
   }
 
-  // Chips do nível atual
-  const chips = nivelAtual.map(p => {
-    const temFilhos = pastas.some(f => f.pasta_pai_id === p.id);
-    return `
-    <button class="pasta-chip ${pastaAtivaId === p.id ? 'ativa' : ''}" onclick="filtrarPasta('${p.id}')">
+  // Chips — clique único entra na pasta e filtra relatórios
+  const chips = nivelAtual.map(p => `
+    <button class="pasta-chip ${pastaAtivaId === p.id ? 'ativa' : ''}" onclick="entrarPasta('${p.id}')">
       📁 ${p.nome}
-      <span class="pasta-has-sub" onclick="event.stopPropagation();navegarPasta('${p.id}')" title="Entrar / criar subpastas"> ›</span>
-      <span class="pasta-del" onclick="event.stopPropagation();confirmarExcluirPasta('${p.id}','${p.nome.replace(/'/g,"\'")}')">×</span>
-    </button>`;
-  }).join('');
+      <span class="pasta-del" onclick="event.stopPropagation();confirmarExcluirPasta('${p.id}','${p.nome.replace(/'/g,"\'")}')" style="position:relative;z-index:2">×</span>
+    </button>`).join('');
 
   const chipsFixos = _pastaPaiAtualId === null ? `
     <button class="pasta-chip ${pastaAtivaId === null ? 'ativa' : ''}" onclick="filtrarPasta(null)">Todos</button>
@@ -1962,6 +1958,14 @@ function renderizarPastasBar() {
 }
 
 function filtrarPasta(id) {
+  pastaAtivaId = id;
+  renderizarPastasBar();
+  renderizarLista();
+}
+
+function entrarPasta(id) {
+  // Entra na pasta: navega para ela e filtra seus relatórios
+  _pastaPaiAtualId = id;
   pastaAtivaId = id;
   renderizarPastasBar();
   renderizarLista();
