@@ -1354,8 +1354,25 @@ async function exportarPDF() {
       rendered.push({ canvas: bc, h: (bc.height * A4w) / bc.width });
     }
 
-    for (const { canvas: bc, h: blockH } of rendered) {
+    // Índices dos blocos que são cabeçalhos de seção (04 e 05)
+    const secaoObservacoes = rendered.findIndex((_, i) => {
+      const b = blocks[i];
+      return b && b.querySelector && b.querySelector('h2')?.textContent?.includes('04');
+    });
+    const secaoConclusao = rendered.findIndex((_, i) => {
+      const b = blocks[i];
+      return b && b.querySelector && b.querySelector('h2')?.textContent?.includes('05');
+    });
+
+    for (let ri = 0; ri < rendered.length; ri++) {
+      const { canvas: bc, h: blockH } = rendered[ri];
       if (blockH < 2) continue; // ignorar blocos vazios/invisíveis
+
+      // Regra 65%: se é cabeçalho de 04 ou 05 e curY passou de 65% da folha → nova página
+      if ((ri === secaoObservacoes || ri === secaoConclusao) && curY > A4h * 0.65) {
+        pdf.addPage();
+        curY = margin;
+      }
 
       // Se não cabe na página atual, nova página — mas só se já tem conteúdo
       if (curY + blockH > A4h && curY > margin + 5) {
@@ -1383,7 +1400,7 @@ async function exportarPDF() {
         pdf.addImage(imgData, 'JPEG', margin, curY, A4w, blockH);
         curY += blockH + 2;
       }
-    }
+    } // fim loop rendered
     const nome = `Relatorio_Visita_${String(r.numero).padStart(3,'0')}_${(r.data||'').replace(/-/g,'')}.pdf`;
     pdf.save(nome);
     area.innerHTML = '';
