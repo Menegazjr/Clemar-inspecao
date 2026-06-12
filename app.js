@@ -1320,9 +1320,9 @@ async function exportarPDF() {
       ${blocosPdfHtml(r.objetivo)}
       <h2 style="font-size:14px;color:#1a2940;margin:16px 0 6px;border-bottom:2px solid #e8a020;padding-bottom:4px">03 — REGISTRO FOTOGRÁFICO</h2>
       ${fotosHtml||'<p>Nenhuma foto registrada.</p>'}
-      <div class="pdf-section-block"><h2>04 — OBSERVAÇÕES</h2></div>
+      <div class="pdf-section-block" data-secao="observacoes"><h2>04 — OBSERVAÇÕES</h2></div>
       ${blocosPdfHtml(r.observacoes)}
-      <div class="pdf-section-block"><h2>05 — CONCLUSÃO</h2>
+      <div class="pdf-section-block" data-secao="conclusao"><h2>05 — CONCLUSÃO</h2>
       <table>
         <tr><td>Situação Geral</td><td>${r.situacao||'—'}</td></tr>
       </table>
@@ -1354,22 +1354,13 @@ async function exportarPDF() {
       rendered.push({ canvas: bc, h: (bc.height * A4w) / bc.width });
     }
 
-    // Índices dos blocos que são cabeçalhos de seção (04 e 05)
-    const secaoObservacoes = rendered.findIndex((_, i) => {
-      const b = blocks[i];
-      return b && b.querySelector && b.querySelector('h2')?.textContent?.includes('04');
-    });
-    const secaoConclusao = rendered.findIndex((_, i) => {
-      const b = blocks[i];
-      return b && b.querySelector && b.querySelector('h2')?.textContent?.includes('05');
-    });
-
     for (let ri = 0; ri < rendered.length; ri++) {
       const { canvas: bc, h: blockH } = rendered[ri];
       if (blockH < 2) continue; // ignorar blocos vazios/invisíveis
 
-      // Regra 65%: se é cabeçalho de 04 ou 05 e curY passou de 65% da folha → nova página
-      if ((ri === secaoObservacoes || ri === secaoConclusao) && curY > A4h * 0.65) {
+      // Regra 65%: seções de Observações e Conclusão começam em nova página se curY > 65%
+      const secao = blocks[ri]?.getAttribute?.('data-secao');
+      if ((secao === 'observacoes' || secao === 'conclusao') && curY > A4h * 0.65) {
         pdf.addPage();
         curY = margin;
       }
