@@ -1173,17 +1173,58 @@ function fecharViewerBtn() { document.getElementById('fotoViewer').classList.rem
 //  EXPORTAR PDF
 // ═══════════════════════════════════════════════
 function blocosPdfHtml(html) {
-  // Gera um pdf-section-block separado por parágrafo — evita espaços em branco
-  const paras = htmlParaPdfParas(html);
-  if (!paras || paras === '<p style="margin:0 0 5px">—</p>') {
-    return '<div class="pdf-section-block"><p style="color:#999">—</p></div>';
-  }
-  // Dividir parágrafos em blocos individuais
+  if (!html) return '<div class="pdf-section-block"><p style="color:#999;margin:0">—</p></div>';
+
   const div = document.createElement('div');
-  div.innerHTML = paras;
-  return Array.from(div.children).map(p =>
-    `<div class="pdf-section-block" style="padding:2px 0">${p.outerHTML}</div>`
-  ).join('');
+  div.innerHTML = html;
+
+  // Coletar todos os nós filhos, ignorando vazios
+  const nodes = Array.from(div.childNodes).filter(n => {
+    if (n.nodeType === Node.TEXT_NODE) return n.textContent.trim();
+    const tag = n.tagName?.toLowerCase();
+    if (tag === 'p') {
+      const txt = (n.textContent || '').trim();
+      const inner = (n.innerHTML || '').trim();
+      return txt && inner !== '<br>' && inner !== '<br/>';
+    }
+    return true;
+  });
+
+  if (!nodes.length) return '<div class="pdf-section-block"><p style="color:#999;margin:0">—</p></div>';
+
+  // Agrupar linhas consecutivas no mesmo bloco — só separa quando há parágrafo vazio entre eles
+  const blocos = [];
+  let grupoAtual = [];
+
+  Array.from(div.childNodes).forEach(n => {
+    const tag = n.tagName?.toLowerCase();
+    const txt = (n.textContent || '').trim();
+    const inner = (n.innerHTML || '').trim();
+    const vazio = tag === 'p' && (!txt || inner === '<br>' || inner === '<br/>');
+
+    if (vazio) {
+      // Linha em branco — fecha grupo atual e inicia novo
+      if (grupoAtual.length) { blocos.push([...grupoAtual]); grupoAtual = []; }
+    } else if (txt || (tag === 'ul' || tag === 'ol')) {
+      grupoAtual.push(n);
+    }
+  });
+  if (grupoAtual.length) blocos.push(grupoAtual);
+
+  return blocos.map(grupo => {
+    const html = grupo.map(n => {
+      const tag = n.tagName?.toLowerCase();
+      if (tag === 'p') return `<p style="margin:0 0 2px">${n.innerHTML}</p>`;
+      if (tag === 'ul' || tag === 'ol') {
+        return Array.from(n.querySelectorAll('li'))
+          .filter(li => (li.textContent||'').trim())
+          .map(li => `<p style="margin:0 0 2px;padding-left:14px">• ${li.innerHTML}</p>`)
+          .join('');
+      }
+      return `<p style="margin:0 0 2px">${n.textContent}</p>`;
+    }).join('');
+    return `<div class="pdf-section-block" style="padding:1px 0">${html}</div>`;
+  }).join('<div class="pdf-section-block" style="height:6px;padding:0;min-height:0"></div>');
 }
 
 function htmlParaPdfParas(html) {
