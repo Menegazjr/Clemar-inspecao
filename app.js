@@ -1279,23 +1279,25 @@ async function exportarPDF() {
     const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const A4w = 190, A4h = 277, margin = 10;
 
-    // Renderiza cada bloco separadamente para respeitar page-break
-    const blocks = area.querySelectorAll('.pdf-section-block');
+    // Renderiza cada bloco — agrupa parágrafos pequenos na mesma página
+    const blocks = Array.from(area.querySelectorAll('.pdf-section-block'));
     let curY = margin;
 
-    for (let i = 0; i < blocks.length; i++) {
-      const block = blocks[i];
-      const blockCanvas = await html2canvas(block, {
-          allowTaint: true,
-          useCORS: true,
-          logging: false,
+    // Pré-calcular alturas de todos os blocos
+    const rendered = [];
+    for (const block of blocks) {
+      const bc = await html2canvas(block, {
         scale: 1.8, useCORS: true, allowTaint: true,
         backgroundColor: '#ffffff', logging: false
       });
-      const blockH = (blockCanvas.height * A4w) / blockCanvas.width;
+      rendered.push({ canvas: bc, h: (bc.height * A4w) / bc.width });
+    }
 
-      // Se não cabe na página atual, nova página
-      if (curY + blockH > A4h + margin && curY > margin + 20) {
+    for (const { canvas: bc, h: blockH } of rendered) {
+      if (blockH < 2) continue; // ignorar blocos vazios/invisíveis
+
+      // Se não cabe na página atual, nova página — mas só se já tem conteúdo
+      if (curY + blockH > A4h && curY > margin + 5) {
         pdf.addPage();
         curY = margin;
       }
@@ -1303,22 +1305,22 @@ async function exportarPDF() {
       // Se o bloco é maior que a página inteira, divide
       if (blockH > A4h) {
         const pages = Math.ceil(blockH / A4h);
-        const sliceH = Math.floor(blockCanvas.height / pages);
+        const sliceH = Math.floor(bc.height / pages);
         for (let p = 0; p < pages; p++) {
           if (p > 0) { pdf.addPage(); curY = margin; }
           const tmp = document.createElement('canvas');
-          tmp.width  = blockCanvas.width;
-          tmp.height = Math.min(sliceH, blockCanvas.height - p * sliceH);
-          tmp.getContext('2d').drawImage(blockCanvas, 0, -p * sliceH);
+          tmp.width  = bc.width;
+          tmp.height = Math.min(sliceH, bc.height - p * sliceH);
+          tmp.getContext('2d').drawImage(bc, 0, -p * sliceH);
           const sd = tmp.toDataURL('image/jpeg', 0.88);
-          const sh = (tmp.height * A4w) / blockCanvas.width;
+          const sh = (tmp.height * A4w) / bc.width;
           pdf.addImage(sd, 'JPEG', margin, curY, A4w, sh);
-          curY += sh + 4;
+          curY += sh + 2;
         }
       } else {
-        const imgData = blockCanvas.toDataURL('image/jpeg', 0.88);
+        const imgData = bc.toDataURL('image/jpeg', 0.88);
         pdf.addImage(imgData, 'JPEG', margin, curY, A4w, blockH);
-        curY += blockH + 4;
+        curY += blockH + 2;
       }
     }
     const nome = `Relatorio_Visita_${String(r.numero).padStart(3,'0')}_${(r.data||'').replace(/-/g,'')}.pdf`;
