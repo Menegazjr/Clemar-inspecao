@@ -1347,11 +1347,10 @@ async function exportarPDF() {
     // Marcar índices das seções ANTES de renderizar
     let idxObs = -1, idxConc = -1;
     blocks.forEach((b, i) => {
-      const secao = b.dataset?.secao;
+      const secao = b.getAttribute('data-secao');
       if (secao === 'observacoes' && idxObs === -1) idxObs = i;
       if (secao === 'conclusao'   && idxConc === -1) idxConc = i;
     });
-    console.log('idxObs:', idxObs, 'idxConc:', idxConc, 'total:', blocks.length);
 
     let curY = margin;
 
@@ -1371,7 +1370,6 @@ async function exportarPDF() {
 
       // Regra 50%: forçar nova página nos índices das seções se curY > 50%
       if ((ri === idxObs || ri === idxConc) && curY > A4h * 0.50) {
-        console.log(`Nova página em ri=${ri} curY=${curY.toFixed(1)}`);
         pdf.addPage();
         curY = margin;
       }
