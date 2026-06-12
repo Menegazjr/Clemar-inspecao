@@ -1342,8 +1342,17 @@ async function exportarPDF() {
     const A4w = 190, A4h = 277, margin = 10;
 
     // Renderiza cada bloco — agrupa parágrafos pequenos na mesma página
-    // blocks precisa ser criado após innerHTML e setTimeout para o DOM estar pronto
     const blocks = Array.from(area.querySelectorAll('.pdf-section-block'));
+
+    // Marcar índices das seções ANTES de renderizar
+    let idxObs = -1, idxConc = -1;
+    blocks.forEach((b, i) => {
+      const secao = b.dataset?.secao;
+      if (secao === 'observacoes' && idxObs === -1) idxObs = i;
+      if (secao === 'conclusao'   && idxConc === -1) idxConc = i;
+    });
+    console.log('idxObs:', idxObs, 'idxConc:', idxConc, 'total:', blocks.length);
+
     let curY = margin;
 
     // Pré-calcular alturas de todos os blocos
@@ -1360,9 +1369,9 @@ async function exportarPDF() {
       const { canvas: bc, h: blockH } = rendered[ri];
       if (blockH < 2) continue; // ignorar blocos vazios/invisíveis
 
-      // Regra 50%: verificar data-secao no bloco atual
-      const secao = blocks[ri]?.dataset?.secao;
-      if ((secao === 'observacoes' || secao === 'conclusao') && curY > A4h * 0.50) {
+      // Regra 50%: forçar nova página nos índices das seções se curY > 50%
+      if ((ri === idxObs || ri === idxConc) && curY > A4h * 0.50) {
+        console.log(`Nova página em ri=${ri} curY=${curY.toFixed(1)}`);
         pdf.addPage();
         curY = margin;
       }
