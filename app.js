@@ -1172,6 +1172,20 @@ function fecharViewerBtn() { document.getElementById('fotoViewer').classList.rem
 // ═══════════════════════════════════════════════
 //  EXPORTAR PDF
 // ═══════════════════════════════════════════════
+function blocosPdfHtml(html) {
+  // Gera um pdf-section-block separado por parágrafo — evita espaços em branco
+  const paras = htmlParaPdfParas(html);
+  if (!paras || paras === '<p style="margin:0 0 5px">—</p>') {
+    return '<div class="pdf-section-block"><p style="color:#999">—</p></div>';
+  }
+  // Dividir parágrafos em blocos individuais
+  const div = document.createElement('div');
+  div.innerHTML = paras;
+  return Array.from(div.children).map(p =>
+    `<div class="pdf-section-block" style="padding:2px 0">${p.outerHTML}</div>`
+  ).join('');
+}
+
 function htmlParaPdfParas(html) {
   if (!html) return '<p style="margin:0 0 5px">—</p>';
   if (!html.includes('<')) {
@@ -1261,15 +1275,19 @@ async function exportarPDF() {
         <tr><td>Cargo</td><td>${r.cargo||'—'}</td></tr>
       </table>
       </div>
-      <div class="pdf-section-block"><h2>02 — OBJETIVO</h2>${htmlParaPdfParas(r.objetivo)}</div>
+      <div class="pdf-section-block"><h2>02 — OBJETIVO</h2></div>
+      ${blocosPdfHtml(r.objetivo)}
       <h2 style="font-size:14px;color:#1a2940;margin:16px 0 6px;border-bottom:2px solid #e8a020;padding-bottom:4px">03 — REGISTRO FOTOGRÁFICO</h2>
       ${fotosHtml||'<p>Nenhuma foto registrada.</p>'}
-      <div class="pdf-section-block"><h2>04 — OBSERVAÇÕES</h2>${htmlParaPdfParas(r.observacoes)}</div>
+      <div class="pdf-section-block"><h2>04 — OBSERVAÇÕES</h2></div>
+      ${blocosPdfHtml(r.observacoes)}
       <div class="pdf-section-block"><h2>05 — CONCLUSÃO</h2>
       <table>
         <tr><td>Situação Geral</td><td>${r.situacao||'—'}</td></tr>
       </table>
-      <p><strong>Parecer:</strong></p>${htmlParaPdfParas(r.parecer)}
+      </div>
+      <div class="pdf-section-block"><strong>Parecer:</strong></div>
+      ${blocosPdfHtml(r.parecer)}
       <div class="pdf-assin">
         <strong>${r.assin_nome||r.responsavel||'—'}</strong><br>
         ${r.cargo||''} ${r.assin_registro?'· '+r.assin_registro:''}<br>
