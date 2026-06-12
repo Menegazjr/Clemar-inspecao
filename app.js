@@ -1173,15 +1173,15 @@ function fecharViewerBtn() { document.getElementById('fotoViewer').classList.rem
 //  EXPORTAR PDF
 // ═══════════════════════════════════════════════
 function htmlParaPdfParas(html) {
-  if (!html) return '<p>—</p>';
+  if (!html) return '<p style="margin:0 0 5px">—</p>';
   if (!html.includes('<')) {
-    // Texto puro
     const linhas = html.split('\n').filter(l => l.trim());
-    return linhas.length ? linhas.map(l => `<p style="margin:0 0 5px">${l}</p>`).join('') : '<p>—</p>';
+    return linhas.length ? linhas.map(l => `<p style="margin:0 0 5px">${l}</p>`).join('') : '<p style="margin:0 0 5px">—</p>';
   }
   const div = document.createElement('div');
   div.innerHTML = html;
   const result = [];
+
   div.childNodes.forEach(node => {
     if (node.nodeType === Node.TEXT_NODE) {
       if (node.textContent.trim()) result.push(`<p style="margin:0 0 5px">${node.textContent}</p>`);
@@ -1189,22 +1189,24 @@ function htmlParaPdfParas(html) {
     }
     const tag = node.tagName?.toLowerCase();
     if (tag === 'p') {
-      const txt = node.innerHTML?.trim();
-      if (txt && txt !== '<br>' && txt !== '') {
-        result.push(`<p style="margin:0 0 5px">${node.innerHTML}</p>`);
-      }
+      // Ignorar parágrafos completamente vazios (só <br> ou espaços)
+      const txt = (node.textContent || '').trim();
+      const inner = (node.innerHTML || '').trim();
+      if (!txt && (inner === '' || inner === '<br>' || inner === '<br/>')) return;
+      result.push(`<p style="margin:0 0 5px">${node.innerHTML}</p>`);
     } else if (tag === 'ul' || tag === 'ol') {
       node.querySelectorAll('li').forEach(li => {
-        const indent = li.getAttribute('data-list') === 'bullet' ? '&bull; ' : '– ';
-        const level = parseInt(li.className?.match(/ql-indent-(\d)/)?.[1] || 0);
-        const pad = level * 16;
-        result.push(`<p style="margin:0 0 4px;padding-left:${16+pad}px">${indent}${li.innerHTML}</p>`);
+        if (!(li.textContent || '').trim()) return;
+        const bullet = tag === 'ul' ? '• ' : '– ';
+        result.push(`<p style="margin:0 0 4px;padding-left:16px">${bullet}${li.innerHTML}</p>`);
       });
     } else if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
-      result.push(`<p style="margin:0 0 5px;font-weight:bold">${node.textContent}</p>`);
+      if ((node.textContent || '').trim())
+        result.push(`<p style="margin:0 0 5px;font-weight:bold">${node.textContent}</p>`);
     }
   });
-  return result.length ? result.join('') : '<p>—</p>';
+
+  return result.length ? result.join('') : '<p style="margin:0 0 5px">—</p>';
 }
 
 async function exportarPDF() {
