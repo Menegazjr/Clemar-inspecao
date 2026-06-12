@@ -1341,6 +1341,7 @@ async function exportarPDF() {
     const A4w = 190, A4h = 277, margin = 10;
 
     // Renderiza cada bloco — agrupa parágrafos pequenos na mesma página
+    // blocks precisa ser criado após innerHTML e setTimeout para o DOM estar pronto
     const blocks = Array.from(area.querySelectorAll('.pdf-section-block'));
     let curY = margin;
 
@@ -1354,13 +1355,18 @@ async function exportarPDF() {
       rendered.push({ canvas: bc, h: (bc.height * A4w) / bc.width });
     }
 
+    // Debug: listar todos os blocos com data-secao
+    blocks.forEach((b,i) => { if(b.dataset?.secao) console.log(`bloco[${i}] secao=${b.dataset.secao}`); });
+    console.log('total blocks:', blocks.length, 'total rendered:', rendered.length);
+
     for (let ri = 0; ri < rendered.length; ri++) {
       const { canvas: bc, h: blockH } = rendered[ri];
       if (blockH < 2) continue; // ignorar blocos vazios/invisíveis
 
-      // Regra 65%: seções de Observações e Conclusão começam em nova página se curY > 65%
-      const secao = blocks[ri]?.getAttribute?.('data-secao');
-      if ((secao === 'observacoes' || secao === 'conclusao') && curY > A4h * 0.65) {
+      // Regra 50%: seções marcadas com data-secao começam em nova página se curY > 50%
+      const secao = blocks[ri]?.dataset?.secao;
+      console.log(`ri=${ri} secao=${secao} curY=${curY.toFixed(1)} A4h*50%=${(A4h*0.5).toFixed(1)}`);
+      if ((secao === 'observacoes' || secao === 'conclusao') && curY > A4h * 0.50) {
         pdf.addPage();
         curY = margin;
       }
