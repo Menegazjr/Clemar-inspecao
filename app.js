@@ -1347,9 +1347,13 @@ async function exportarPDF() {
     // Marcar índices das seções ANTES de renderizar
     let idxObs = -1, idxConc = -1;
     blocks.forEach((b, i) => {
-      const secao = b.getAttribute('data-secao');
-      if (secao === 'observacoes' && idxObs === -1) idxObs = i;
-      if (secao === 'conclusao'   && idxConc === -1) idxConc = i;
+      // Detectar por data-secao OU por conteúdo do h2 (fallback)
+      const secao = b.getAttribute('data-secao') || '';
+      const h2txt = (b.querySelector && b.querySelector('h2')?.textContent) || '';
+      const isObs  = secao === 'observacoes' || h2txt.includes('OBSERV');
+      const isConc = secao === 'conclusao'   || h2txt.includes('CONCLU') || h2txt.includes('PARECER') || b.querySelector && b.querySelector('strong')?.textContent?.includes('Parecer');
+      if (isObs  && idxObs  === -1) idxObs  = i;
+      if (isConc && idxConc === -1) idxConc = i;
     });
 
     let curY = margin;
