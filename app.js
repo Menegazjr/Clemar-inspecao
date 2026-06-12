@@ -1174,19 +1174,37 @@ function fecharViewerBtn() { document.getElementById('fotoViewer').classList.rem
 // ═══════════════════════════════════════════════
 function htmlParaPdfParas(html) {
   if (!html) return '<p>—</p>';
-  // Se for HTML do Quill, retorna os parágrafos preservando formatação
-  if (html.includes('<')) {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    const paras = div.querySelectorAll('p');
-    if (paras.length > 0) {
-      return Array.from(paras).map(p => `<p style="margin:0 0 6px;white-space:pre-wrap">${p.innerHTML||'&nbsp;'}</p>`).join('');
-    }
-    return `<p style="white-space:pre-wrap">${div.textContent}</p>`;
+  if (!html.includes('<')) {
+    // Texto puro
+    const linhas = html.split('\n').filter(l => l.trim());
+    return linhas.length ? linhas.map(l => `<p style="margin:0 0 5px">${l}</p>`).join('') : '<p>—</p>';
   }
-  // Texto puro — dividir por quebras de linha
-  return html.split('\n').filter(l=>l.trim())
-    .map(l=>`<p style="margin:0 0 6px;white-space:pre-wrap">${l}</p>`).join('');
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const result = [];
+  div.childNodes.forEach(node => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.textContent.trim()) result.push(`<p style="margin:0 0 5px">${node.textContent}</p>`);
+      return;
+    }
+    const tag = node.tagName?.toLowerCase();
+    if (tag === 'p') {
+      const txt = node.innerHTML?.trim();
+      if (txt && txt !== '<br>' && txt !== '') {
+        result.push(`<p style="margin:0 0 5px">${node.innerHTML}</p>`);
+      }
+    } else if (tag === 'ul' || tag === 'ol') {
+      node.querySelectorAll('li').forEach(li => {
+        const indent = li.getAttribute('data-list') === 'bullet' ? '&bull; ' : '– ';
+        const level = parseInt(li.className?.match(/ql-indent-(\d)/)?.[1] || 0);
+        const pad = level * 16;
+        result.push(`<p style="margin:0 0 4px;padding-left:${16+pad}px">${indent}${li.innerHTML}</p>`);
+      });
+    } else if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
+      result.push(`<p style="margin:0 0 5px;font-weight:bold">${node.textContent}</p>`);
+    }
+  });
+  return result.length ? result.join('') : '<p>—</p>';
 }
 
 async function exportarPDF() {
