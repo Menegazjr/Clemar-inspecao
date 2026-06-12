@@ -1172,7 +1172,7 @@ function fecharViewerBtn() { document.getElementById('fotoViewer').classList.rem
 // ═══════════════════════════════════════════════
 //  EXPORTAR PDF
 // ═══════════════════════════════════════════════
-function blocosPdfHtml(html) {
+function blocosPdfHtml(html, secao) {
   if (!html) return '<div class="pdf-section-block"><p style="color:#999;margin:0">—</p></div>';
 
   const div = document.createElement('div');
@@ -1211,7 +1211,8 @@ function blocosPdfHtml(html) {
   });
   if (grupoAtual.length) blocos.push(grupoAtual);
 
-  return blocos.map(grupo => {
+  return blocos.map((grupo, gi) => {
+    const secaoAttr = (gi === 0 && secao) ? ` data-secao="${secao}"` : '';
     const html = grupo.map(n => {
       const tag = n.tagName?.toLowerCase();
       if (tag === 'p') return `<p style="margin:0 0 2px">${n.innerHTML}</p>`;
@@ -1223,7 +1224,7 @@ function blocosPdfHtml(html) {
       }
       return `<p style="margin:0 0 2px">${n.textContent}</p>`;
     }).join('');
-    return `<div class="pdf-section-block" style="padding:1px 0">${html}</div>`;
+    return `<div class="pdf-section-block" style="padding:1px 0"${secaoAttr}>${html}</div>`;
   }).join('<div class="pdf-section-block" style="height:6px;padding:0;min-height:0"></div>');
 }
 
@@ -1321,14 +1322,14 @@ async function exportarPDF() {
       <h2 style="font-size:14px;color:#1a2940;margin:16px 0 6px;border-bottom:2px solid #e8a020;padding-bottom:4px">03 — REGISTRO FOTOGRÁFICO</h2>
       ${fotosHtml||'<p>Nenhuma foto registrada.</p>'}
       <div class="pdf-section-block" data-secao="observacoes"><h2>04 — OBSERVAÇÕES</h2></div>
-      ${blocosPdfHtml(r.observacoes)}
+      ${blocosPdfHtml(r.observacoes, "observacoes")}
       <div class="pdf-section-block" data-secao="conclusao"><h2>05 — CONCLUSÃO</h2>
       <table>
         <tr><td>Situação Geral</td><td>${r.situacao||'—'}</td></tr>
       </table>
       </div>
       <div class="pdf-section-block"><strong>Parecer:</strong></div>
-      ${blocosPdfHtml(r.parecer)}
+      ${blocosPdfHtml(r.parecer, "conclusao")}
       <div class="pdf-assin">
         <strong>${r.assin_nome||r.responsavel||'—'}</strong><br>
         ${r.cargo||''} ${r.assin_registro?'· '+r.assin_registro:''}<br>
@@ -1355,17 +1356,12 @@ async function exportarPDF() {
       rendered.push({ canvas: bc, h: (bc.height * A4w) / bc.width });
     }
 
-    // Debug: listar todos os blocos com data-secao
-    blocks.forEach((b,i) => { if(b.dataset?.secao) console.log(`bloco[${i}] secao=${b.dataset.secao}`); });
-    console.log('total blocks:', blocks.length, 'total rendered:', rendered.length);
-
     for (let ri = 0; ri < rendered.length; ri++) {
       const { canvas: bc, h: blockH } = rendered[ri];
       if (blockH < 2) continue; // ignorar blocos vazios/invisíveis
 
-      // Regra 50%: seções marcadas com data-secao começam em nova página se curY > 50%
+      // Regra 50%: verificar data-secao no bloco atual
       const secao = blocks[ri]?.dataset?.secao;
-      console.log(`ri=${ri} secao=${secao} curY=${curY.toFixed(1)} A4h*50%=${(A4h*0.5).toFixed(1)}`);
       if ((secao === 'observacoes' || secao === 'conclusao') && curY > A4h * 0.50) {
         pdf.addPage();
         curY = margin;
