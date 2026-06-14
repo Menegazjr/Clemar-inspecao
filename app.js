@@ -1372,10 +1372,14 @@ async function exportarPDF() {
       const { canvas: bc, h: blockH } = rendered[ri];
       if (blockH < 2) continue; // ignorar blocos vazios/invisíveis
 
-      // Regra 50%: forçar nova página nos índices das seções se curY > 50%
-      if ((ri === idxObs || ri === idxConc) && curY > A4h * 0.50) {
-        pdf.addPage();
-        curY = margin;
+      // Espaço extra antes das seções + regra 50%
+      if (ri === idxObs || ri === idxConc) {
+        if (curY > A4h * 0.50) {
+          pdf.addPage();
+          curY = margin;
+        } else {
+          curY += 8; // 8mm de respiro entre seções
+        }
       }
 
       // Se não cabe na página atual, nova página — mas só se já tem conteúdo
