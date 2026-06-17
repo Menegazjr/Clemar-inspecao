@@ -320,59 +320,62 @@ async function abrirRelatorio(id) {
   if (_abrindoRelatorio) return;
   _abrindoRelatorio = true;
   setTimeout(() => { _abrindoRelatorio = false; }, 1500);
-  // Carrega SEMPRE completo do banco (garante fotos atualizadas)
-  const { data, error } = await supa.from('relatorios').select('*').eq('id', id).single();
-  if (error) { showAlert('Erro ao abrir: ' + error.message, 'err'); return; }
-  // Converte fotos do banco para array
-  try {
-    if (!data.fotos) {
-      data.fotos = [];
-    } else if (typeof data.fotos === 'string') {
-      data.fotos = JSON.parse(data.fotos);
-    } else if (Array.isArray(data.fotos)) {
-      // já é array, ok
-    } else if (typeof data.fotos === 'object') {
-      data.fotos = Object.values(data.fotos);
-    } else {
-      data.fotos = [];
-    }
-    data.fotos = data.fotos.filter(f => f && typeof f === 'object');
-  } catch(e) {
-    data.fotos = [];
+
+  // 1. Buscar dados SEM fotos primeiro — rápido
+  let data = relatorios.find(r => r.id === id);
+  if (!data) {
+    const { data: d, error } = await supa.from('relatorios')
+      .select('id,numero,data,data_fim,obra,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em')
+      .eq('id', id).single();
+    if (error) { showAlert('Erro ao abrir: ' + error.message, 'err'); _abrindoRelatorio = false; return; }
+    data = d;
+    data.fotos = []; // fotos virão em segundo plano
+  } else {
+    data = { ...data };
   }
 
-  // Calcula tamanho
   data._tamanho = fmtBytes(new Blob([JSON.stringify(data)]).size);
   currentId = id;
-  currentRelatorio = data; // referência direta com fotos completas
-  // Substitui na lista local com dados completos
+  currentRelatorio = data;
   const idx = relatorios.findIndex(r => r.id === id);
   if (idx >= 0) relatorios[idx] = data; else relatorios.unshift(data);
-  // Salva versão para detectar conflito ao salvar
   _versaoAberta = data.versao || data.atualizado_em || null;
+  _relatorioRecemCriado = null;
 
+  // 2. Abrir formulário imediatamente — textos já disponíveis
   exibirForm();
-  // Garante aba formulário visível
   const tf = document.getElementById('tabForm');
   const tc = document.getElementById('tabConfig');
   if (tf) tf.style.display = '';
   if (tc) tc.style.display = 'none';
-  // Carrega formulário e fotos
   carregarFormulario();
   renderizarHistorico();
+  renderizarFotos(); // mostra lista vazia enquanto carrega
 
-  // Verificar presença de outro usuário (não bloqueia abertura)
+  // 3. Buscar fotos em segundo plano
+  supa.from('relatorios').select('fotos').eq('id', id).single().then(({ data: fd }) => {
+    if (!fd || currentId !== id) return;
+    try {
+      let fotos = fd.fotos;
+      if (!fotos) fotos = [];
+      else if (typeof fotos === 'string') fotos = JSON.parse(fotos);
+      else if (typeof fotos === 'object' && !Array.isArray(fotos)) fotos = Object.values(fotos);
+      fotos = (fotos || []).filter(f => f && typeof f === 'object');
+      currentRelatorio.fotos = fotos;
+      relatorios[relatorios.findIndex(r => r.id === id)].fotos = fotos;
+      renderizarFotos();
+    } catch(e) {}
+  });
+
   ocultarBannerPresenca();
-  const presenca = await verificarPresenca(id);
-  if (presenca.ocupado) {
-    mostrarBannerPresenca(presenca.email);
-  } else {
-    // Registra que este usuário está editando
-    await registrarPresenca(id);
-    iniciarHeartbeat(id);
-  }
-  // Garante fotos após DOM atualizado
-  setTimeout(renderizarFotos, 80);
+  verificarPresenca(id).then(presenca => {
+    if (presenca.ocupado) {
+      mostrarBannerPresenca(presenca.email);
+    } else {
+      registrarPresenca(id);
+      iniciarHeartbeat(id);
+    }
+  });
 }
 
 function getRelatorioAtual() {
