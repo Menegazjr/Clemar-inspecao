@@ -1208,59 +1208,34 @@ function fecharViewerBtn() { document.getElementById('fotoViewer').classList.rem
 //  EXPORTAR PDF
 // ═══════════════════════════════════════════════
 function blocosPdfHtml(html, secao) {
-  if (!html) return '<div class="pdf-section-block"><p style="color:#999;margin:0">—</p></div>';
+  // Renderiza conteúdo em UM único bloco — muito mais rápido no html2canvas
+  const sa = secao ? ` data-secao="${secao}"` : '';
+  if (!html) return `<div class="pdf-section-block"${sa}><p style="color:#999;margin:0">—</p></div>`;
 
   const div = document.createElement('div');
   div.innerHTML = html;
+  const paras = [];
 
-  // Coletar todos os nós filhos, ignorando vazios
-  const nodes = Array.from(div.childNodes).filter(n => {
-    if (n.nodeType === Node.TEXT_NODE) return n.textContent.trim();
-    const tag = n.tagName?.toLowerCase();
-    if (tag === 'p') {
-      const txt = (n.textContent || '').trim();
-      const inner = (n.innerHTML || '').trim();
-      return txt && inner !== '<br>' && inner !== '<br/>';
-    }
-    return true;
-  });
-
-  if (!nodes.length) return '<div class="pdf-section-block"><p style="color:#999;margin:0">—</p></div>';
-
-  // Agrupar linhas consecutivas no mesmo bloco — só separa quando há parágrafo vazio entre eles
-  const blocos = [];
-  let grupoAtual = [];
-
-  Array.from(div.childNodes).forEach(n => {
+  div.childNodes.forEach(n => {
     const tag = n.tagName?.toLowerCase();
     const txt = (n.textContent || '').trim();
     const inner = (n.innerHTML || '').trim();
     const vazio = tag === 'p' && (!txt || inner === '<br>' || inner === '<br/>');
-
     if (vazio) {
-      // Linha em branco — fecha grupo atual e inicia novo
-      if (grupoAtual.length) { blocos.push([...grupoAtual]); grupoAtual = []; }
-    } else if (txt || (tag === 'ul' || tag === 'ol')) {
-      grupoAtual.push(n);
+      paras.push('<div style="height:5px"></div>');
+    } else if (tag === 'p' && txt) {
+      paras.push(`<p style="margin:0 0 3px;line-height:1.5">${n.innerHTML}</p>`);
+    } else if (tag === 'ul' || tag === 'ol') {
+      Array.from(n.querySelectorAll('li'))
+        .filter(li => (li.textContent||'').trim())
+        .forEach(li => paras.push(`<p style="margin:0 0 3px;padding-left:14px;line-height:1.5">• ${li.innerHTML}</p>`));
+    } else if (txt) {
+      paras.push(`<p style="margin:0 0 3px;line-height:1.5">${n.textContent}</p>`);
     }
   });
-  if (grupoAtual.length) blocos.push(grupoAtual);
 
-  return blocos.map((grupo, gi) => {
-    const secaoAttr = (gi === 0 && secao) ? ` data-secao="${secao}"` : '';
-    const html = grupo.map(n => {
-      const tag = n.tagName?.toLowerCase();
-      if (tag === 'p') return `<p style="margin:0 0 2px">${n.innerHTML}</p>`;
-      if (tag === 'ul' || tag === 'ol') {
-        return Array.from(n.querySelectorAll('li'))
-          .filter(li => (li.textContent||'').trim())
-          .map(li => `<p style="margin:0 0 2px;padding-left:14px">• ${li.innerHTML}</p>`)
-          .join('');
-      }
-      return `<p style="margin:0 0 2px">${n.textContent}</p>`;
-    }).join('');
-    return `<div class="pdf-section-block" style="padding:1px 0"${secaoAttr}>${html}</div>`;
-  }).join('<div class="pdf-section-block" style="height:6px;padding:0;min-height:0"></div>');
+  if (!paras.length) return `<div class="pdf-section-block"${sa}><p style="color:#999;margin:0">—</p></div>`;
+  return `<div class="pdf-section-block"${sa}>${paras.join('')}</div>`;
 }
 
 function htmlParaPdfParas(html) {
@@ -1990,7 +1965,7 @@ function downloadBlobIOS(blob, filename) {
     };
     reader.readAsDataURL(blob);
   } else {
-    // Desktop / Android Chrome
+    const isAndroid = /android/i.test(navigator.userAgent);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -1999,6 +1974,10 @@ function downloadBlobIOS(blob, filename) {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    // No Android, mostrar instrução pois o arquivo vai para Downloads
+    if (isAndroid) {
+      setTimeout(() => showAlert('Arquivo salvo em Downloads. Abra com Word ou Google Docs.', 'ok'), 800);
+    }
   }
 }
 

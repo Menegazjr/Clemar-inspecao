@@ -1,8 +1,9 @@
 {
   "name": "Inspeção",
   "short_name": "Inspeção",
-  "description": "Sistema de Relatório de Visita de Obra",
+  "description": "Sistema de Relatório de Visita de Obra - Clemar Engenharia",
   "start_url": "/Clemar-inspecao/",
+  "scope": "/Clemar-inspecao/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#1a2940",
@@ -10,16 +11,28 @@
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "logo-clemar-pequeno.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "logo-clemar-pequeno.png",
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
