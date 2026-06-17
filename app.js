@@ -1208,34 +1208,56 @@ function fecharViewerBtn() { document.getElementById('fotoViewer').classList.rem
 //  EXPORTAR PDF
 // ═══════════════════════════════════════════════
 function blocosPdfHtml(html, secao) {
-  // Renderiza conteúdo em UM único bloco — muito mais rápido no html2canvas
   const sa = secao ? ` data-secao="${secao}"` : '';
   if (!html) return `<div class="pdf-section-block"${sa}><p style="color:#999;margin:0">—</p></div>`;
 
   const div = document.createElement('div');
   div.innerHTML = html;
-  const paras = [];
 
+  // Coletar parágrafos não vazios e separadores
+  const items = [];
   div.childNodes.forEach(n => {
     const tag = n.tagName?.toLowerCase();
     const txt = (n.textContent || '').trim();
     const inner = (n.innerHTML || '').trim();
     const vazio = tag === 'p' && (!txt || inner === '<br>' || inner === '<br/>');
     if (vazio) {
-      paras.push('<div style="height:5px"></div>');
+      items.push({ tipo: 'espaco' });
     } else if (tag === 'p' && txt) {
-      paras.push(`<p style="margin:0 0 3px;line-height:1.5">${n.innerHTML}</p>`);
+      items.push({ tipo: 'p', html: n.innerHTML });
     } else if (tag === 'ul' || tag === 'ol') {
       Array.from(n.querySelectorAll('li'))
         .filter(li => (li.textContent||'').trim())
-        .forEach(li => paras.push(`<p style="margin:0 0 3px;padding-left:14px;line-height:1.5">• ${li.innerHTML}</p>`));
+        .forEach(li => items.push({ tipo: 'p', html: `<span style="padding-left:14px">• ${li.innerHTML}</span>` }));
     } else if (txt) {
-      paras.push(`<p style="margin:0 0 3px;line-height:1.5">${n.textContent}</p>`);
+      items.push({ tipo: 'p', html: n.textContent });
     }
   });
 
-  if (!paras.length) return `<div class="pdf-section-block"${sa}><p style="color:#999;margin:0">—</p></div>`;
-  return `<div class="pdf-section-block"${sa}>${paras.join('')}</div>`;
+  if (!items.filter(i => i.tipo === 'p').length) {
+    return `<div class="pdf-section-block"${sa}><p style="color:#999;margin:0">—</p></div>`;
+  }
+
+  // Agrupar em blocos de ~6 parágrafos — balanceia velocidade e quebra de página
+  const GRUPO = 6;
+  const grupos = [];
+  let atual = [];
+
+  items.forEach(item => {
+    if (item.tipo === 'espaco') {
+      if (atual.length) { grupos.push(atual); atual = []; }
+    } else {
+      atual.push(item);
+      if (atual.length >= GRUPO) { grupos.push(atual); atual = []; }
+    }
+  });
+  if (atual.length) grupos.push(atual);
+
+  return grupos.map((grupo, gi) => {
+    const attr = (gi === 0 && secao) ? ` data-secao="${secao}"` : '';
+    const html = grupo.map(i => `<p style="margin:0 0 3px;line-height:1.5">${i.html}</p>`).join('');
+    return `<div class="pdf-section-block"${attr}>${html}</div>`;
+  }).join('<div class="pdf-section-block" style="height:3px;padding:0"></div>');
 }
 
 function htmlParaPdfParas(html) {
