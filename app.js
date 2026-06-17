@@ -1447,7 +1447,31 @@ async function exportarPDF() {
       }
     } // fim loop rendered
     const nome = `Relatorio_Visita_${String(r.numero).padStart(3,'0')}_${(r.data||'').replace(/-/g,'')}.pdf`;
-    pdf.save(nome);
+
+    // Download manual via Blob — mais confiável no Android
+    const blob = pdf.output('blob');
+    const isIOS     = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isAndroid = /android/i.test(navigator.userAgent);
+
+    if (isIOS) {
+      // iOS abre em nova aba (Safari mostra opção de salvar)
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nome;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      if (isAndroid) {
+        setTimeout(() => showAlert('PDF salvo em Downloads.', 'ok'), 600);
+      }
+    }
+
     area.innerHTML = '';
     ov.classList.remove('open');
     showAlert('PDF gerado!','ok');
@@ -1581,7 +1605,8 @@ async function carregarUsuariosAdmin() {
         <div class="admin-user-email">${u.nome || u.email.split('@')[0]}
           ${eAdmin ? '<span style="font-size:10px;background:#1a2940;color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px;font-family:var(--font-mono);vertical-align:middle">ADMIN</span>' : ''}
         </div>
-        <div class="admin-user-meta">${u.email} · ${u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : ''}${u.ultimo_login ? ' · 🕐 ' + fmtDataHora(u.ultimo_login) : ''}</div>
+        <div class="admin-user-meta">${u.email}</div>
+        <div class="admin-user-meta" style="margin-top:2px">${u.criado_em ? 'Criado: ' + new Date(u.criado_em).toLocaleDateString('pt-BR') : ''}${u.ultimo_login ? ' · 🕐 ' + fmtDataHora(u.ultimo_login) : ''}</div>
       </div>
       ${u.aprovado || eAdmin ? '<span class="admin-badge-ok">✅ Aprovado</span>' : '<span class="admin-badge-pend">⏳ Pendente</span>'}
       <div class="admin-user-actions">
