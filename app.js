@@ -223,11 +223,19 @@ function renderizarLista() {
       </div>`;
     return;
   }
-  // Filtrar exatamente pela pasta selecionada — sem herdar subpastas
-  const listaFiltrada = pastaAtivaId === null ? relatorios
-    : pastaAtivaId === 'sem-pasta' ? relatorios.filter(r => !r.pasta_id)
-    : relatorios.filter(r => r.pasta_id === pastaAtivaId);
-  if (listaFiltrada.length === 0 && pastaAtivaId !== null) {
+  // Filtrar exatamente pela pasta selecionada
+  let listaFiltrada;
+  if (pastaAtivaId === null && _pastaPaiAtualId !== null) {
+    // Navegando dentro de uma pasta pai sem filtro ativo — não mostrar relatórios
+    listaFiltrada = [];
+  } else if (pastaAtivaId === null) {
+    listaFiltrada = relatorios;
+  } else if (pastaAtivaId === 'sem-pasta') {
+    listaFiltrada = relatorios.filter(r => !r.pasta_id);
+  } else {
+    listaFiltrada = relatorios.filter(r => r.pasta_id === pastaAtivaId);
+  }
+  if (listaFiltrada.length === 0 && (pastaAtivaId !== null || _pastaPaiAtualId !== null)) {
     container.innerHTML = `<div class="lista-vazia">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:52px;height:52px;color:var(--border-strong);margin-bottom:14px"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
       <h3>Pasta vazia</h3>
