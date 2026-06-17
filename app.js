@@ -315,7 +315,11 @@ async function novoRelatorio() {
   showAlert(`Relatório #${num} criado!`, 'ok');
 }
 
+let _abrindoRelatorio = false;
 async function abrirRelatorio(id) {
+  if (_abrindoRelatorio) return;
+  _abrindoRelatorio = true;
+  setTimeout(() => { _abrindoRelatorio = false; }, 1500);
   // Carrega SEMPRE completo do banco (garante fotos atualizadas)
   const { data, error } = await supa.from('relatorios').select('*').eq('id', id).single();
   if (error) { showAlert('Erro ao abrir: ' + error.message, 'err'); return; }
