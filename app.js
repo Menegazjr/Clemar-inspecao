@@ -322,17 +322,11 @@ async function abrirRelatorio(id) {
   setTimeout(() => { _abrindoRelatorio = false; }, 1500);
 
   // 1. Buscar dados SEM fotos primeiro — rápido
-  let data = relatorios.find(r => r.id === id);
-  if (!data) {
-    const { data: d, error } = await supa.from('relatorios')
-      .select('id,numero,data,data_fim,obra,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em')
-      .eq('id', id).single();
-    if (error) { showAlert('Erro ao abrir: ' + error.message, 'err'); _abrindoRelatorio = false; return; }
-    data = d;
-    data.fotos = []; // fotos virão em segundo plano
-  } else {
-    data = { ...data };
-  }
+  const { data, error: err1 } = await supa.from('relatorios')
+    .select('id,numero,data,data_fim,obra,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em')
+    .eq('id', id).single();
+  if (err1) { showAlert('Erro ao abrir: ' + err1.message, 'err'); _abrindoRelatorio = false; return; }
+  data.fotos = []; // fotos virão em segundo plano
 
   data._tamanho = fmtBytes(new Blob([JSON.stringify(data)]).size);
   currentId = id;
