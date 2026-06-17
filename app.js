@@ -345,6 +345,7 @@ async function abrirRelatorio(id) {
   carregarFormulario();
   renderizarHistorico();
   renderizarFotos(); // mostra lista vazia enquanto carrega
+  mostrarLoadingFotos(true);
 
   // 3. Buscar fotos em segundo plano
   supa.from('relatorios').select('fotos').eq('id', id).single().then(({ data: fd }) => {
@@ -359,6 +360,7 @@ async function abrirRelatorio(id) {
       relatorios[relatorios.findIndex(r => r.id === id)].fotos = fotos;
       renderizarFotos();
     } catch(e) {}
+    mostrarLoadingFotos(false);
   });
 
   ocultarBannerPresenca();
@@ -370,6 +372,38 @@ async function abrirRelatorio(id) {
       iniciarHeartbeat(id);
     }
   });
+}
+
+function mostrarLoadingFotos(ativo) {
+  let el = document.getElementById('loadingFotos');
+  if (ativo) {
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'loadingFotos';
+      el.style.cssText = [
+        'position:fixed', 'bottom:80px', 'left:50%', 'transform:translateX(-50%)',
+        'background:var(--steel)', 'color:#fff', 'border-radius:20px',
+        'padding:8px 18px', 'font-size:13px', 'font-family:var(--font-cond)',
+        'font-weight:600', 'z-index:500', 'display:flex', 'align-items:center',
+        'gap:8px', 'box-shadow:0 4px 16px rgba(0,0,0,0.3)',
+        'animation:bannerEntrada 0.2s ease'
+      ].join(';');
+      el.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          style="width:14px;height:14px;animation:girar 1s linear infinite">
+          <polyline points="23 4 23 10 17 10"/>
+          <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+        </svg>
+        Carregando fotos...`;
+      document.body.appendChild(el);
+    }
+  } else {
+    if (el) {
+      el.style.opacity = '0';
+      el.style.transition = 'opacity 0.3s';
+      setTimeout(() => el.remove(), 300);
+    }
+  }
 }
 
 function getRelatorioAtual() {
