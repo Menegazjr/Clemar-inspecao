@@ -76,7 +76,8 @@ async function aoLogar(user) {
     id:    user.id,
     email: user.email,
     nome:  user.user_metadata?.nome || user.email.split('@')[0],
-  }, { onConflict: 'id', ignoreDuplicates: true });
+    ultimo_login: new Date().toISOString(),
+  }, { onConflict: 'id' });
 
   const { data: reg } = await supa.from('usuarios')
     .select('aprovado, role')
@@ -1580,7 +1581,7 @@ async function carregarUsuariosAdmin() {
         <div class="admin-user-email">${u.nome || u.email.split('@')[0]}
           ${eAdmin ? '<span style="font-size:10px;background:#1a2940;color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px;font-family:var(--font-mono);vertical-align:middle">ADMIN</span>' : ''}
         </div>
-        <div class="admin-user-meta">${u.email} · ${u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : ''}</div>
+        <div class="admin-user-meta">${u.email} · ${u.criado_em ? new Date(u.criado_em).toLocaleDateString('pt-BR') : ''}${u.ultimo_login ? ' · 🕐 ' + fmtDataHora(u.ultimo_login) : ''}</div>
       </div>
       ${u.aprovado || eAdmin ? '<span class="admin-badge-ok">✅ Aprovado</span>' : '<span class="admin-badge-pend">⏳ Pendente</span>'}
       <div class="admin-user-actions">
