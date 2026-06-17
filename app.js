@@ -223,14 +223,10 @@ function renderizarLista() {
       </div>`;
     return;
   }
-  // Coletar todos os IDs de pastas visíveis (pasta ativa + suas subpastas recursivamente)
-  function idsRecursivos(paiId) {
-    const filhos = pastas.filter(p => p.pasta_pai_id === paiId);
-    return [paiId, ...filhos.flatMap(f => idsRecursivos(f.id))];
-  }
+  // Filtrar exatamente pela pasta selecionada — sem herdar subpastas
   const listaFiltrada = pastaAtivaId === null ? relatorios
     : pastaAtivaId === 'sem-pasta' ? relatorios.filter(r => !r.pasta_id)
-    : relatorios.filter(r => idsRecursivos(pastaAtivaId).includes(r.pasta_id));
+    : relatorios.filter(r => r.pasta_id === pastaAtivaId);
   if (listaFiltrada.length === 0 && pastaAtivaId !== null) {
     container.innerHTML = `<div class="lista-vazia">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:52px;height:52px;color:var(--border-strong);margin-bottom:14px"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
@@ -2125,11 +2121,20 @@ function filtrarPasta(id) {
 }
 
 function entrarPasta(id) {
-  // Entra na pasta: navega para ela e filtra seus relatórios
-  _pastaPaiAtualId = id;
-  pastaAtivaId = id;
-  renderizarPastasBar();
-  renderizarLista();
+  const temFilhos = pastas.some(p => p.pasta_pai_id === id);
+  if (temFilhos) {
+    // Tem subpastas — só navega, não filtra ainda
+    _pastaPaiAtualId = id;
+    pastaAtivaId = null;
+    renderizarPastasBar();
+    renderizarLista();
+  } else {
+    // Pasta folha — navega e filtra os relatórios
+    _pastaPaiAtualId = id;
+    pastaAtivaId = id;
+    renderizarPastasBar();
+    renderizarLista();
+  }
 }
 
 function navegarPasta(paiId) {
