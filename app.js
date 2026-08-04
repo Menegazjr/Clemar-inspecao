@@ -1136,6 +1136,8 @@ function renderizarFotos() {
   const n = fotos.length;
   const txt = `${n} foto${n!==1?'s':''}`;
   if (document.getElementById('badgeFotos'))    document.getElementById('badgeFotos').textContent    = txt;
+
+
   if (document.getElementById('fotoBadgeCard')) document.getElementById('fotoBadgeCard').textContent = txt;
   // Mostra tamanho no badge
   const r2 = getRelatorioAtual();
@@ -1195,6 +1197,16 @@ function renderizarFotos() {
         </div>
       </div>`;
   }).join('');
+
+  // Botão adicionar foto ao final — só no desktop
+  const btnFinal = document.createElement('div');
+  btnFinal.className = 'btn-hide-mobile';
+  btnFinal.style.cssText = 'margin-top:12px;display:flex;justify-content:center';
+  btnFinal.innerHTML = `<button type="button" class="btn btn-steel" onclick="prepararNovaFotoBtn(false)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+    Adicionar foto
+  </button>`;
+  list.appendChild(btnFinal);
 }
 
 function abrirViewer(fotoId) {
@@ -2295,6 +2307,24 @@ document.addEventListener('keydown', e => { if(e.key==='Escape') fecharViewerBtn
   if (session && session.user) {
     aoLogar(session.user);
   }
+})();
+
+// ── Ping automático para manter Supabase ativo ──
+(function pingSupabase() {
+  const INTERVALO = 4 * 24 * 60 * 60 * 1000; // 4 dias
+  const CHAVE = 'clemar_ultimo_ping';
+
+  async function ping() {
+    try {
+      await supa.from('usuarios').select('id').limit(1);
+      localStorage.setItem(CHAVE, Date.now().toString());
+    } catch(e) {}
+  }
+
+  const ultimo = parseInt(localStorage.getItem(CHAVE) || '0');
+  if (Date.now() - ultimo > INTERVALO) ping();
+
+  setInterval(ping, INTERVALO);
 })();
 
 // Limpar presença ao fechar/recarregar a aba
