@@ -321,6 +321,7 @@ async function novoRelatorio() {
 }
 
 let _abrindoRelatorio = false;
+let _pendingGrupoId   = null;
 async function abrirRelatorio(id) {
   if (_abrindoRelatorio) return;
   _abrindoRelatorio = true;
@@ -439,6 +440,15 @@ async function salvar() {
   // Coleta campos de cada foto antes de salvar
   (r.fotos || []).forEach(f => salvarCamposFoto(f.id));
   // Garante fotos como array limpo
+  // Migrar fotos antigas (array plano) para grupos
+  if (Array.isArray(r.fotos) && r.fotos.length > 0 && !r.fotos[0].fotos) {
+    r.fotos = r.fotos.map(f => ({
+      id: uid(), titulo: f.local || '', descricao: f.descricao || '',
+      fotos: [{ id: f.id, base64: f.base64, largura: f.largura||0, altura: f.altura||0, timestamp: f.timestamp||'' }]
+    }));
+  }
+  if (!r.fotos) r.fotos = [];
+
   const fotosArray = (Array.isArray(r.fotos) ? r.fotos : []).map(f => ({
     id:        f.id        || '',
     base64:    f.base64    || '',
@@ -1059,14 +1069,30 @@ function carregarCamposConfig() {
 // ═══════════════════════════════════════════════
 //  FOTOS
 // ═══════════════════════════════════════════════
-function prepararNovaFotoBtn(camera) {
+function prepararNovaFotoBtn(camera, grupoId) {
   const r = getRelatorioAtual();
   if (!r) { showAlert('Abra um relatório primeiro.', 'warn'); return; }
   if (!r.fotos) r.fotos = [];
-  const reg = { id: uid(), base64: '', local: '', descricao: '', timestamp: new Date().toISOString(), largura: 0, altura: 0 };
-  r.fotos.push(reg);
+
+  if (grupoId) {
+    // Adicionar foto a grupo existente
+    const grupo = r.fotos.find(g => g.id === grupoId);
+    if (!grupo) return;
+    if (grupo.fotos.length >= 4) { showAlert('Máximo de 4 fotos por grupo.', 'warn'); return; }
+    const novaFoto = { id: uid(), base64: '', largura: 0, altura: 0, timestamp: new Date().toISOString() };
+    grupo.fotos.push(novaFoto);
+    _pendingFotoId = novaFoto.id;
+    _pendingGrupoId = grupoId;
+  } else {
+    // Criar novo grupo
+    const grupo = { id: uid(), titulo: '', descricao: '', fotos: [] };
+    const novaFoto = { id: uid(), base64: '', largura: 0, altura: 0, timestamp: new Date().toISOString() };
+    grupo.fotos.push(novaFoto);
+    r.fotos.push(grupo);
+    _pendingFotoId = novaFoto.id;
+    _pendingGrupoId = grupo.id;
+  }
   renderizarFotos();
-  _pendingFotoId = reg.id;
   const inp = document.getElementById(camera ? 'inputFotoCamera' : 'inputFotoGaleria');
   if (inp) { inp.value = ''; setTimeout(() => inp.click(), 0); }
 }
@@ -1074,12 +1100,6 @@ function prepararNovaFotoBtn(camera) {
 function processarFotoInput(event) {
   const r = getRelatorioAtual();
   if (!r) { event.target.value=''; return; }
-  if (!_pendingFotoId) {
-    if (!r.fotos) r.fotos = [];
-    const reg = { id: uid(), base64: '', local: '', descricao: '', timestamp: new Date().toISOString(), largura: 0, altura: 0 };
-    r.fotos.push(reg);
-    _pendingFotoId = reg.id;
-  }
   const file = event.target.files && event.target.files[0];
   if (!file) { event.target.value=''; return; }
   const reader = new FileReader();
@@ -1092,124 +1112,161 @@ function processarFotoInput(event) {
       canvas.width=w; canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
       const base64 = canvas.toDataURL('image/jpeg',0.72);
-      const reg = r.fotos.find(f=>f.id===_pendingFotoId);
-      if (reg) { reg.base64=base64; reg.largura=w; reg.altura=h; }
+      // Encontrar a foto no grupo correto
+      const grupo = (r.fotos||[]).find(g => g.id === _pendingGrupoId);
+      if (grupo) {
+        const foto = grupo.fotos.find(f => f.id === _pendingFotoId);
+        if (foto) { foto.base64=base64; foto.largura=w; foto.altura=h; }
+      }
       _pendingFotoId = null;
+      _pendingGrupoId = null;
       renderizarFotos();
       showAlert('Foto adicionada!','ok');
     };
-    img.onerror = () => { showAlert('Erro ao carregar imagem.','err'); _pendingFotoId=null; };
+    img.onerror = () => { showAlert('Erro ao carregar imagem.','err'); _pendingFotoId=null; _pendingGrupoId=null; };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
   event.target.value='';
 }
 
-function trocarFotoBtn(fotoId, camera) {
-  _pendingFotoId = fotoId;
+function trocarFotoBtn(fotoId, grupoId, camera) {
+  _pendingFotoId  = fotoId;
+  _pendingGrupoId = grupoId;
   document.getElementById('inputFotoCamera').value  = '';
   document.getElementById('inputFotoGaleria').value = '';
   const inp = document.getElementById(camera ? 'inputFotoCamera' : 'inputFotoGaleria');
   setTimeout(() => inp.click(), 0);
 }
 
-function excluirFotoRegistro(fotoId) {
+function excluirFotoRegistro(fotoId, grupoId) {
   const r = getRelatorioAtual();
   if (!r) return;
-  r.fotos = (r.fotos||[]).filter(f => f.id !== fotoId);
+  const grupo = (r.fotos||[]).find(g => g.id === grupoId);
+  if (!grupo) return;
+  grupo.fotos = grupo.fotos.filter(f => f.id !== fotoId);
+  if (grupo.fotos.length === 0) {
+    r.fotos = r.fotos.filter(g => g.id !== grupoId);
+  }
   renderizarFotos();
   showAlert('Foto removida.','warn');
 }
 
-function salvarCamposFoto(fotoId) {
+function excluirGrupoFotos(grupoId) {
+  const r = getRelatorioAtual();
+  if (!r) return;
+  if (!confirm('Remover este grupo e todas as fotos?')) return;
+  r.fotos = (r.fotos||[]).filter(g => g.id !== grupoId);
+  renderizarFotos();
+  showAlert('Grupo removido.','warn');
+}
+
+function salvarCamposFoto(grupoId) {
   const r = getRelatorioAtual(); if (!r) return;
-  const reg = (r.fotos||[]).find(f=>f.id===fotoId); if (!reg) return;
-  const le = document.getElementById(`local_${fotoId}`);
-  const de = document.getElementById(`desc_${fotoId}`);
-  if (le) reg.local     = le.value;
-  if (de) reg.descricao = de.value;
+  const grupo = (r.fotos||[]).find(g => g.id === grupoId); if (!grupo) return;
+  const te = document.getElementById(`titulo_${grupoId}`);
+  const de = document.getElementById(`desc_${grupoId}`);
+  if (te) grupo.titulo    = te.value;
+  if (de) grupo.descricao = de.value;
 }
 
 function renderizarFotos() {
   const r = getRelatorioAtual();
-  const fotos = r && r.fotos ? r.fotos : [];
-  const n = fotos.length;
-  const txt = `${n} foto${n!==1?'s':''}`;
-  if (document.getElementById('badgeFotos'))    document.getElementById('badgeFotos').textContent    = txt;
+  const grupos = r && r.fotos ? r.fotos : [];
+  const n = grupos.reduce((acc, g) => acc + (g.fotos||[]).length, 0);
+  const txt = n === 0 ? '' : `${n} foto${n!==1?'s':''}`;
+  if (document.getElementById('badgeFotos')) document.getElementById('badgeFotos').textContent = txt;
 
-
-  if (document.getElementById('fotoBadgeCard')) document.getElementById('fotoBadgeCard').textContent = txt;
-  // Mostra tamanho no badge
-  const r2 = getRelatorioAtual();
-  const badgeSz = document.getElementById('badgeTamanho');
-  if (badgeSz && r2) {
-    const bytes = new Blob([JSON.stringify(r2)]).size;
-    badgeSz.textContent = '💾 ' + fmtBytes(bytes);
-  }
-  const list  = document.getElementById('fotoRegistroList');
+  const list  = document.getElementById('fotoList');
   const empty = document.getElementById('fotoEmpty');
   if (!list) return;
-  if (fotos.length === 0) { list.innerHTML=''; if(empty) empty.style.display=''; return; }
-  if (empty) empty.style.display='none';
-  list.innerHTML = fotos.map((f,idx) => {
-    const ts = f.timestamp ? new Date(f.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-    const imgArea = f.base64
-      ? `<img src="${f.base64}" alt="Foto ${idx+1}" onclick="abrirViewer('${f.id}')" title="Ampliar">
-         <button type="button" class="foto-trocar-btn" onclick="trocarFotoBtn('${f.id}',false)">🔄 Trocar</button>`
-      : `<button type="button" class="foto-sem-imagem" onclick="trocarFotoBtn('${f.id}',false)">
-           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-           Toque para adicionar foto
-         </button>`;
-    return `
-      <div class="foto-registro" id="reg_${f.id}">
-        <div class="foto-registro-header">
-          <div class="foto-registro-num" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="dot"></span>FOTO ${String(idx+1).padStart(2,'0')}${f.local?` <span style="font-weight:400;color:var(--ink-light);font-size:12px">— ${f.local}</span>`:''}</div>
-          <button class="btn btn-danger btn-sm" onclick="excluirFotoRegistro('${f.id}')" title="Remover foto">
+
+  if (grupos.length === 0) {
+    list.innerHTML = '';
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  list.innerHTML = grupos.map((grupo, gi) => {
+    const fotosHtml = (grupo.fotos||[]).map((f, fi) => {
+      const ts = f.timestamp ? new Date(f.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+      const imgArea = f.base64
+        ? `<img src="${f.base64}" style="width:100%;border-radius:6px;cursor:pointer;display:block" onclick="abrirViewer('${f.id}','${grupo.id}')" loading="lazy">`
+        : `<div style="background:var(--surface-2);border-radius:6px;padding:24px;text-align:center;color:var(--ink-light);font-size:12px">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:32px;height:32px;margin:0 auto 8px;display:block;opacity:0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+             Sem imagem
+           </div>`;
+      return `<div style="flex:1;min-width:120px;max-width:calc(50% - 6px)">
+        ${imgArea}
+        ${ts ? `<div style="font-size:10px;color:var(--ink-light);margin-top:3px;text-align:center">🕐 ${ts}</div>` : ''}
+        <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-outline btn-only-mobile" onclick="trocarFotoBtn('${f.id}','${grupo.id}',true)" title="Câmera">📷</button>
+          <button class="btn btn-sm btn-steel" onclick="trocarFotoBtn('${f.id}','${grupo.id}',false)" title="Trocar foto" style="flex:1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Trocar
+          </button>
+          <button class="btn btn-sm btn-danger" onclick="excluirFotoRegistro('${f.id}','${grupo.id}')" title="Remover">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             <span class="btn-hide-mobile">Remover</span>
           </button>
         </div>
-        <div class="foto-registro-body">
-          <div class="foto-registro-img-wrap">${imgArea}</div>
-          <div class="foto-registro-content">
-            <div class="foto-local-wrap">
-              <div class="foto-local-label">📍 Local / Área Visitada</div>
-              <input type="text" class="foto-local-input" id="local_${f.id}" value="${escHtml(f.local)}" placeholder="ex: Sala de Máquinas..." onchange="salvarCamposFoto('${f.id}')" oninput="salvarCamposFoto('${f.id}')">
-            </div>
-            <div class="foto-desc-wrap">
-              <div class="foto-desc-label">📝 Descrição</div>
-              <textarea class="foto-desc-textarea" id="desc_${f.id}" placeholder="Descreva o que a foto mostra..." onchange="salvarCamposFoto('${f.id}')" oninput="salvarCamposFoto('${f.id}')">${escHtml(f.descricao)}</textarea>
-            </div>
-          </div>
-        </div>
-        <div class="foto-registro-footer">
-          <span class="foto-ts">${ts?'🕐 '+ts:''}</span>
-          <div style="display:flex;gap:6px">
-            <button type="button" class="btn btn-steel btn-sm" onclick="trocarFotoBtn('${f.id}',true)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              Câmera
-            </button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="trocarFotoBtn('${f.id}',false)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
-              Galeria
-            </button>
-          </div>
-        </div>
       </div>`;
+    }).join('');
+
+    const podeAddFoto = (grupo.fotos||[]).length < 4;
+
+    return `<div class="foto-registro" id="reg_${grupo.id}">
+      <div class="foto-registro-header">
+        <div class="foto-registro-num" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          <span class="dot"></span>GRUPO ${String(gi+1).padStart(2,'0')} · ${(grupo.fotos||[]).length} foto${(grupo.fotos||[]).length!==1?'s':''}
+        </div>
+        <button class="btn btn-sm btn-danger" onclick="excluirGrupoFotos('${grupo.id}')" title="Remover grupo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <span class="btn-hide-mobile">Remover grupo</span>
+        </button>
+      </div>
+      <div class="foto-registro-body">
+        <div class="foto-registro-content" style="width:100%">
+          <div class="field" style="margin-bottom:8px">
+            <label style="font-size:11px">Título</label>
+            <input type="text" id="titulo_${grupo.id}" value="${(grupo.titulo||'').replace(/"/g,'&quot;')}"
+              placeholder="Ex: Sala de máquinas, Quadro elétrico..."
+              onchange="salvarCamposFoto('${grupo.id}')" style="font-size:13px">
+          </div>
+          <div class="field" style="margin-bottom:10px">
+            <label style="font-size:11px">Descrição</label>
+            <textarea id="desc_${grupo.id}" rows="2" placeholder="Descreva o que está sendo fotografado..."
+              onchange="salvarCamposFoto('${grupo.id}')" style="font-size:13px">${grupo.descricao||''}</textarea>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            ${fotosHtml}
+          </div>
+          ${podeAddFoto ? `
+          <button class="btn btn-steel btn-sm btn-only-mobile" onclick="prepararNovaFotoBtn(true,'${grupo.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            + Câmera
+          </button>
+          <button class="btn btn-steel btn-sm" onclick="prepararNovaFotoBtn(false,'${grupo.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+            + Foto
+          </button>` : `<span style="font-size:11px;color:var(--ink-light)">Máximo de 4 fotos por grupo</span>`}
+        </div>
+      </div>
+    </div>`;
   }).join('');
 
-  // Botão adicionar foto ao final — só no desktop
+  // Botão adicionar novo grupo — só no desktop
   const btnFinal = document.createElement('div');
-  btnFinal.className = 'btn-hide-mobile';
   btnFinal.style.cssText = 'margin-top:12px;display:flex;justify-content:center';
   btnFinal.innerHTML = `<button type="button" class="btn btn-steel" onclick="prepararNovaFotoBtn(false)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
-    Adicionar foto
+    Novo grupo de fotos
   </button>`;
   list.appendChild(btnFinal);
 }
 
-function abrirViewer(fotoId) {
+function abrirViewer(fotoId, grupoId) {
   const r = getRelatorioAtual(); if (!r) return;
   const f = (r.fotos||[]).find(x=>x.id===fotoId);
   if (!f||!f.base64) return;
@@ -1337,7 +1394,18 @@ async function exportarPDF() {
   ov.classList.add('open'); msg.textContent = 'Preparando PDF...';
   try {
     const area = document.getElementById('pdfArea');
-    const fotosHtml = (r.fotos||[]).map((f,i) => `
+    const fotosHtml = (r.fotos||[]).flatMap((grupo, gi) => {
+      const fotosDo = (grupo.fotos||[]).filter(f=>f.base64);
+      if (fotosDo.length === 0) return [];
+      return [`<div class="pdf-section-block" style="margin-bottom:4px">
+        ${grupo.titulo ? `<p style="font-weight:bold;margin:0 0 2px">${grupo.titulo}</p>` : ''}
+        ${grupo.descricao ? `<p style="margin:0 0 6px;color:#555">${grupo.descricao}</p>` : ''}
+        ${fotosDo.map((f,fi) => `<div style="margin-bottom:8px">
+          <img src="${f.base64}" style="width:100%;max-width:500px;border-radius:4px;display:block">
+        </div>`).join('')}
+      </div>`];
+    }).join('');
+    const _fotosHtmlLegacy = (r.fotos||[]).map((f,i) => `
       <div class="pdf-section-block pdf-foto-block">
         <div class="pdf-foto-label">Foto ${String(i+1).padStart(2,'0')}</div>
         ${f.base64?`<img src="${f.base64}" alt="Foto ${i+1}">`:'<p style="color:#aaa;font-size:11px">[Sem foto]</p>'}
