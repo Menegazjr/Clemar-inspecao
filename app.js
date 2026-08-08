@@ -354,8 +354,9 @@ async function abrirRelatorio(id) {
   mostrarLoadingFotos(true);
 
   // 3. Buscar fotos em segundo plano
-  supa.from('relatorios').select('fotos').eq('id', id).single().then(({ data: fd }) => {
-    if (!fd || currentId !== id) return;
+  supa.from('relatorios').select('fotos').eq('id', id).single().then(({ data: fd, error: ferr }) => {
+    console.log('foto fetch result:', fd ? 'ok' : 'null', ferr?.message || '');
+    if (!fd || currentId !== id) { mostrarLoadingFotos(false); return; }
     try {
       let fotos = fd.fotos;
       console.log('fotos raw:', typeof fotos, Array.isArray(fotos), fotos ? JSON.stringify(fotos).slice(0,200) : 'null');
