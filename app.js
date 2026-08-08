@@ -358,12 +358,15 @@ async function abrirRelatorio(id) {
     if (!fd || currentId !== id) return;
     try {
       let fotos = fd.fotos;
+      console.log('fotos raw:', typeof fotos, Array.isArray(fotos), fotos ? JSON.stringify(fotos).slice(0,200) : 'null');
       if (!fotos) fotos = [];
       else if (typeof fotos === 'string') fotos = JSON.parse(fotos);
       else if (typeof fotos === 'object' && !Array.isArray(fotos)) fotos = Object.values(fotos);
       fotos = (fotos || []).filter(f => f && typeof f === 'object');
+      console.log('fotos após normalizar:', fotos.length, fotos[0] ? Object.keys(fotos[0]) : 'vazio');
       // Migrar formato antigo para grupos
       if (fotos.length > 0 && !fotos[0].fotos) {
+        console.log('migrando formato antigo...');
         fotos = fotos.map(f => ({
           id: f.id || uid(),
           titulo: f.local || '',
@@ -371,10 +374,11 @@ async function abrirRelatorio(id) {
           fotos: [{ id: uid(), base64: f.base64||'', largura: f.largura||0, altura: f.altura||0, timestamp: f.timestamp||'' }]
         }));
       }
+      console.log('fotos final:', fotos.length, 'grupos');
       currentRelatorio.fotos = fotos;
       relatorios[relatorios.findIndex(r => r.id === id)].fotos = fotos;
       renderizarFotos();
-    } catch(e) {}
+    } catch(e) { console.error('erro fotos:', e); }
     mostrarLoadingFotos(false);
   });
 
