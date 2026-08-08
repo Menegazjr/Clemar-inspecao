@@ -1170,6 +1170,7 @@ function salvarCamposFoto(grupoId) {
 function renderizarFotos() {
   const r = getRelatorioAtual();
   const grupos = r && r.fotos ? r.fotos : [];
+  console.log('renderizarFotos:', grupos.length, 'grupos', grupos[0] ? JSON.stringify(grupos[0]).slice(0,100) : 'vazio');
   const n = grupos.reduce((acc, g) => acc + (g.fotos||[]).length, 0);
   const txt = n === 0 ? '' : `${n} foto${n!==1?'s':''}`;
   if (document.getElementById('badgeFotos')) document.getElementById('badgeFotos').textContent = txt;
