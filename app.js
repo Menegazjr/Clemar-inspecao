@@ -1214,7 +1214,7 @@ function renderizarFotos() {
       </div>`;
     }).join('');
 
-    const podeAddFoto = (grupo.fotos||[]).length < 4;
+    const podeAddFoto = (grupo.fotos||[]).filter(f => f.base64).length < 4;
 
     return `<div class="foto-registro" id="reg_${grupo.id}">
       <div class="foto-registro-header">
@@ -1242,15 +1242,10 @@ function renderizarFotos() {
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
             ${fotosHtml}
           </div>
-          ${podeAddFoto ? `
-          <button class="btn btn-steel btn-sm btn-only-mobile" onclick="prepararNovaFotoBtn(true,'${grupo.id}')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            + Câmera
-          </button>
-          <button class="btn btn-steel btn-sm" onclick="prepararNovaFotoBtn(false,'${grupo.id}')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
-            + Foto
-          </button>` : `<span style="font-size:11px;color:var(--ink-light)">Máximo de 4 fotos por grupo</span>`}
+          ${podeAddFoto
+            ? '<button class="btn btn-steel btn-sm btn-only-mobile" onclick="prepararNovaFotoBtn(true,\'' + grupo.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> + Câmera</button>'
+            + '<button class="btn btn-steel btn-sm" onclick="prepararNovaFotoBtn(false,\'' + grupo.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg> + Foto</button>'
+            : '<span style="font-size:11px;color:var(--ink-light)">Máximo de 4 fotos por grupo</span>'}
         </div>
       </div>
     </div>`;
