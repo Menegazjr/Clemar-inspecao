@@ -362,6 +362,15 @@ async function abrirRelatorio(id) {
       else if (typeof fotos === 'string') fotos = JSON.parse(fotos);
       else if (typeof fotos === 'object' && !Array.isArray(fotos)) fotos = Object.values(fotos);
       fotos = (fotos || []).filter(f => f && typeof f === 'object');
+      // Migrar formato antigo para grupos
+      if (fotos.length > 0 && !fotos[0].fotos) {
+        fotos = fotos.map(f => ({
+          id: f.id || uid(),
+          titulo: f.local || '',
+          descricao: f.descricao || '',
+          fotos: [{ id: uid(), base64: f.base64||'', largura: f.largura||0, altura: f.altura||0, timestamp: f.timestamp||'' }]
+        }));
+      }
       currentRelatorio.fotos = fotos;
       relatorios[relatorios.findIndex(r => r.id === id)].fotos = fotos;
       renderizarFotos();
@@ -437,30 +446,13 @@ async function salvar() {
   r.assin_data     = document.getElementById('fieldAssinData').value;
   r.atualizado_em  = new Date().toISOString();
   r.atualizado_por = currentUser.email;
-  // Coleta campos de cada foto antes de salvar
-  (r.fotos || []).forEach(f => salvarCamposFoto(f.id));
-  // Garante fotos como array limpo
-  // Migrar fotos antigas (array plano) para grupos
-  if (Array.isArray(r.fotos) && r.fotos.length > 0 && !r.fotos[0].fotos) {
-    r.fotos = r.fotos.map(f => ({
-      id: uid(), titulo: f.local || '', descricao: f.descricao || '',
-      fotos: [{ id: f.id, base64: f.base64, largura: f.largura||0, altura: f.altura||0, timestamp: f.timestamp||'' }]
-    }));
-  }
+  // Coleta campos de cada grupo antes de salvar
+  (r.fotos || []).forEach(g => salvarCamposFoto(g.id));
   if (!r.fotos) r.fotos = [];
 
-  const fotosArray = (Array.isArray(r.fotos) ? r.fotos : []).map(f => ({
-    id:        f.id        || '',
-    base64:    f.base64    || '',
-    local:     f.local     || '',
-    descricao: f.descricao || '',
-    timestamp: f.timestamp || '',
-    largura:   f.largura   || 0,
-    altura:    f.altura    || 0,
-  }));
   // Salva no Supabase (excluindo user_id, id e campos locais)
   const { user_id, id, _tamanho, fotos: _fotos, criado_por: _criado_por, ...camposSemFotos } = r;
-  const campos = { ...camposSemFotos, fotos: fotosArray };
+  const campos = { ...camposSemFotos, fotos: r.fotos };
   // Detecção de conflito: verificar se versão mudou desde que abrimos
   const { data: atual } = await supa.from('relatorios')
     .select('versao, atualizado_em, atualizado_por')
