@@ -1177,7 +1177,7 @@ function renderizarFotos() {
   const txt = n === 0 ? '' : `${n} foto${n!==1?'s':''}`;
   if (document.getElementById('badgeFotos')) document.getElementById('badgeFotos').textContent = txt;
 
-  const list  = document.getElementById('fotoList');
+  const list  = document.getElementById('fotoRegistroList');
   const empty = document.getElementById('fotoEmpty');
   console.log('fotoList existe:', !!list, 'grupos:', grupos.length);
   if (!list) return;
