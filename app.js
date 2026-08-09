@@ -1179,6 +1179,7 @@ function renderizarFotos() {
 
   const list  = document.getElementById('fotoList');
   const empty = document.getElementById('fotoEmpty');
+  console.log('fotoList existe:', !!list, 'grupos:', grupos.length);
   if (!list) return;
 
   if (grupos.length === 0) {
