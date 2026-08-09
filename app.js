@@ -1197,12 +1197,12 @@ function renderizarFotos() {
     const fotosHtml = (grupo.fotos||[]).map((f, fi) => {
       const ts = f.timestamp ? new Date(f.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
       const imgArea = f.base64
-        ? `<img src="${f.base64}" style="width:100%;border-radius:6px;cursor:pointer;display:block" onclick="abrirViewer('${f.id}','${grupo.id}')" loading="lazy">`
-        : `<div style="background:var(--surface-2);border-radius:6px;padding:24px;text-align:center;color:var(--ink-light);font-size:12px">
-             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:32px;height:32px;margin:0 auto 8px;display:block;opacity:0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+        ? `<img src="${f.base64}" style="width:100%;height:200px;object-fit:cover;border-radius:6px;cursor:pointer;display:block;transition:opacity 0.2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1" onclick="abrirViewer('${f.id}','${grupo.id}')" loading="lazy">`
+        : `<div style="background:var(--surface-2);border-radius:6px;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink-light);font-size:12px">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:32px;height:32px;margin-bottom:8px;opacity:0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
              Sem imagem
            </div>`;
-      return `<div style="flex:1;min-width:120px;max-width:calc(50% - 6px)">
+      return `<div style="width:280px;min-width:200px;max-width:100%">
         ${imgArea}
         ${ts ? `<div style="font-size:10px;color:var(--ink-light);margin-top:3px;text-align:center">🕐 ${ts}</div>` : ''}
         <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
