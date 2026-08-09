@@ -377,8 +377,10 @@ async function abrirRelatorio(id) {
       }
       console.log('fotos final:', fotos.length, 'grupos');
       currentRelatorio.fotos = fotos;
-      relatorios[relatorios.findIndex(r => r.id === id)].fotos = fotos;
+      const idxF = relatorios.findIndex(r => r.id === id);
+      if (idxF >= 0) relatorios[idxF].fotos = fotos;
       renderizarFotos();
+      console.log('renderizarFotos chamado');
     } catch(e) { console.error('erro fotos:', e); }
     mostrarLoadingFotos(false);
   });
