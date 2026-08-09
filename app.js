@@ -1176,11 +1176,15 @@ function renderizarFotos() {
   const n = grupos.reduce((acc, g) => acc + (g.fotos||[]).length, 0);
   const txt = n === 0 ? '' : `${n} foto${n!==1?'s':''}`;
   if (document.getElementById('badgeFotos')) document.getElementById('badgeFotos').textContent = txt;
+  if (document.getElementById('fotoBadgeCard')) document.getElementById('fotoBadgeCard').textContent = txt;
 
-  const list  = document.getElementById('fotoRegistroList');
+  let list  = document.getElementById('fotoRegistroList');
   const empty = document.getElementById('fotoEmpty');
-  console.log('fotoList existe:', !!list, 'grupos:', grupos.length);
-  if (!list) return;
+  // Se elemento não existe ainda, tentar novamente em 300ms
+  if (!list) {
+    setTimeout(renderizarFotos, 300);
+    return;
+  }
 
   if (grupos.length === 0) {
     list.innerHTML = '';
