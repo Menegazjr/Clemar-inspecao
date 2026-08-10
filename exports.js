@@ -229,20 +229,16 @@ if (item.tipo === 'foto') {
 
   const imgW = item.w || 800;
   const imgH = item.h || 600;
-  const ratio = imgW / imgH;
 
   // limites máximos
   const maxW = A4w * 0.35;   // 35% da largura da folha
   const maxH = A4h * 0.35;   // 35% da altura da folha
 
-  let renderW = maxW;
-  let renderH = renderW / ratio;
+  // fator de escala para caber nos limites
+  const scale = Math.min(maxW / imgW, maxH / imgH);
 
-  // se altura ultrapassar limite, ajusta proporcionalmente
-  if (renderH > maxH) {
-    renderH = maxH;
-    renderW = renderH * ratio;
-  }
+  const renderW = imgW * scale;
+  const renderH = imgH * scale;
 
   // quebra de página se não couber
   if (curY + renderH > A4h && curY > margin + 5) {
@@ -250,7 +246,7 @@ if (item.tipo === 'foto') {
     curY = margin;
   }
 
-  // alinhado à esquerda (usar margin)
+  // alinhado à esquerda
   pdf.addImage(item.base64, 'JPEG', margin, curY, renderW, renderH);
   curY += renderH + 4;
   continue;
