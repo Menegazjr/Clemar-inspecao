@@ -124,10 +124,10 @@ async function exportarPDF() {
           ${grupo.descricao ? `<p style="margin:0;color:#555">${grupo.descricao}</p>` : ''}
         </div>`);
       }
-      // Cada foto é um bloco separado
+      // Cada foto é um bloco separado com data-base64 para renderizar direto
       fotosDo.forEach((f, fi) => {
-        blocos.push(`<div class="pdf-section-block pdf-foto-block">
-          <img src="${f.base64}" style="width:100%;max-width:500px;border-radius:4px;display:block">
+        blocos.push(`<div class="pdf-section-block pdf-foto-block" data-tipo="foto" data-base64="${f.base64}" data-w="${f.largura||0}" data-h="${f.altura||0}">
+          <div style="height:4px"></div>
         </div>`);
       });
       return blocos;
@@ -204,16 +204,39 @@ async function exportarPDF() {
 
     // Pré-calcular alturas de todos os blocos
     const rendered = [];
+    const isMobile = window.innerWidth <= 600;
     for (const block of blocks) {
-      const bc = await html2canvas(block, {
-        scale: 1.8, useCORS: true, allowTaint: true,
-        backgroundColor: '#ffffff', logging: false
-      });
-      rendered.push({ canvas: bc, h: (bc.height * A4w) / bc.width });
+      if (block.getAttribute('data-tipo') === 'foto') {
+        // Foto: não usar html2canvas, guardar base64 para addImage direto
+        rendered.push({ tipo: 'foto', base64: block.getAttribute('data-base64'), w: parseInt(block.getAttribute('data-w')||0), h: parseInt(block.getAttribute('data-h')||0) });
+      } else {
+        const bc = await html2canvas(block, {
+          scale: isMobile ? 1.4 : 1.8,
+          useCORS: true, allowTaint: true,
+          backgroundColor: '#ffffff', logging: false
+        });
+        rendered.push({ tipo: 'canvas', canvas: bc, h: (bc.height * A4w) / bc.width });
+      }
+      if (isMobile) await new Promise(r => setTimeout(r, 0));
     }
 
     for (let ri = 0; ri < rendered.length; ri++) {
-      const { canvas: bc, h: blockH } = rendered[ri];
+      const item = rendered[ri];
+
+      // Foto: addImage direto sem html2canvas
+      if (item.tipo === 'foto') {
+        if (!item.base64) continue;
+        // Calcular altura proporcional ao A4
+        const imgW = item.w || 800;
+        const imgH = item.h || 600;
+        const fotoH = Math.min((imgH / imgW) * A4w, A4h * 0.7);
+        if (curY + fotoH > A4h && curY > margin + 5) { pdf.addPage(); curY = margin; }
+        pdf.addImage(item.base64, 'JPEG', margin, curY, A4w, fotoH);
+        curY += fotoH + 4;
+        continue;
+      }
+
+      const { canvas: bc, h: blockH } = item;
       if (blockH < 2) continue; // ignorar blocos vazios/invisíveis
 
       // Espaço extra antes das seções + regra 50%
