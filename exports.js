@@ -45,7 +45,7 @@
 
         // Soma: Altura do Texto + Altura da Foto + Margens de segurança (15mm)
         // Aumentamos o "respiro" para 15mm para forçar a quebra mais cedo
-        heightToCompare += photoH + 15; 
+        heightToCompare += photoH + 30; 
       }
 
       // Verifica se o conjunto (Título + Foto) cabe na página
