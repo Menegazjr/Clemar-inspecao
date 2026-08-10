@@ -154,3 +154,133 @@ async function exportarPDF() {
     showAlert('Erro ao gerar PDF: ' + err.message, 'err');
   }
 }
+
+// ═══════════════════════════════════════════════
+// LOGICA DE CARREGAMENTO E DASHBOARD (RESTORED)
+// ═══════════════════════════════════════════════
+
+let relatorios = []; // Memória global dos relatórios
+let relatorioAtivoId = null;
+
+// Função que o botão Exportar usa para saber qual relatório está na tela
+function getRelatorioAtual() {
+  return relatorios.find(r => r.id === relatorioAtivoId);
+}
+
+// BUSCA OS RELATÓRIOS NO BANCO DE DADOS
+async function carregarRelatorios() {
+  const container = document.getElementById('relatoriosList');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Carregando relatórios...</div>';
+
+  // Busca na tabela 'relatorios' do Supabase
+  const { data, error } = await supa
+    .from('relatorios')
+    .select('*')
+    .order('numero', { ascending: false });
+
+  if (error) {
+    showAlert('Erro ao carregar: ' + error.message, 'err');
+    return;
+  }
+
+  relatorios = data || [];
+  renderizarRelatorios();
+}
+
+// DESENHA OS CARDS NA TELA
+function renderizarRelatorios() {
+  const container = document.getElementById('relatoriosList');
+  if (!container) return;
+
+  if (relatorios.length === 0) {
+    container.innerHTML = '<div class="empty-state">Nenhum relatório encontrado.</div>';
+    return;
+  }
+
+  container.innerHTML = relatorios.map(r => `
+    <div class="report-card" onclick="abrirRelatorio('${r.id}')">
+      <div class="card-header">
+        <span class="report-num">#${String(r.numero).padStart(3, '0')}</span>
+        <button class="btn-menu-card" onclick="event.stopPropagation(); abrirMenuCard('${r.id}', ${r.numero})">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
+      </div>
+      <div class="card-body">
+        <h3 class="card-obra">${r.obra || 'Obra sem nome'}</h3>
+        <p class="card-info"><strong>Cliente:</strong> ${r.cliente || '—'}</p>
+        <p class="card-info"><strong>Data:</strong> ${fmtData(r.data)}</p>
+      </div>
+      <div class="card-footer">
+        <span class="card-user">👤 ${r.responsavel || '—'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+// ═══════════════════════════════════════════════
+// LOGICA DE CARREGAMENTO E DASHBOARD (RESTORED)
+// ═══════════════════════════════════════════════
+
+let relatorios = []; // Memória global dos relatórios
+let relatorioAtivoId = null;
+
+// Função que o botão Exportar usa para saber qual relatório está na tela
+function getRelatorioAtual() {
+  return relatorios.find(r => r.id === relatorioAtivoId);
+}
+
+// BUSCA OS RELATÓRIOS NO BANCO DE DADOS
+async function carregarRelatorios() {
+  const container = document.getElementById('relatoriosList');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Carregando relatórios...</div>';
+
+  // Busca na tabela 'relatorios' do Supabase
+  const { data, error } = await supa
+    .from('relatorios')
+    .select('*')
+    .order('numero', { ascending: false });
+
+  if (error) {
+    showAlert('Erro ao carregar: ' + error.message, 'err');
+    return;
+  }
+
+  relatorios = data || [];
+  renderizarRelatorios();
+}
+
+// DESENHA OS CARDS NA TELA
+function renderizarRelatorios() {
+  const container = document.getElementById('relatoriosList');
+  if (!container) return;
+
+  if (relatorios.length === 0) {
+    container.innerHTML = '<div class="empty-state">Nenhum relatório encontrado.</div>';
+    return;
+  }
+
+  container.innerHTML = relatorios.map(r => `
+    <div class="report-card" onclick="abrirRelatorio('${r.id}')">
+      <div class="card-header">
+        <span class="report-num">#${String(r.numero).padStart(3, '0')}</span>
+        <button class="btn-menu-card" onclick="event.stopPropagation(); abrirMenuCard('${r.id}', ${r.numero})">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
+      </div>
+      <div class="card-body">
+        <h3 class="card-obra">${r.obra || 'Obra sem nome'}</h3>
+        <p class="card-info"><strong>Cliente:</strong> ${r.cliente || '—'}</p>
+        <p class="card-info"><strong>Data:</strong> ${fmtData(r.data)}</p>
+      </div>
+      <div class="card-footer">
+        <span class="card-user">👤 ${r.responsavel || '—'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Chamar automaticamente ao carregar a página
+document.addEventListener('DOMContentLoaded', carregarRelatorios);
