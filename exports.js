@@ -119,7 +119,7 @@ async function exportarPDF() {
       const blocos = [];
       // Título e descrição do grupo
       if (grupo.titulo || grupo.descricao) {
-        blocos.push(`<div class="pdf-section-block" style="margin-bottom:2px">
+        blocos.push(`<div class="pdf-section-block" data-tipo="foto-titulo" style="margin-bottom:2px">
           ${grupo.titulo ? `<p style="font-weight:bold;margin:0 0 2px">${grupo.titulo}</p>` : ''}
           ${grupo.descricao ? `<p style="margin:0;color:#555">${grupo.descricao}</p>` : ''}
         </div>`);
@@ -215,7 +215,7 @@ async function exportarPDF() {
           useCORS: true, allowTaint: true,
           backgroundColor: '#ffffff', logging: false
         });
-        rendered.push({ tipo: 'canvas', canvas: bc, h: (bc.height * A4w) / bc.width });
+        rendered.push({ tipo: 'canvas', canvas: bc, h: (bc.height * A4w) / bc.width, isTituloFoto: block.getAttribute('data-tipo') === 'foto-titulo' });
       }
       if (isMobile) await new Promise(r => setTimeout(r, 0));
     }
@@ -267,8 +267,19 @@ if (item.tipo === 'foto') {
         }
       }
 
+      // Se o bloco é o título/descrição de um grupo de fotos, considerar também a altura
+      // da primeira foto do grupo, para não separar o título da foto entre páginas
+      let blockHParaQuebra = blockH;
+      if (item.isTituloFoto && rendered[ri + 1] && rendered[ri + 1].tipo === 'foto') {
+        const proxFoto = rendered[ri + 1];
+        const imgW = proxFoto.w || 800, imgH = proxFoto.h || 600;
+        const maxW = A4w * 0.35, maxH = A4h * 0.35;
+        const scaleFoto = Math.min(maxW / imgW, maxH / imgH);
+        blockHParaQuebra = blockH + (imgH * scaleFoto) + 4; // +4mm de respiro entre título e foto
+      }
+
       // Se não cabe na página atual, nova página — mas só se já tem conteúdo
-      if (curY + blockH > A4h && curY > margin + 5) {
+      if (curY + blockHParaQuebra > A4h && curY > margin + 5) {
         pdf.addPage();
         curY = margin;
       }
