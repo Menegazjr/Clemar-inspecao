@@ -223,18 +223,40 @@ async function exportarPDF() {
     for (let ri = 0; ri < rendered.length; ri++) {
       const item = rendered[ri];
 
-      // Foto: addImage direto sem html2canvas
-      if (item.tipo === 'foto') {
-        if (!item.base64) continue;
-        // Calcular altura proporcional ao A4
-        const imgW = item.w || 800;
-        const imgH = item.h || 600;
-        const fotoH = Math.min((imgH / imgW) * A4w, A4h * 0.7);
-        if (curY + fotoH > A4h && curY > margin + 5) { pdf.addPage(); curY = margin; }
-        pdf.addImage(item.base64, 'JPEG', margin, curY, A4w, fotoH);
-        curY += fotoH + 4;
-        continue;
-      }
+  // Foto: addImage direto sem html2canvas
+if (item.tipo === 'foto') {
+  if (!item.base64) continue;
+
+  const imgW = item.w || 800;
+  const imgH = item.h || 600;
+  const ratio = imgW / imgH;
+
+  // largura máxima = 35% da largura útil da folha
+  const maxW = A4w * 0.35;
+  let renderW = maxW;
+  let renderH = renderW / ratio;
+
+  // limitar altura se ficar muito grande (ex: 70% da altura da folha)
+  if (renderH > A4h * 0.7) {
+    renderH = A4h * 0.7;
+    renderW = renderH * ratio;
+  }
+
+  // se não couber na página atual, cria nova
+  if (curY + renderH > A4h && curY > margin + 5) {
+    pdf.addPage();
+    curY = margin;
+  }
+
+  // centralizar horizontalmente
+  const posX = (A4w - renderW) / 2 + margin;
+
+  // desenhar imagem proporcional
+  pdf.addImage(item.base64, 'JPEG', posX, curY, renderW, renderH);
+  curY += renderH + 4;
+  continue;
+}
+
 
       const { canvas: bc, h: blockH } = item;
       if (blockH < 2) continue; // ignorar blocos vazios/invisíveis
