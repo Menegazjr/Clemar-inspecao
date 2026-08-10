@@ -303,15 +303,24 @@ function renderizarFotos() {
 
 function abrirViewer(fotoId, grupoId) {
   const r = getRelatorioAtual(); if (!r) return;
-  const f = (r.fotos||[]).find(x=>x.id===fotoId);
-  if (!f||!f.base64) return;
-  document.getElementById('viewerImg').src = f.base64;
+  // Correção: as fotos ficam DENTRO de cada grupo (r.fotos = grupos, grupo.fotos = fotos)
+  const grupo = (r.fotos||[]).find(g => g.id === grupoId);
+  const f = grupo && (grupo.fotos||[]).find(x => x.id === fotoId);
+  if (!f || !f.base64) return;
+
+  const img = document.getElementById('viewerImg');
+  img.src = f.base64;
+  // O destaque (hover) da foto expandida é feito via CSS em .foto-viewer-img:hover
+
   document.getElementById('viewerInfo').textContent = f.local ? `📍 ${f.local}` : '';
   document.getElementById('fotoViewer').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
 function fecharViewer(e) { if(e.target===document.getElementById('fotoViewer')) fecharViewerBtn(); }
-function fecharViewerBtn() { document.getElementById('fotoViewer').classList.remove('open'); document.body.style.overflow=''; }
+function fecharViewerBtn() {
+  document.getElementById('fotoViewer').classList.remove('open');
+  document.body.style.overflow = '';
+}
 
 // ═══════════════════════════════════════════════
 //  EXPORTAR PDF

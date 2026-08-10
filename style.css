@@ -293,7 +293,8 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .add-foto-area .add-sub { font-size: 11px; margin-top: 4px; opacity: 0.7; }
 .foto-viewer { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.93); z-index: 600; align-items: center; justify-content: center; padding: 16px; flex-direction: column; gap: 12px; }
 .foto-viewer.open { display: flex; }
-.foto-viewer-img { max-width: 100%; max-height: 80vh; border-radius: 6px; object-fit: contain; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
+.foto-viewer-img { max-width: 100%; max-height: 80vh; border-radius: 6px; object-fit: contain; box-shadow: 0 8px 40px rgba(0,0,0,0.6); transition: box-shadow 0.2s ease, transform 0.2s ease; }
+.foto-viewer-img:hover { transform: scale(1.015); box-shadow: 0 0 0 3px var(--accent), 0 16px 56px rgba(0,0,0,0.7); }
 .foto-viewer-info { color: rgba(255,255,255,0.6); font-size: 12px; font-family: var(--font-mono); }
 .export-overlay { display: none; position: fixed; inset: 0; background: rgba(10,20,35,0.8); z-index: 700; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
 .export-overlay.open { display: flex; }
