@@ -1,4 +1,7 @@
 // ═══════════════════════════════════════════════
+// FUNÇÕES DE PROCESSAMENTO DE HTML PARA O PDF
+// ═══════════════════════════════════════════════
+
 function blocosPdfHtml(html, secao) {
   const sa = secao ? ` data-secao="${secao}"` : '';
   if (!html) return `<div class="pdf-section-block"${sa}><p style="color:#999;margin:0">—</p></div>`;
@@ -85,11 +88,14 @@ function htmlParaPdfParas(html) {
   return result.length ? result.join('') : '<p style="margin:0 0 5px">—</p>';
 }
 
+// ═══════════════════════════════════════════════
+// FUNÇÃO DE EXPORTAÇÃO PDF (CORRIGIDA)
+// ═══════════════════════════════════════════════
+
 async function exportarPDF() {
   const r = getRelatorioAtual();
   if (!r) { showAlert('Nenhum relatório aberto.','warn'); return; }
 
-  // 1. SALVAR DADOS DOS CAMPOS
   r.data           = document.getElementById('fieldData').value || null;
   r.obra           = document.getElementById('fieldObra').value;
   r.localidade     = document.getElementById('fieldLocalidade').value;
@@ -110,19 +116,17 @@ async function exportarPDF() {
   try {
     const area = document.getElementById('pdfArea');
 
-    // 2. GERAR HTML DAS FOTOS COM MARCAÇÃO DE CABEÇALHO
+    // Cabeçalho de fotos marcado com data-tipo="header-foto"
     const fotosHtml = (r.fotos||[]).flatMap((grupo, gi) => {
       const fotosDo = (grupo.fotos||[]).filter(f=>f.base64);
       if (fotosDo.length === 0) return [];
       const blocos = [];
-      
       if (grupo.titulo || grupo.descricao) {
         blocos.push(`<div class="pdf-section-block" data-tipo="header-foto" style="margin-bottom:2px">
           ${grupo.titulo ? `<p style="font-weight:bold;margin:0 0 2px">${grupo.titulo}</p>` : ''}
           ${grupo.descricao ? `<p style="margin:0;color:#555">${grupo.descricao}</p>` : ''}
         </div>`);
       }
-      
       fotosDo.forEach((f, fi) => {
         blocos.push(`<div class="pdf-section-block pdf-foto-block" data-tipo="foto" data-base64="${f.base64}" data-w="${f.largura||0}" data-h="${f.altura||0}">
           <div style="height:4px"></div>
@@ -131,7 +135,9 @@ async function exportarPDF() {
       return blocos;
     }).join('');
 
-    // 3. MONTAR O CORPO DO RELATÓRIO
+    // COLE SUA STRING DE LOGO AQUI SE NECESSÁRIO
+    const _logoB64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAABECAYAAAA7R...'; 
+
     area.innerHTML = `
       <div class="pdf-section-block"><div class="pdf-header">
         <img src="logo-clemar-cores.png" style="height:48px;width:auto;display:block;margin:0 auto 12px" alt="Clemar Engenharia">
@@ -172,83 +178,53 @@ async function exportarPDF() {
       </div>`;
 
     await new Promise(res=>setTimeout(res,300));
-    
-    // 4. CONFIGURAÇÃO DO PDF
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const A4w = 190, A4h = 277, margin = 10;
+
     const blocks = Array.from(area.querySelectorAll('.pdf-section-block'));
     let curY = margin;
 
-    // 5. PRÉ-CÁLCULO DE ALTURAS DOS BLOCOS
     const rendered = [];
     for (const block of blocks) {
       if (block.getAttribute('data-tipo') === 'foto') {
-        rendered.push({ 
-          tipo: 'foto', 
-          base64: block.getAttribute('data-base64'), 
-          w: parseInt(block.getAttribute('data-w')||800), 
-          h: parseInt(block.getAttribute('data-h')||600) 
-        });
+        rendered.push({ tipo: 'foto', base64: block.getAttribute('data-base64'), w: parseInt(block.getAttribute('data-w')||800), h: parseInt(block.getAttribute('data-h')||600) });
       } else {
         const bc = await html2canvas(block, { scale: 1.8, useCORS: true, backgroundColor: '#ffffff' });
-        rendered.push({ 
-          tipo: 'canvas', 
-          canvas: bc, 
-          h: (bc.height * A4w) / bc.width,
-          isHeaderFoto: block.getAttribute('data-tipo') === 'header-foto'
-        });
+        rendered.push({ tipo: 'canvas', canvas: bc, h: (bc.height * A4w) / bc.width, isHeaderFoto: block.getAttribute('data-tipo') === 'header-foto' });
       }
     }
 
-    // 6. GERAÇÃO DAS PÁGINAS COM LÓGICA DE AGRUPAMENTO
     for (let ri = 0; ri < rendered.length; ri++) {
       const item = rendered[ri];
       if (item.tipo === 'canvas' && item.h < 2) continue;
-
-      let heightToCompare = item.h;
-
-      // Se este bloco for o cabeçalho das fotos, verifica se a PRIMEIRA FOTO cabe junto
+      let hComp = item.h;
       if (item.isHeaderFoto && rendered[ri + 1]?.tipo === 'foto') {
         const f = rendered[ri + 1];
-        const scale = Math.min((A4w * 0.35) / f.w, (A4h * 0.35) / f.h);
-        const photoH = (f.h * scale);
-        // Soma Altura Texto + Foto + Margem de Segurança (15mm)
-        heightToCompare += photoH + 15;
+        const sc = Math.min((A4w * 0.35) / f.w, (A4h * 0.35) / f.h);
+        hComp += (f.h * sc) + 15;
       }
-
-      // Se não couber o bloco (ou o grupo vinculado), pula a página
-      if (curY + heightToCompare > A4h && curY > margin + 5) {
-        pdf.addPage();
-        curY = margin;
-      }
-
+      if (curY + hComp > A4h && curY > margin + 5) { pdf.addPage(); curY = margin; }
       if (item.tipo === 'foto') {
-        const scale = Math.min((A4w * 0.35) / item.w, (A4h * 0.35) / item.h);
-        const rW = item.w * scale; const rH = item.h * scale;
-        pdf.addImage(item.base64, 'JPEG', margin, curY, rW, rH);
-        curY += rH + 4;
+        const sc = Math.min((A4w * 0.35) / item.w, (A4h * 0.35) / item.h);
+        pdf.addImage(item.base64, 'JPEG', margin, curY, item.w * sc, item.h * sc);
+        curY += (item.h * sc) + 4;
       } else {
         pdf.addImage(item.canvas.toDataURL('image/jpeg', 0.88), 'JPEG', margin, curY, A4w, item.h);
         curY += item.h + 2;
       }
     }
-
-    const nome = `Relatorio_Visita_${String(r.numero).padStart(3,'0')}.pdf`;
-    pdf.save(nome);
+    pdf.save(`Relatorio_${r.numero}.pdf`);
     area.innerHTML = '';
     ov.classList.remove('open');
     showAlert('PDF gerado!', 'ok');
-
   } catch(err) {
-    console.error(err);
-    ov.classList.remove('open');
-    showAlert('Erro ao gerar PDF: ' + err.message, 'err');
+    console.error(err); ov.classList.remove('open'); showAlert('Erro: ' + err.message, 'err');
   }
 }
 
 // ═══════════════════════════════════════════════
-//  UTILS E FUNÇÕES ADMINISTRATIVAS (Restante do arquivo)
+// UTILS E INTERFACE (RESTORED)
 // ═══════════════════════════════════════════════
 
 function calcTamanho(r) {
@@ -257,25 +233,55 @@ function calcTamanho(r) {
   if (bytes < 1024*1024) return (bytes/1024).toFixed(0) + ' KB';
   return (bytes/(1024*1024)).toFixed(2) + ' MB';
 }
-
+function fmtBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(0) + ' KB';
+  return (bytes/(1024*1024)).toFixed(2) + ' MB';
+}
 function fmtData(iso) {
   if (!iso) return '—';
   const [y,m,d] = iso.split('-');
   return `${d}/${m}/${y}`;
 }
-
 function fmtDataHora(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
 }
+function fecharModal(id) { document.getElementById(id).classList.remove('open'); }
 
+let _alertTimer = null;
 function showAlert(msg, type) {
   const el = document.getElementById('alertBox');
   el.textContent = msg;
   el.className = `alert alert-${type} show`;
-  setTimeout(() => el.classList.remove('show'), 3200);
+  clearTimeout(_alertTimer);
+  _alertTimer = setTimeout(() => el.classList.remove('show'), 3200);
 }
 
-// ... (Aqui continuam as outras funções como carregarUsuariosAdmin, abrirAdmin, etc.)
-// Recomendo manter as funções de Admin que já estavam no seu arquivo original abaixo deste ponto.
+let _menuCardId = null;
+let _menuCardNum = null;
+
+function abrirMenuCard(id, num) {
+  _menuCardId = id;
+  _menuCardNum = num;
+  document.getElementById('cardMenuTitle').textContent = 'Relatório #' + String(num).padStart(3,'0');
+  document.getElementById('cardMenuOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function fecharMenuCard() {
+  document.getElementById('cardMenuOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function abrirAdmin() {
+  document.getElementById('adminPanel').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  await carregarUsuariosAdmin();
+}
+function fecharAdmin() {
+  document.getElementById('adminPanel').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ... (Aqui você deve manter as funções de Admin: carregarUsuariosAdmin, aprovarUsuario, etc. que já estavam no seu arquivo)
