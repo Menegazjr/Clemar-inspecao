@@ -236,7 +236,7 @@ function htmlParaParas(html) {
 
 // Converte HTML rico em runs do Word com formatação
 function htmlParaRuns(html) {
-  if (!html) return [new TextRun({ text: '—', size: 20, font: 'Arial' })];
+  if (!html) return [new docx.TextRun({ text: '—', size: 20, font: 'Arial' })];
   const div = document.createElement('div');
   div.innerHTML = html;
   const runs = [];
@@ -263,7 +263,7 @@ function htmlParaRuns(html) {
   }
 
   div.childNodes.forEach(processNode);
-  return runs.map(r => new TextRun({
+  return runs.map(r => new docx.TextRun({
     text: r.text || '',
     bold: r.bold || false,
     italics: r.italic || false,
