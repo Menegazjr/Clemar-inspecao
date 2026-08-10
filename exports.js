@@ -112,16 +112,25 @@ async function exportarPDF() {
   ov.classList.add('open'); msg.textContent = 'Preparando PDF...';
   try {
     const area = document.getElementById('pdfArea');
+    // Cada foto vira um bloco separado para evitar corte entre páginas
     const fotosHtml = (r.fotos||[]).flatMap((grupo, gi) => {
       const fotosDo = (grupo.fotos||[]).filter(f=>f.base64);
       if (fotosDo.length === 0) return [];
-      return [`<div class="pdf-section-block" style="margin-bottom:4px">
-        ${grupo.titulo ? `<p style="font-weight:bold;margin:0 0 2px">${grupo.titulo}</p>` : ''}
-        ${grupo.descricao ? `<p style="margin:0 0 6px;color:#555">${grupo.descricao}</p>` : ''}
-        ${fotosDo.map((f,fi) => `<div style="margin-bottom:8px">
+      const blocos = [];
+      // Título e descrição do grupo
+      if (grupo.titulo || grupo.descricao) {
+        blocos.push(`<div class="pdf-section-block" style="margin-bottom:2px">
+          ${grupo.titulo ? `<p style="font-weight:bold;margin:0 0 2px">${grupo.titulo}</p>` : ''}
+          ${grupo.descricao ? `<p style="margin:0;color:#555">${grupo.descricao}</p>` : ''}
+        </div>`);
+      }
+      // Cada foto é um bloco separado
+      fotosDo.forEach((f, fi) => {
+        blocos.push(`<div class="pdf-section-block pdf-foto-block">
           <img src="${f.base64}" style="width:100%;max-width:500px;border-radius:4px;display:block">
-        </div>`).join('')}
-      </div>`];
+        </div>`);
+      });
+      return blocos;
     }).join('');
     const _fotosHtmlLegacy = (r.fotos||[]).map((f,i) => `
       <div class="pdf-section-block pdf-foto-block">
