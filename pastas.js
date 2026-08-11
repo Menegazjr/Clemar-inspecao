@@ -182,64 +182,74 @@ async function exportarWord() {
     if (!r.fotos || r.fotos.length === 0) {
       pushBloco(children, 'Nenhuma foto registrada nesta visita.');
     } else {
-      for (let i = 0; i < r.fotos.length; i++) {
-        const f = r.fotos[i];
-        msg.textContent = `Processando foto ${i+1} de ${r.fotos.length}...`;
-        await new Promise(x => setTimeout(x, 20));
+      const totalFotos = r.fotos.reduce((acc, g) => acc + ((g.fotos||[]).filter(f => f.base64).length), 0);
+      if (totalFotos === 0) {
+        pushBloco(children, 'Nenhuma foto registrada nesta visita.');
+      } else {
+        let fotoIndex = 0;
+        for (const grupo of r.fotos) {
+          const fotosDoGrupo = (grupo.fotos || []).filter(f => f.base64);
+          if (fotosDoGrupo.length === 0) continue;
 
-        // Número da foto
-        children.push(new Paragraph({
-          spacing: { before: 200, after: 80 },
-          children: [
-            new TextRun({ text: `FOTO ${String(i+1).padStart(2,'0')}`, bold: true, size: 22, font: 'Arial', color: 'E8A020' }),
-            new TextRun({ text: f.local ? `  —  ${f.local}` : '', size: 20, font: 'Arial', color: '1A2940' }),
-          ],
-        }));
-
-        // Imagem
-        if (f.base64 && f.base64.length > 100) {
-          try {
-            // Converte para PNG real (a lib docx.js grava sempre como .png)
-            const pngBase64 = await converterParaPngBase64(f.base64);
-            // Dimensões em pixels (ImageRun recebe px, não EMU)
-            const maxPxW = 530;
-            let pxW, pxH;
-            if (f.largura && f.altura && f.largura > 0) {
-              const ratio = f.altura / f.largura;
-              pxW = Math.min(f.largura, maxPxW);
-              pxH = Math.round(pxW * ratio);
-              const maxPxH = 420;
-              if (pxH > maxPxH) { pxH = maxPxH; pxW = Math.round(pxH / ratio); }
-            } else {
-              pxW = maxPxW; pxH = Math.round(maxPxW * 0.75);
+          // Título / descrição do grupo
+          if (grupo.titulo || grupo.descricao) {
+            if (grupo.titulo) {
+              children.push(new Paragraph({
+                spacing: { before: 160, after: 20 },
+                children: [new TextRun({ text: grupo.titulo, bold: true, size: 22, font: 'Arial', color: '1A2940' })],
+              }));
             }
-            children.push(new Paragraph({
-              spacing: { before: 40, after: 60 },
-              children: [new ImageRun({ data: pngBase64, transformation: { width: pxW, height: pxH } })],
-            }));
-          } catch(e) {
-            console.error('ImageRun erro:', e); pushBloco(children, '[Foto ' + (i+1) + ': ' + e.message + ']');
+            if (grupo.descricao) {
+              children.push(new Paragraph({
+                spacing: { before: 0, after: 80 },
+                children: [new TextRun({ text: grupo.descricao, size: 20, font: 'Arial', color: '555555' })],
+              }));
+            }
           }
-        } else {
-          pushBloco(children, '[Sem foto]');
-        }
 
-        // Descrição
-        children.push(new Paragraph({
-          spacing: { before: 60, after: 40 },
-          children: [new TextRun({ text: '📍 Local: ', bold: true, size: 20, font: 'Arial', color: '1A2940' }),
-                     new TextRun({ text: f.local || '—', size: 20, font: 'Arial' })],
-        }));
-        children.push(new Paragraph({
-          spacing: { before: 40, after: 60 },
-          children: [new TextRun({ text: '📝 Descrição: ', bold: true, size: 20, font: 'Arial', color: '1A2940' }),
-                     new TextRun({ text: f.descricao || '—', size: 20, font: 'Arial' })],
-        }));
-        children.push(new Paragraph({
-          spacing: { before: 20, after: 120 },
-          border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'E0E0E0', space: 2 } },
-          children: [],
-        }));
+          for (const f of fotosDoGrupo) {
+            fotoIndex++;
+            msg.textContent = `Processando foto ${fotoIndex} de ${totalFotos}...`;
+            await new Promise(x => setTimeout(x, 20));
+
+            // Número da foto
+            children.push(new Paragraph({
+              spacing: { before: 100, after: 80 },
+              children: [new TextRun({ text: `FOTO ${String(fotoIndex).padStart(2,'0')}`, bold: true, size: 22, font: 'Arial', color: 'E8A020' })],
+            }));
+
+            // Imagem
+            try {
+              // Converte para PNG real (a lib docx.js grava sempre como .png)
+              const pngBase64 = await converterParaPngBase64(f.base64);
+              // Dimensões em pixels (ImageRun recebe px, não EMU)
+              const maxPxW = 530;
+              let pxW, pxH;
+              if (f.largura && f.altura && f.largura > 0) {
+                const ratio = f.altura / f.largura;
+                pxW = Math.min(f.largura, maxPxW);
+                pxH = Math.round(pxW * ratio);
+                const maxPxH = 420;
+                if (pxH > maxPxH) { pxH = maxPxH; pxW = Math.round(pxH / ratio); }
+              } else {
+                pxW = maxPxW; pxH = Math.round(maxPxW * 0.75);
+              }
+              children.push(new Paragraph({
+                spacing: { before: 40, after: 60 },
+                children: [new ImageRun({ data: pngBase64, transformation: { width: pxW, height: pxH } })],
+              }));
+            } catch(e) {
+              console.error('ImageRun erro:', e);
+              pushBloco(children, '[Erro ao inserir foto ' + fotoIndex + ': ' + e.message + ']');
+            }
+
+            children.push(new Paragraph({
+              spacing: { before: 20, after: 120 },
+              border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'E0E0E0', space: 2 } },
+              children: [],
+            }));
+          }
+        }
       }
     }
 
