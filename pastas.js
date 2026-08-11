@@ -104,8 +104,15 @@ async function exportarWord() {
     // ── Logo no cabeçalho do Word — mesmo arquivo do login ──
     try {
       const resp = await fetch('logo-clemar-cores.png');
+      if (!resp.ok) throw new Error('logo não encontrado (HTTP ' + resp.status + ')');
       const buf  = await resp.arrayBuffer();
       const arr  = new Uint8Array(buf);
+      // Valida assinatura PNG real (89 50 4E 47 0D 0A 1A 0A) antes de
+      // embutir — se o fetch trouxe HTML de erro (404) ou outra coisa,
+      // isso corromperia o .docx inteiro.
+      const PNG_SIG = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+      const isPng = arr.length > 8 && PNG_SIG.every((b, i) => arr[i] === b);
+      if (!isPng) throw new Error('arquivo do logo não é um PNG válido');
       children.push(new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { before: 0, after: 120 },
