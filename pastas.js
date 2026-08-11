@@ -180,7 +180,7 @@ async function exportarWord() {
     children.push(secTitle('03 — REGISTRO FOTOGRÁFICO'));
 
     if (!r.fotos || r.fotos.length === 0) {
-      children.push(bloco('Nenhuma foto registrada nesta visita.'));
+      pushBloco(children, 'Nenhuma foto registrada nesta visita.');
     } else {
       for (let i = 0; i < r.fotos.length; i++) {
         const f = r.fotos[i];
@@ -218,10 +218,10 @@ async function exportarWord() {
               children: [new ImageRun({ data: pngBase64, transformation: { width: pxW, height: pxH } })],
             }));
           } catch(e) {
-            console.error('ImageRun erro:', e); children.push(bloco('[Foto ' + (i+1) + ': ' + e.message + ']'));
+            console.error('ImageRun erro:', e); pushBloco(children, '[Foto ' + (i+1) + ': ' + e.message + ']');
           }
         } else {
-          children.push(bloco('[Sem foto]'));
+          pushBloco(children, '[Sem foto]');
         }
 
         // Descrição
