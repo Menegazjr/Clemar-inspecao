@@ -1,3 +1,23 @@
+// Converte qualquer imagem (JPEG, etc.) para PNG real via canvas.
+// Necessário porque a lib docx.js sempre grava a imagem internamente
+// com extensão/tipo ".png", não importa o formato original — se os
+// bytes não forem realmente PNG, o Word considera o arquivo corrompido.
+function converterParaPngBase64(dataUri) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => reject(new Error('Falha ao carregar imagem para conversão PNG'));
+    img.src = dataUri;
+  });
+}
+
 // ═══════════════════════════════════════════════
 async function exportarWord() {
   const r = getRelatorioAtual();
@@ -172,7 +192,8 @@ async function exportarWord() {
         // Imagem
         if (f.base64 && f.base64.length > 100) {
           try {
-            // data URI passado diretamente para ImageRun
+            // Converte para PNG real (a lib docx.js grava sempre como .png)
+            const pngBase64 = await converterParaPngBase64(f.base64);
             // Dimensões em pixels (ImageRun recebe px, não EMU)
             const maxPxW = 530;
             let pxW, pxH;
@@ -187,7 +208,7 @@ async function exportarWord() {
             }
             children.push(new Paragraph({
               spacing: { before: 40, after: 60 },
-              children: [new ImageRun({ data: f.base64, transformation: { width: pxW, height: pxH } })],
+              children: [new ImageRun({ data: pngBase64, transformation: { width: pxW, height: pxH } })],
             }));
           } catch(e) {
             console.error('ImageRun erro:', e); children.push(bloco('[Foto ' + (i+1) + ': ' + e.message + ']'));
