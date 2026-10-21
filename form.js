@@ -277,7 +277,7 @@ function renderizarFotos() {
         </div>
         <div class="field" style="margin-bottom:12px">
           <label style="font-size:11px">Descrição</label>
-          <textarea id="desc_${grupo.id}" rows="4" placeholder="Descreva o que está sendo fotografado..."
+          <textarea id="desc_${grupo.id}" rows="5" placeholder="Descreva o que está sendo fotografado..."
             onchange="salvarCamposFoto('${grupo.id}')" style="font-size:13px">${grupo.descricao||''}</textarea>
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">

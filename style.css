@@ -237,7 +237,7 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 }
 .field select { -webkit-appearance: auto; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); background: #fff; }
-.field textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+.field textarea { resize: vertical; min-height: 140px; line-height: 1.6; }
 .auto-value { padding: 9px 11px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); font-family: var(--font-mono); font-size: 14px; color: var(--steel); }
 .auto-value.big { font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
 .status-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
