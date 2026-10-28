@@ -27,7 +27,7 @@ body { height:100dvh; overflow:hidden; }
 .item b { font-family:var(--font-cond); font-size:15px; display:block; }
 .item span { font-size:12px; color:rgba(255,255,255,.6); }
 .vazio { color:rgba(255,255,255,.5); font-size:13px; text-align:center; padding:24px 10px; }
-#mapbox { position:relative; flex:1; min-width:0; background:#dfe6ec; }
+#mapbox { position:relative; flex:1; min-width:0; background:#15233a; }
 #map { position:absolute; inset:0; }
 .btn-blue { background:var(--blue); color:#fff; } .btn-blue:hover { background:#0879c0; }
 .panel { position:absolute; top:12px; right:12px; width:330px; max-height:calc(100% - 24px); overflow:auto; background:rgba(255,255,255,.97); border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.45); padding:16px; display:none; z-index:5; }
@@ -57,6 +57,10 @@ body { height:100dvh; overflow:hidden; }
 </style>
 </head>
 <body>
+<div id="bannerUpdate" style="display:none;background:var(--steel);color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:12px;font-family:var(--font-cond);border-bottom:2px solid var(--blue)">
+  <span style="font-size:14px;font-weight:600">Nova versão disponível</span>
+  <button class="btn btn-blue btn-sm" onclick="aplicarAtualizacao()">🔄 Atualizar agora</button>
+</div>
 <nav class="topnav">
   <div class="topnav-brand">
     <div class="topnav-logo"><img src="logo-clemar.png" alt="Clemar Engenharia"></div>
@@ -72,11 +76,10 @@ body { height:100dvh; overflow:hidden; }
 <div class="wrap">
   <aside id="side">
     <div class="side-head">
-      <h2>Obras <small id="cont">0</small></h2>
+      <h2><span>Obras <small id="cont">0</small></span><button class="btn btn-steel btn-sm" onclick="carregar().then(()=>toast('Obras atualizadas'))" title="Atualizar obras" style="padding:2px 10px">↻</button></h2>
       <input class="inp" id="busca" placeholder="Buscar obra, cliente ou cidade…" oninput="renderLista()">
       <button class="btn btn-steel" onclick="verBrasil()" style="justify-content:center">Ver Brasil</button>
       <button class="btn btn-steel" id="btnNomes" onclick="alternarNomes()" style="justify-content:center"></button>
-      <button class="btn btn-steel" id="btnTema" onclick="alternarTema()" style="justify-content:center"></button>
     </div>
     <div id="lista"></div>
   </aside>
@@ -96,7 +99,7 @@ body { height:100dvh; overflow:hidden; }
       <div class="fld"><label>Status</label>
         <select class="inp" id="fStatus"><option>Em andamento</option><option>Planejada</option><option>Concluída</option><option>Parada</option></select></div>
       <div class="fld"><label>Cor do pino</label>
-        <select class="inp" id="fCor"><option value="">Automática (pela cor do status)</option><option value="#19b4ff">Azul</option><option value="#27ae60">Verde</option><option value="#e8a020">Âmbar</option><option value="#ff7a1a">Laranja</option><option value="#c0392b">Vermelho</option><option value="#ff5fa2">Rosa</option><option value="#b57bff">Roxo</option><option value="#1a2940">Marinho</option></select></div>
+        <select class="inp" id="fCor"><option value="">Automática (pela cor do status)</option><option value="#19b4ff">Azul</option><option value="#27ae60">Verde</option><option value="#e8a020">Âmbar</option><option value="#ff7a1a">Laranja</option><option value="#c0392b">Vermelho</option><option value="#ff5fa2">Rosa</option><option value="#b57bff">Roxo</option><option value="#ffffff">Branco</option></select></div>
       <div class="fld"><label>Link do supervisório</label><input class="inp" id="fLink" placeholder="https://…" inputmode="url"></div>
       <div class="fld"><label>Observações</label><textarea class="inp" id="fObs" rows="2"></textarea></div>
       <div class="acts"><button class="btn btn-primary" onclick="salvar()">Salvar</button><button class="btn btn-outline" onclick="fecharForm()">Cancelar</button></div>
@@ -129,24 +132,41 @@ let map, obras = [], marcas = {}, user = null, podeEditar = false, editId = null
 function toast(t) { const e = el('toast'); e.textContent = t; e.style.display = 'block'; setTimeout(() => e.style.display = 'none', 3000); }
 
 // ── MAPA ──
-const TEMAS = { claro: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json', escuro: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' };
-let tema = 'claro'; try { tema = localStorage.getItem('mapaTema') === 'escuro' ? 'escuro' : 'claro'; } catch (e) {}
+const COR_TERRA = '#2f4561', COR_AGUA = '#15233a';
+const UF_URLS = ['https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application%2Fvnd.geo%2Bjson&intrarregiao=UF&qualidade=minima',
+                 'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson'];
+let ufData = null;
 map = new maplibregl.Map({
-  container: 'map', style: TEMAS[tema],
-  center: [-52, -14], zoom: 3.4, pitch: 30, bearing: 0, maxPitch: 75,
-  dragRotate: false, pitchWithRotate: false, attributionControl: { compact: true }
+  container: 'map', style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  center: [-52, -14], zoom: 3.4, pitch: 0, maxPitch: 0, bearing: 0,
+  dragRotate: false, attributionControl: { compact: true }
 });
-map.touchZoomRotate.disableRotation(); map.keyboard.disableRotation();   // norte sempre para cima
+map.touchZoomRotate.disableRotation(); map.keyboard.disableRotation();   // norte sempre para cima, sem inclinação
 map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'bottom-right');
-function alternarTema() {
-  tema = tema === 'claro' ? 'escuro' : 'claro';
-  try { localStorage.setItem('mapaTema', tema); } catch (e) {}
-  map.setStyle(TEMAS[tema]); rotuloTema();
+// Terra em azul-acinzentado (em vez de preto) e oceano mais escuro
+function colorir() {
+  map.getStyle().layers.forEach(l => {
+    try {
+      if (l.type === 'background') map.setPaintProperty(l.id, 'background-color', COR_TERRA);
+      else if (l.type === 'fill') map.setPaintProperty(l.id, 'fill-color', /water|ocean|sea/i.test(l.id) ? COR_AGUA : COR_TERRA);
+    } catch (e) {}
+  });
 }
-function rotuloTema() { el('btnTema').textContent = tema === 'claro' ? 'Mapa: claro' : 'Mapa: escuro'; }
-map.on('style.load', () => { try { map.setProjection({ type: 'globe' }); } catch (e) {} });
+// Divisas dos estados (IBGE; se falhar, usa uma cópia no GitHub)
+async function carregaUFs() {
+  for (const u of UF_URLS) { try { const r = await fetch(u); if (r.ok) { ufData = await r.json(); break; } } catch (e) {} }
+  try { desenhaUFs(); } catch (e) {}
+}
+function desenhaUFs() {
+  if (!ufData || map.getSource('ufs')) return;
+  const rot = map.getStyle().layers.find(l => l.type === 'symbol'), antes = rot && rot.id;
+  map.addSource('ufs', { type: 'geojson', data: ufData });
+  map.addLayer({ id: 'ufs-fundo', type: 'fill', source: 'ufs', paint: { 'fill-color': '#5aa9e6', 'fill-opacity': 0.10 } }, antes);
+  map.addLayer({ id: 'ufs-linha', type: 'line', source: 'ufs', paint: { 'line-color': '#8fc3f0', 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.8, 9, 2], 'line-opacity': 0.9 } }, antes);
+}
+map.on('style.load', () => { colorir(); try { desenhaUFs(); } catch (e) {} });
 map.on('click', e => { if (el('pForm').classList.contains('open')) setPonto(e.lngLat.lat, e.lngLat.lng); });
-function verBrasil() { map.flyTo({ center: [-52, -14], zoom: 3.4, pitch: 30, bearing: 0, speed: .9 }); }
+function verBrasil() { map.flyTo({ center: [-52, -14], zoom: 3.4, pitch: 0, bearing: 0, speed: .9 }); }
 
 // ── DADOS ──
 async function carregar() {
@@ -219,7 +239,7 @@ function setPonto(lat, lng, voar) {
     draftMarca = new maplibregl.Marker({ color: '#e8a020', draggable: true }).setLngLat([lng, lat]).addTo(map);
     draftMarca.on('dragend', () => { const p = draftMarca.getLngLat(); draft.lat = p.lat; draft.lng = p.lng; atualizaCoord(); });
   } else draftMarca.setLngLat([lng, lat]);
-  if (voar) map.flyTo({ center: [lng, lat], zoom: 9, pitch: 45, speed: .9 });
+  if (voar) map.flyTo({ center: [lng, lat], zoom: 9, speed: .9 });
 }
 function buscarCidade() {
   clearTimeout(tGeo); const q = el('fCidade').value.trim();
@@ -291,10 +311,31 @@ function aplicaNomes(on) {
   try { localStorage.setItem('mapaNomes', on ? '1' : '0'); } catch (e) {}
 }
 function alternarNomes() { aplicaNomes(!el('mapbox').classList.contains('nomes')); }
-rotuloTema();
 try { aplicaNomes(localStorage.getItem('mapaNomes') === '1'); } catch (e) { aplicaNomes(false); }
 
-checarSessao(); carregar();
+// ── ATUALIZAÇÃO DO APP (mesmo service worker da inspeção) ──
+let _reg = null;
+function aplicarAtualizacao() {
+  el('bannerUpdate').style.display = 'none';
+  if (_reg && _reg.waiting) _reg.waiting.postMessage({ type: 'SKIP_WAITING' }); else location.reload();
+}
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/Clemar-inspecao/sw.js').then(reg => {
+      _reg = reg;
+      const mostrar = () => el('bannerUpdate').style.display = 'flex';
+      if (reg.waiting) mostrar();
+      reg.addEventListener('updatefound', () => {
+        const n = reg.installing;
+        n.addEventListener('statechange', () => { if (n.state === 'installed' && navigator.serviceWorker.controller) mostrar(); });
+      });
+      reg.update(); setInterval(() => reg.update(), 60000);
+    }).catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+  });
+}
+
+checarSessao(); carregar(); carregaUFs();
 </script>
 </body>
 </html>
