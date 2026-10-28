@@ -41,7 +41,10 @@ body { height:100dvh; overflow:hidden; }
 .sug { position:absolute; left:0; right:0; top:100%; background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--card-shadow); z-index:10; max-height:190px; overflow:auto; }
 .sug div { padding:8px 10px; font-size:13px; cursor:pointer; } .sug div:hover { background:var(--surface-2); }
 .hint { font-size:12px; color:var(--ink-light); background:var(--surface); border-radius:6px; padding:8px; margin-bottom:11px; }
-.pin { width:22px; height:22px; cursor:pointer; position:relative; }
+.pin { width:22px; height:22px; cursor:pointer; }
+.pin:hover { z-index:5; }
+.pin .nm { position:absolute; left:50%; top:28px; transform:translateX(-50%); white-space:nowrap; font:600 12px var(--font-cond); letter-spacing:.3px; color:#fff; background:rgba(15,25,35,.88); border:1px solid var(--c); padding:2px 9px; border-radius:10px; pointer-events:none; opacity:0; transition:opacity .15s; }
+.nomes .pin .nm, .pin:hover .nm { opacity:1; }
 .pin i { position:absolute; inset:5px; border-radius:50%; background:var(--c); border:2px solid #fff; box-shadow:0 0 12px var(--c); }
 .pin b { position:absolute; inset:0; border-radius:50%; border:2px solid var(--c); animation:pulso 2s infinite; }
 @keyframes pulso { 0% { transform:scale(.5); opacity:1; } 100% { transform:scale(2.2); opacity:0; } }
@@ -72,6 +75,7 @@ body { height:100dvh; overflow:hidden; }
       <h2>Obras <small id="cont">0</small></h2>
       <input class="inp" id="busca" placeholder="Buscar obra, cliente ou cidade…" oninput="renderLista()">
       <button class="btn btn-steel" onclick="verBrasil()" style="justify-content:center">Ver Brasil</button>
+      <button class="btn btn-steel" id="btnNomes" onclick="alternarNomes()" style="justify-content:center"></button>
     </div>
     <div id="lista"></div>
   </aside>
@@ -90,6 +94,8 @@ body { height:100dvh; overflow:hidden; }
       <div class="meta" id="fCoord" style="margin-bottom:11px;font-family:var(--font-mono);font-size:11px">Sem localização</div>
       <div class="fld"><label>Status</label>
         <select class="inp" id="fStatus"><option>Em andamento</option><option>Planejada</option><option>Concluída</option><option>Parada</option></select></div>
+      <div class="fld"><label>Cor do pino</label>
+        <select class="inp" id="fCor"><option value="">Automática (pela cor do status)</option><option value="#19b4ff">Azul</option><option value="#27ae60">Verde</option><option value="#e8a020">Âmbar</option><option value="#ff7a1a">Laranja</option><option value="#c0392b">Vermelho</option><option value="#ff5fa2">Rosa</option><option value="#b57bff">Roxo</option><option value="#ffffff">Branco</option></select></div>
       <div class="fld"><label>Link do supervisório</label><input class="inp" id="fLink" placeholder="https://…" inputmode="url"></div>
       <div class="fld"><label>Observações</label><textarea class="inp" id="fObs" rows="2"></textarea></div>
       <div class="acts"><button class="btn btn-primary" onclick="salvar()">Salvar</button><button class="btn btn-outline" onclick="fecharForm()">Cancelar</button></div>
@@ -115,6 +121,7 @@ body { height:100dvh; overflow:hidden; }
 const supa = supabase.createClient('https://vsxoeqyqhmrljfahqcsb.supabase.co', 'sb_publishable_kBVUT2phcWigWcQNY7PkAQ_xOg72_kt');
 const COR = { 'Em andamento':'#19b4ff', 'Concluída':'#27ae60', 'Parada':'#c0392b', 'Planejada':'#e8a020' };
 const el = id => document.getElementById(id);
+const corObra = o => o.cor || COR[o.status] || COR['Em andamento'];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let map, obras = [], marcas = {}, user = null, podeEditar = false, editId = null, draft = null, draftMarca = null, tGeo;
 
@@ -141,8 +148,9 @@ function renderPinos() {
   Object.values(marcas).forEach(m => m.remove()); marcas = {};
   obras.forEach(o => {
     const p = document.createElement('div'); p.className = 'pin';
-    p.style.setProperty('--c', COR[o.status] || COR['Em andamento']);
-    p.innerHTML = '<i></i><b></b>';
+    p.style.setProperty('--c', corObra(o));
+    p.innerHTML = '<i></i><b></b><span class="nm"></span>';
+    p.querySelector('.nm').textContent = o.nome;
     p.onclick = e => { e.stopPropagation(); abrir(o.id); };
     marcas[o.id] = new maplibregl.Marker({ element: p }).setLngLat([o.lng, o.lat]).addTo(map);
   });
@@ -151,7 +159,7 @@ function renderLista() {
   const q = el('busca').value.toLowerCase().trim();
   const l = obras.filter(o => [o.nome, o.cliente, o.cidade, o.uf].join(' ').toLowerCase().includes(q));
   el('cont').textContent = obras.length;
-  el('lista').innerHTML = l.length ? l.map(o => `<div class="item" style="--c:${COR[o.status] || COR['Em andamento']}" onclick="abrir('${o.id}')"><b>${esc(o.nome)}</b><span>${esc(o.cidade)}${o.uf ? ' – ' + esc(o.uf) : ''}${o.cliente ? ' · ' + esc(o.cliente) : ''}</span></div>`).join('')
+  el('lista').innerHTML = l.length ? l.map(o => `<div class="item" style="--c:${esc(corObra(o))}" onclick="abrir('${o.id}')"><b>${esc(o.nome)}</b><span>${esc(o.cidade)}${o.uf ? ' – ' + esc(o.uf) : ''}${o.cliente ? ' · ' + esc(o.cliente) : ''}</span></div>`).join('')
     : '<div class="vazio">Nenhuma obra encontrada.</div>';
 }
 function urlSegura(u) {
@@ -184,7 +192,7 @@ function abrirForm(o) {
   el('pDet').classList.remove('open');
   el('fTitulo').textContent = editId ? 'Editar obra' : 'Nova obra';
   el('fNome').value = o.nome || ''; el('fCliente').value = o.cliente || ''; el('fCidade').value = o.cidade || '';
-  el('fStatus').value = o.status || 'Em andamento'; el('fLink').value = o.supervisorio_url || ''; el('fObs').value = o.observacoes || '';
+  el('fStatus').value = o.status || 'Em andamento'; el('fCor').value = o.cor || ''; el('fLink').value = o.supervisorio_url || ''; el('fObs').value = o.observacoes || '';
   draft = { uf: o.uf || '', lat: o.lat ?? null, lng: o.lng ?? null };
   if (draft.lat !== null) setPonto(draft.lat, draft.lng, true); else atualizaCoord();
   el('pForm').classList.add('open');
@@ -229,7 +237,7 @@ async function salvar() {
   const linkTxt = el('fLink').value.trim(), link = urlSegura(linkTxt);
   if (linkTxt && !link) { toast('Link do supervisório inválido.'); return; }
   const row = { nome, cliente: el('fCliente').value.trim(), cidade, uf: draft.uf, lat: draft.lat, lng: draft.lng,
-    status: el('fStatus').value, supervisorio_url: link, observacoes: el('fObs').value.trim(), atualizado_em: new Date().toISOString() };
+    status: el('fStatus').value, cor: el('fCor').value, supervisorio_url: link, observacoes: el('fObs').value.trim(), atualizado_em: new Date().toISOString() };
   const q = editId ? supa.from('obras_mapa').update(row).eq('id', editId) : supa.from('obras_mapa').insert([{ ...row, criado_por: user.email }]);
   const { error } = await q;
   if (error) { toast('Erro ao salvar: ' + error.message); return; }
@@ -265,6 +273,14 @@ async function fazerLogin() {
   if (!podeEditar) { err.textContent = 'Seu acesso ainda não foi aprovado pelo administrador.'; err.style.display = 'block'; return; }
   el('pLogin').classList.remove('open');
 }
+
+function aplicaNomes(on) {
+  el('mapbox').classList.toggle('nomes', on);
+  el('btnNomes').textContent = on ? 'Nomes: sempre visíveis' : 'Nomes: ao passar o mouse';
+  try { localStorage.setItem('mapaNomes', on ? '1' : '0'); } catch (e) {}
+}
+function alternarNomes() { aplicaNomes(!el('mapbox').classList.contains('nomes')); }
+try { aplicaNomes(localStorage.getItem('mapaNomes') === '1'); } catch (e) { aplicaNomes(false); }
 
 checarSessao(); carregar();
 </script>
