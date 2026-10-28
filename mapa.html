@@ -27,7 +27,7 @@ body { height:100dvh; overflow:hidden; }
 .item b { font-family:var(--font-cond); font-size:15px; display:block; }
 .item span { font-size:12px; color:rgba(255,255,255,.6); }
 .vazio { color:rgba(255,255,255,.5); font-size:13px; text-align:center; padding:24px 10px; }
-#mapbox { position:relative; flex:1; min-width:0; background:#0b1118; }
+#mapbox { position:relative; flex:1; min-width:0; background:#dfe6ec; }
 #map { position:absolute; inset:0; }
 .btn-blue { background:var(--blue); color:#fff; } .btn-blue:hover { background:#0879c0; }
 .panel { position:absolute; top:12px; right:12px; width:330px; max-height:calc(100% - 24px); overflow:auto; background:rgba(255,255,255,.97); border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.45); padding:16px; display:none; z-index:5; }
@@ -76,6 +76,7 @@ body { height:100dvh; overflow:hidden; }
       <input class="inp" id="busca" placeholder="Buscar obra, cliente ou cidade…" oninput="renderLista()">
       <button class="btn btn-steel" onclick="verBrasil()" style="justify-content:center">Ver Brasil</button>
       <button class="btn btn-steel" id="btnNomes" onclick="alternarNomes()" style="justify-content:center"></button>
+      <button class="btn btn-steel" id="btnTema" onclick="alternarTema()" style="justify-content:center"></button>
     </div>
     <div id="lista"></div>
   </aside>
@@ -95,7 +96,7 @@ body { height:100dvh; overflow:hidden; }
       <div class="fld"><label>Status</label>
         <select class="inp" id="fStatus"><option>Em andamento</option><option>Planejada</option><option>Concluída</option><option>Parada</option></select></div>
       <div class="fld"><label>Cor do pino</label>
-        <select class="inp" id="fCor"><option value="">Automática (pela cor do status)</option><option value="#19b4ff">Azul</option><option value="#27ae60">Verde</option><option value="#e8a020">Âmbar</option><option value="#ff7a1a">Laranja</option><option value="#c0392b">Vermelho</option><option value="#ff5fa2">Rosa</option><option value="#b57bff">Roxo</option><option value="#ffffff">Branco</option></select></div>
+        <select class="inp" id="fCor"><option value="">Automática (pela cor do status)</option><option value="#19b4ff">Azul</option><option value="#27ae60">Verde</option><option value="#e8a020">Âmbar</option><option value="#ff7a1a">Laranja</option><option value="#c0392b">Vermelho</option><option value="#ff5fa2">Rosa</option><option value="#b57bff">Roxo</option><option value="#1a2940">Marinho</option></select></div>
       <div class="fld"><label>Link do supervisório</label><input class="inp" id="fLink" placeholder="https://…" inputmode="url"></div>
       <div class="fld"><label>Observações</label><textarea class="inp" id="fObs" rows="2"></textarea></div>
       <div class="acts"><button class="btn btn-primary" onclick="salvar()">Salvar</button><button class="btn btn-outline" onclick="fecharForm()">Cancelar</button></div>
@@ -128,11 +129,21 @@ let map, obras = [], marcas = {}, user = null, podeEditar = false, editId = null
 function toast(t) { const e = el('toast'); e.textContent = t; e.style.display = 'block'; setTimeout(() => e.style.display = 'none', 3000); }
 
 // ── MAPA ──
+const TEMAS = { claro: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json', escuro: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' };
+let tema = 'claro'; try { tema = localStorage.getItem('mapaTema') === 'escuro' ? 'escuro' : 'claro'; } catch (e) {}
 map = new maplibregl.Map({
-  container: 'map', style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-  center: [-52, -14], zoom: 3.4, pitch: 30, maxPitch: 75, attributionControl: { compact: true }
+  container: 'map', style: TEMAS[tema],
+  center: [-52, -14], zoom: 3.4, pitch: 30, bearing: 0, maxPitch: 75,
+  dragRotate: false, pitchWithRotate: false, attributionControl: { compact: true }
 });
-map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
+map.touchZoomRotate.disableRotation(); map.keyboard.disableRotation();   // norte sempre para cima
+map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'bottom-right');
+function alternarTema() {
+  tema = tema === 'claro' ? 'escuro' : 'claro';
+  try { localStorage.setItem('mapaTema', tema); } catch (e) {}
+  map.setStyle(TEMAS[tema]); rotuloTema();
+}
+function rotuloTema() { el('btnTema').textContent = tema === 'claro' ? 'Mapa: claro' : 'Mapa: escuro'; }
 map.on('style.load', () => { try { map.setProjection({ type: 'globe' }); } catch (e) {} });
 map.on('click', e => { if (el('pForm').classList.contains('open')) setPonto(e.lngLat.lat, e.lngLat.lng); });
 function verBrasil() { map.flyTo({ center: [-52, -14], zoom: 3.4, pitch: 30, bearing: 0, speed: .9 }); }
@@ -159,7 +170,7 @@ function renderLista() {
   const q = el('busca').value.toLowerCase().trim();
   const l = obras.filter(o => [o.nome, o.cliente, o.cidade, o.uf].join(' ').toLowerCase().includes(q));
   el('cont').textContent = obras.length;
-  el('lista').innerHTML = l.length ? l.map(o => `<div class="item" style="--c:${esc(corObra(o))}" onclick="abrir('${o.id}')"><b>${esc(o.nome)}</b><span>${esc(o.cidade)}${o.uf ? ' – ' + esc(o.uf) : ''}${o.cliente ? ' · ' + esc(o.cliente) : ''}</span></div>`).join('')
+  el('lista').innerHTML = l.length ? l.map(o => `<div class="item" style="--c:${esc(corObra(o))}" onclick="abrir('${o.id}', true)"><b>${esc(o.nome)}</b><span>${esc(o.cidade)}${o.uf ? ' – ' + esc(o.uf) : ''}${o.cliente ? ' · ' + esc(o.cliente) : ''}</span></div>`).join('')
     : '<div class="vazio">Nenhuma obra encontrada.</div>';
 }
 function urlSegura(u) {
@@ -169,7 +180,7 @@ function urlSegura(u) {
 }
 
 // ── DETALHE ──
-function abrir(id) {
+function abrir(id, centralizar) {
   const o = obras.find(x => x.id === id); if (!o) return;
   fecharForm();
   const c = COR[o.status] || COR['Em andamento'], link = urlSegura(o.supervisorio_url);
@@ -182,7 +193,7 @@ function abrir(id) {
     <div class="acts">${link ? `<a class="btn btn-blue" href="${esc(link)}" target="_blank" rel="noopener noreferrer">Abrir supervisório ↗</a>` : '<span class="meta">Sem supervisório cadastrado</span>'}</div>
     ${podeEditar ? `<div class="acts"><button class="btn btn-outline btn-sm" onclick="editar('${o.id}')">Editar</button><button class="btn btn-danger btn-sm" onclick="excluir('${o.id}')">Excluir</button></div>` : ''}`;
   el('pDet').classList.add('open');
-  map.flyTo({ center: [o.lng, o.lat], zoom: 10, pitch: 55, bearing: -15, speed: .8 });
+  if (centralizar) map.easeTo({ center: [o.lng, o.lat], bearing: 0, duration: 700 });   // só centraliza, sem zoom
 }
 
 // ── FORMULÁRIO ──
@@ -280,6 +291,7 @@ function aplicaNomes(on) {
   try { localStorage.setItem('mapaNomes', on ? '1' : '0'); } catch (e) {}
 }
 function alternarNomes() { aplicaNomes(!el('mapbox').classList.contains('nomes')); }
+rotuloTema();
 try { aplicaNomes(localStorage.getItem('mapaNomes') === '1'); } catch (e) { aplicaNomes(false); }
 
 checarSessao(); carregar();
