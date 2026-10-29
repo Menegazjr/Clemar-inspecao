@@ -44,7 +44,9 @@ body { height:100dvh; overflow:hidden; }
 .pin { width:22px; height:22px; cursor:pointer; }
 .pin:hover { z-index:5; }
 .pin .nm { position:absolute; left:50%; top:28px; transform:translateX(-50%); white-space:nowrap; font:600 12px var(--font-cond); letter-spacing:.3px; color:#fff; background:rgba(15,25,35,.88); border:1px solid var(--c); padding:2px 9px; border-radius:10px; pointer-events:none; opacity:0; transition:opacity .15s; }
-.nomes .pin .nm, .pin:hover .nm { opacity:1; }
+.nomes.perto .pin .nm, .pin:hover .nm { opacity:1; }
+.cluster { width:var(--s); height:var(--s); border-radius:50%; background:radial-gradient(circle at 35% 30%, #35b8ff, #0a6fc0); border:3px solid rgba(255,255,255,.92); color:#fff; font:700 14px var(--font-cond); display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 0 0 7px rgba(25,180,255,.25), 0 4px 14px rgba(0,0,0,.55); }
+.cluster:hover { filter:brightness(1.12); }
 .pin .mt { position:absolute; right:-10px; top:-10px; width:18px; height:18px; border-radius:50%; background:#fff; border:2px solid var(--c); font-style:normal; font-size:9px; line-height:14px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.5); }
 .chips { display:flex; flex-wrap:wrap; gap:6px; }
 .chip { display:inline-flex; align-items:center; gap:6px; font:600 12px var(--font-cond); padding:3px 10px; border-radius:20px; border:1px solid rgba(255,255,255,.2); background:transparent; color:rgba(255,255,255,.45); cursor:pointer; }
@@ -55,6 +57,15 @@ body { height:100dvh; overflow:hidden; }
 .wrap.recolhido #side { display:none; }
 .pop .maplibregl-popup-content { border-radius:12px; padding:14px 16px 12px; min-width:230px; box-shadow:0 10px 30px rgba(0,0,0,.45); }
 .pop .maplibregl-popup-close-button { font-size:20px; padding:2px 8px; color:var(--ink-light); }
+.dots { display:flex; align-items:center; gap:9px; padding:2px 0; }
+.dot { width:22px; height:22px; border-radius:50%; border:2px solid #fff; background:var(--c); cursor:pointer; padding:0; box-shadow:0 0 8px var(--c); transition:.15s; }
+.dot.on { transform:scale(1.2); box-shadow:0 0 0 3px rgba(255,255,255,.35), 0 0 10px var(--c); }
+.dot.mnt { background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.5); font-size:11px; line-height:1; box-shadow:none; margin-left:auto; }
+.dot.mnt.on { background:#fff; }
+.dots.filtrando .dot:not(.on) { opacity:.3; }
+.formbox { position:relative; width:290px; max-width:100%; max-height:55vh; overflow:auto; padding:2px 4px 0 0; }
+.formbox h3 { font-family:var(--font-cond); font-size:19px; color:var(--steel); padding-right:24px; }
+.formbox .x { position:absolute; top:-4px; right:0; background:none; border:none; font-size:22px; color:var(--ink-light); cursor:pointer; }
 .pop h3 { font-family:var(--font-cond); font-size:19px; color:var(--steel); padding-right:20px; }
 .pin i { position:absolute; inset:5px; border-radius:50%; background:var(--c); border:2px solid #fff; box-shadow:0 0 12px var(--c); }
 .pin b { position:absolute; inset:0; border-radius:50%; border:2px solid var(--c); animation:pulso 2s infinite; }
@@ -100,7 +111,7 @@ body { height:100dvh; overflow:hidden; }
     <button class="mapbtn" id="btnSide" onclick="alternarMenu()" title="Recolher menu">◀</button>
 
 
-    <div class="panel" id="pForm">
+    <div id="holder" style="display:none"><div class="formbox" id="pForm">
       <button class="x" onclick="fecharForm()">×</button>
       <h3 id="fTitulo">Nova obra</h3>
       <div class="hint">Digite a cidade e escolha na lista. Depois arraste o pino ou clique no mapa para ajustar o local exato.</div>
@@ -116,7 +127,7 @@ body { height:100dvh; overflow:hidden; }
       <div class="fld"><label>Link do supervisório</label><input class="inp" id="fLink" placeholder="https://…" inputmode="url"></div>
       <div class="fld"><label>Observações</label><textarea class="inp" id="fObs" rows="2"></textarea></div>
       <div class="acts"><button class="btn btn-primary" onclick="salvar()">Salvar</button><button class="btn btn-outline" onclick="fecharForm()">Cancelar</button></div>
-    </div>
+    </div></div>
   </div>
 </div>
 
@@ -133,18 +144,20 @@ body { height:100dvh; overflow:hidden; }
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/supercluster@8.0.1/dist/supercluster.min.js"></script>
 <script>
 // Mesmo projeto Supabase do sistema de inspeção
 const supa = supabase.createClient('https://vsxoeqyqhmrljfahqcsb.supabase.co', 'sb_publishable_kBVUT2phcWigWcQNY7PkAQ_xOg72_kt');
 const COR = { 'Em andamento':'#2ecc71', 'Concluída':'#19b4ff', 'Planejada':'#e8a020', 'Paralisada':'#e5483a', 'Cliente histórico':'#8a96a3' };
 const STATUS = Object.keys(COR);
-let filtro = new Set(STATUS), soManut = false, popup = null;
+let filtro = new Set(), soManut = false, popup = null, idx = null;
 const el = id => document.getElementById(id);
+const formEl = document.getElementById('pForm');
 const corObra = o => o.cor || COR[o.status] || COR['Em andamento'];
 const local = o => o.uf ? `${o.cidade} – ${o.uf}` : (o.pais ? `${o.cidade}, ${o.pais}` : o.cidade);
 const fechaPop = () => { if (popup) { popup.remove(); popup = null; } };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let map, obras = [], marcas = {}, user = null, podeEditar = false, editId = null, draft = null, draftMarca = null, tGeo;
+let map, obras = [], marcas = {}, user = null, podeEditar = false, editId = null, draft = null, draftMarca = null, popForm = null, tGeo;
 
 function toast(t) { const e = el('toast'); e.textContent = t; e.style.display = 'block'; setTimeout(() => e.style.display = 'none', 3000); }
 
@@ -190,7 +203,9 @@ function desenhaUFs() {
   map.addLayer({ id: 'ufs-linha', type: 'line', source: 'ufs', paint: { 'line-color': '#8fc3f0', 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.8, 9, 2], 'line-opacity': 0.9 } }, antes);
 }
 map.on('style.load', () => { colorir(); try { desenhaUFs(); } catch (e) {} });
-map.on('click', e => { if (el('pForm').classList.contains('open')) setPonto(e.lngLat.lat, e.lngLat.lng); });
+map.on('click', e => { if (popForm) setPonto(e.lngLat.lat, e.lngLat.lng); });
+map.on('moveend', desenhaPinos); map.on('resize', desenhaPinos);
+map.on('zoom', () => el('mapbox').classList.toggle('perto', map.getZoom() >= 6.5));
 function verBrasil() { map.flyTo({ center: [-52, -14], zoom: 3.4, pitch: 0, bearing: 0, speed: .9 }); }
 
 // ── DADOS ──
@@ -202,26 +217,56 @@ async function carregar() {
 }
 function renderPinos() {
   Object.values(marcas).forEach(m => m.remove()); marcas = {};
-  visiveis().forEach(o => {
-    const p = document.createElement('div'); p.className = 'pin';
-    p.style.setProperty('--c', corObra(o));
+  idx = new Supercluster({ radius: 55, maxZoom: 12, minPoints: 2 });
+  idx.load(visiveis().map(o => ({ type: 'Feature', properties: { id: o.id }, geometry: { type: 'Point', coordinates: [o.lng, o.lat] } })));
+  desenhaPinos();
+}
+// Desenha só o que está na tela: pinos individuais ou bolhas de grupo, conforme o zoom
+function desenhaPinos() {
+  if (!idx) return;
+  const b = map.getBounds(), z = Math.floor(map.getZoom()), novas = {};
+  idx.getClusters([Math.max(-180, b.getWest() - 5), Math.max(-85, b.getSouth() - 5), Math.min(180, b.getEast() + 5), Math.min(85, b.getNorth() + 5)], z).forEach(f => {
+    const key = f.properties.cluster ? 'c' + f.properties.cluster_id : f.properties.id;
+    novas[key] = marcas[key] || criaMarca(f);
+  });
+  Object.keys(marcas).forEach(k => { if (!novas[k]) marcas[k].remove(); });
+  marcas = novas;
+}
+function criaMarca(f) {
+  const [lng, lat] = f.geometry.coordinates, p = document.createElement('div');
+  if (f.properties.cluster) {
+    const n = f.properties.point_count;
+    p.className = 'cluster'; p.style.setProperty('--s', Math.min(60, 30 + Math.sqrt(n) * 6) + 'px'); p.textContent = n;
+    p.onclick = e => { e.stopPropagation(); clicaGrupo(f); };
+  } else {
+    const o = obras.find(x => x.id === f.properties.id);
+    p.className = 'pin'; p.style.setProperty('--c', corObra(o));
     p.innerHTML = '<i></i><b></b><span class="nm"></span>' + (o.manutencao ? '<em class="mt">🔧</em>' : '');
     p.querySelector('.nm').textContent = o.nome;
     p.onclick = e => { e.stopPropagation(); abrir(o.id); };
-    marcas[o.id] = new maplibregl.Marker({ element: p }).setLngLat([o.lng, o.lat]).addTo(map);
-  });
+  }
+  return new maplibregl.Marker({ element: p }).setLngLat([lng, lat]).addTo(map);
+}
+// Clique num grupo: aproxima até separar; se as obras estão praticamente no mesmo ponto, lista os nomes
+function clicaGrupo(f) {
+  const id = f.properties.cluster_id, [lng, lat] = f.geometry.coordinates, z = idx.getClusterExpansionZoom(id);
+  if (z <= 12) { map.easeTo({ center: [lng, lat], zoom: z + 0.3, duration: 600 }); return; }
+  fechaPop();
+  const li = idx.getLeaves(id, 30).map(l => { const o = obras.find(x => x.id === l.properties.id); return `<div class="meta"><a href="#" onclick="abrir('${o.id}');return false">${esc(o.nome)}</a></div>`; }).join('');
+  popup = new maplibregl.Popup({ offset: 26, className: 'pop' }).setLngLat([lng, lat]).setHTML(`<h3>${f.properties.point_count} obras aqui</h3>${li}`).addTo(map);
 }
 function visiveis() {
   const q = el('busca').value.toLowerCase().trim();
-  return obras.filter(o => (filtro.has(o.status) || !STATUS.includes(o.status)) && (!soManut || o.manutencao)
+  return obras.filter(o => (!filtro.size || filtro.has(o.status)) && (!soManut || o.manutencao)
     && [o.nome, o.cliente, o.cidade, o.uf, o.pais].join(' ').toLowerCase().includes(q));
 }
 function renderChips() {
-  el('chips').innerHTML = STATUS.map(st => `<button class="chip${filtro.has(st) ? ' on' : ''}" style="--c:${COR[st]}" onclick="alternaStatus('${st}')"><i></i>${st} <small>${obras.filter(o => o.status === st).length}</small></button>`).join('')
-    + `<button class="chip${soManut ? ' on' : ''}" style="--c:#fff" onclick="alternaManut()">🔧 Manutenção <small>${obras.filter(o => o.manutencao).length}</small></button>`;
+  const c = el('chips'); c.className = 'dots' + (filtro.size || soManut ? ' filtrando' : '');
+  c.innerHTML = STATUS.map(st => `<button class="dot${filtro.has(st) ? ' on' : ''}" style="--c:${COR[st]}" title="${st} (${obras.filter(o => o.status === st).length})" onclick="alternaStatus('${st}')"></button>`).join('')
+    + `<button class="dot mnt${soManut ? ' on' : ''}" title="Contrato de manutenção (${obras.filter(o => o.manutencao).length})" onclick="alternaManut()">🔧</button>`;
 }
-function alternaStatus(st) { filtro.has(st) ? filtro.delete(st) : filtro.add(st); atualiza(); }
-function alternaManut() { soManut = !soManut; atualiza(); }
+function alternaStatus(st) { if (filtro.has(st)) filtro.delete(st); else { filtro.add(st); toast(st); } atualiza(); }
+function alternaManut() { soManut = !soManut; if (soManut) toast('Só com contrato de manutenção'); atualiza(); }
 function atualiza() { fechaPop(); renderChips(); renderLista(); renderPinos(); }
 function renderLista() {
   const l = visiveis();
@@ -268,23 +313,34 @@ function abrirForm(o) {
   fechaPop();
   el('fTitulo').textContent = editId ? 'Editar obra' : 'Nova obra';
   el('fNome').value = o.nome || ''; el('fCliente').value = o.cliente || ''; el('fCidade').value = o.cidade || '';
-  el('fStatus').value = o.status || 'Em andamento'; el('fCor').value = o.cor || ''; el('fManut').checked = !!o.manutencao; el('fLink').value = o.supervisorio_url || ''; el('fObs').value = o.observacoes || '';
+  el('fStatus').value = o.status || 'Em andamento'; el('fCor').value = o.cor || ''; el('fManut').checked = !!o.manutencao;
+  el('fLink').value = o.supervisorio_url || ''; el('fObs').value = o.observacoes || '';
   draft = { uf: o.uf || '', pais: o.pais || '', lat: o.lat ?? null, lng: o.lng ?? null };
-  if (draft.lat !== null) setPonto(draft.lat, draft.lng, true); else atualizaCoord();
-  el('pForm').classList.add('open');
+  const c = map.getCenter(), ini = draft.lat !== null ? [draft.lng, draft.lat] : [c.lng, c.lat];   // obra nova: pino provisório no centro
+  montaDraft(ini); atualizaCoord();
+  map.easeTo({ center: ini, offset: [0, 170], duration: 400 });   // deixa espaço para a caixinha acima do pino
+}
+// Pino laranja arrastável + caixinha do formulário presa a ele
+function montaDraft(ll) {
+  if (draftMarca) draftMarca.remove();
+  if (popForm) { el('holder').appendChild(formEl); popForm.remove(); }
+  draftMarca = new maplibregl.Marker({ color: '#e8a020', draggable: true }).setLngLat(ll).addTo(map);
+  draftMarca.on('drag', () => popForm && popForm.setLngLat(draftMarca.getLngLat()));
+  draftMarca.on('dragend', () => { const q = draftMarca.getLngLat(); draft.lat = q.lat; draft.lng = q.lng; atualizaCoord(); popForm && popForm.setLngLat(q); });
+  popForm = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '340px', offset: 44, className: 'pop' })
+    .setLngLat(ll).setDOMContent(formEl).addTo(map);
 }
 function fecharForm() {
-  el('pForm').classList.remove('open'); el('sug').style.display = 'none';
+  if (popForm) { el('holder').appendChild(formEl); popForm.remove(); popForm = null; }
+  el('sug').style.display = 'none';
   if (draftMarca) { draftMarca.remove(); draftMarca = null; }
 }
 function atualizaCoord() { el('fCoord').textContent = draft && draft.lat !== null ? `📌 ${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}` : 'Sem localização'; }
 function setPonto(lat, lng, voar) {
   draft.lat = lat; draft.lng = lng; atualizaCoord();
-  if (!draftMarca) {
-    draftMarca = new maplibregl.Marker({ color: '#e8a020', draggable: true }).setLngLat([lng, lat]).addTo(map);
-    draftMarca.on('dragend', () => { const p = draftMarca.getLngLat(); draft.lat = p.lat; draft.lng = p.lng; atualizaCoord(); });
-  } else draftMarca.setLngLat([lng, lat]);
-  if (voar) map.flyTo({ center: [lng, lat], zoom: 9, speed: .9 });
+  if (draftMarca) draftMarca.setLngLat([lng, lat]);
+  if (popForm) popForm.setLngLat([lng, lat]);
+  if (voar) map.flyTo({ center: [lng, lat], zoom: 9, offset: [0, 170], speed: .9 });
 }
 function buscarCidade() {
   clearTimeout(tGeo); const q = el('fCidade').value.trim();
@@ -353,7 +409,7 @@ async function fazerLogin() {
 
 function aplicaNomes(on) {
   el('mapbox').classList.toggle('nomes', on);
-  el('btnNomes').textContent = on ? 'Nomes: sempre visíveis' : 'Nomes: ao passar o mouse';
+  el('btnNomes').textContent = on ? 'Nomes: visíveis ao aproximar' : 'Nomes: ao passar o mouse';
   try { localStorage.setItem('mapaNomes', on ? '1' : '0'); } catch (e) {}
 }
 function alternarNomes() { aplicaNomes(!el('mapbox').classList.contains('nomes')); }
