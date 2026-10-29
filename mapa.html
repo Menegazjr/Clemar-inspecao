@@ -64,6 +64,8 @@ body { height:100dvh; overflow:hidden; }
 .dot.mnt.on { background:#fff; }
 .dots.filtrando .dot:not(.on) { opacity:.3; }
 .panel .formbox { width:auto; max-height:none; overflow:visible; }
+.panel .formbox .fld { margin-bottom:8px; }
+.panel .formbox .hint { margin-bottom:8px; padding:6px 8px; }
 .formbox { position:relative; width:290px; max-width:100%; max-height:55vh; overflow:auto; padding:2px 4px 0 0; }
 .formbox h3 { font-family:var(--font-cond); font-size:19px; color:var(--steel); padding-right:24px; }
 .formbox .x { position:absolute; top:-4px; right:0; background:none; border:none; font-size:22px; color:var(--ink-light); cursor:pointer; }
@@ -115,7 +117,7 @@ body { height:100dvh; overflow:hidden; }
     <div id="holder" style="display:none"><div class="formbox" id="pForm">
       <button class="x" onclick="fecharForm()">×</button>
       <h3 id="fTitulo">Nova obra</h3>
-      <div class="hint">Digite a cidade e escolha na lista. Depois arraste o pino ou clique no mapa para ajustar o local exato.</div>
+      <div class="hint">Escolha a cidade na lista e ajuste o pino arrastando ou clicando no mapa.</div>
       <div class="fld"><label>Nome da obra *</label><input class="inp" id="fNome"></div>
       <div class="fld"><label>Cliente</label><input class="inp" id="fCliente"></div>
       <div class="fld"><label>Cidade *</label><input class="inp" id="fCidade" autocomplete="off" oninput="buscarCidade()"><div class="sug" id="sug" style="display:none"></div></div>
@@ -145,13 +147,12 @@ body { height:100dvh; overflow:hidden; }
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/supercluster@8.0.1/dist/supercluster.min.js"></script>
 <script>
 // Mesmo projeto Supabase do sistema de inspeção
 const supa = supabase.createClient('https://vsxoeqyqhmrljfahqcsb.supabase.co', 'sb_publishable_kBVUT2phcWigWcQNY7PkAQ_xOg72_kt');
 const COR = { 'Em andamento':'#2ecc71', 'Concluída':'#19b4ff', 'Planejada':'#e8a020', 'Paralisada':'#e5483a', 'Cliente histórico':'#8a96a3' };
 const STATUS = Object.keys(COR);
-let filtro = new Set(), soManut = false, popup = null, idx = null;
+let filtro = new Set(), soManut = false, popup = null;
 const el = id => document.getElementById(id);
 const formEl = document.getElementById('pForm');
 const corObra = o => o.cor || COR[o.status] || COR['Em andamento'];
@@ -206,7 +207,6 @@ function desenhaUFs() {
 }
 map.on('style.load', () => { colorir(); try { desenhaUFs(); } catch (e) {} });
 map.on('click', e => { if (!el('holder').contains(formEl)) setPonto(e.lngLat.lat, e.lngLat.lng); });
-map.on('moveend', desenhaPinos); map.on('resize', desenhaPinos);
 function atualizaNomes() {
   const c = map.cameraForBounds(BRASIL, { padding: 20 });   // zoom que enquadra o Brasil inteiro nesta tela
   el('mapbox').classList.toggle('perto', !!c && map.getZoom() >= c.zoom + 0.7);
@@ -223,43 +223,26 @@ async function carregar() {
 }
 function renderPinos() {
   Object.values(marcas).forEach(m => m.remove()); marcas = {};
-  idx = new Supercluster({ radius: 8, maxZoom: 12, minPoints: 2 });
-  idx.load(visiveis().map(o => ({ type: 'Feature', properties: { id: o.id }, geometry: { type: 'Point', coordinates: [o.lng, o.lat] } })));
-  desenhaPinos();
-}
-// Desenha só o que está na tela: pinos individuais ou bolhas de grupo, conforme o zoom
-function desenhaPinos() {
-  if (!idx) return;
-  const b = map.getBounds(), z = Math.floor(map.getZoom()), novas = {};
-  idx.getClusters([Math.max(-180, b.getWest() - 5), Math.max(-85, b.getSouth() - 5), Math.min(180, b.getEast() + 5), Math.min(85, b.getNorth() + 5)], z).forEach(f => {
-    const key = f.properties.cluster ? 'c' + f.properties.cluster_id : f.properties.id;
-    novas[key] = marcas[key] || criaMarca(f);
+  const grupos = {};
+  visiveis().forEach(o => { const k = o.lat.toFixed(4) + ',' + o.lng.toFixed(4); (grupos[k] = grupos[k] || []).push(o); });
+  Object.keys(grupos).forEach(k => {
+    const l = grupos[k], o = l[0], p = document.createElement('div');
+    if (l.length > 1) {   // várias obras exatamente no mesmo ponto: bolha com o número
+      p.className = 'cluster'; p.style.setProperty('--s', Math.min(48, 28 + l.length * 4) + 'px'); p.textContent = l.length;
+      p.onclick = e => { e.stopPropagation(); listaGrupo(l); };
+    } else {
+      p.className = 'pin'; p.style.setProperty('--c', corObra(o));
+      p.innerHTML = '<i></i><b></b><span class="nm"></span>' + (o.manutencao ? '<em class="mt">🔧</em>' : '');
+      p.querySelector('.nm').textContent = o.nome;
+      p.onclick = e => { e.stopPropagation(); abrir(o.id); };
+    }
+    marcas[k] = new maplibregl.Marker({ element: p }).setLngLat([o.lng, o.lat]).addTo(map);
   });
-  Object.keys(marcas).forEach(k => { if (!novas[k]) marcas[k].remove(); });
-  marcas = novas;
 }
-function criaMarca(f) {
-  const [lng, lat] = f.geometry.coordinates, p = document.createElement('div');
-  if (f.properties.cluster) {
-    const n = f.properties.point_count;
-    p.className = 'cluster'; p.style.setProperty('--s', Math.min(60, 30 + Math.sqrt(n) * 6) + 'px'); p.textContent = n;
-    p.onclick = e => { e.stopPropagation(); clicaGrupo(f); };
-  } else {
-    const o = obras.find(x => x.id === f.properties.id);
-    p.className = 'pin'; p.style.setProperty('--c', corObra(o));
-    p.innerHTML = '<i></i><b></b><span class="nm"></span>' + (o.manutencao ? '<em class="mt">🔧</em>' : '');
-    p.querySelector('.nm').textContent = o.nome;
-    p.onclick = e => { e.stopPropagation(); abrir(o.id); };
-  }
-  return new maplibregl.Marker({ element: p }).setLngLat([lng, lat]).addTo(map);
-}
-// Clique num grupo: aproxima até separar; se as obras estão praticamente no mesmo ponto, lista os nomes
-function clicaGrupo(f) {
-  const id = f.properties.cluster_id, [lng, lat] = f.geometry.coordinates, z = idx.getClusterExpansionZoom(id);
-  if (z <= 12) { map.easeTo({ center: [lng, lat], zoom: z + 0.3, duration: 600 }); return; }
+function listaGrupo(l) {
   fechaPop();
-  const li = idx.getLeaves(id, 30).map(l => { const o = obras.find(x => x.id === l.properties.id); return `<div class="meta"><a href="#" onclick="abrir('${o.id}');return false">${esc(o.nome)}</a></div>`; }).join('');
-  popup = new maplibregl.Popup({ offset: 26, className: 'pop' }).setLngLat([lng, lat]).setHTML(`<h3>${f.properties.point_count} obras aqui</h3>${li}`).addTo(map);
+  const li = l.map(o => `<div class="meta"><a href="#" onclick="abrir('${o.id}');return false">${esc(o.nome)}</a></div>`).join('');
+  popup = new maplibregl.Popup({ offset: 26, className: 'pop' }).setLngLat([l[0].lng, l[0].lat]).setHTML(`<h3>${l.length} obras aqui</h3>${li}`).addTo(map);
 }
 function visiveis() {
   const q = el('busca').value.toLowerCase().trim();
@@ -323,24 +306,19 @@ function abrirForm(o) {
   el('fLink').value = o.supervisorio_url || ''; el('fObs').value = o.observacoes || '';
   draft = { uf: o.uf || '', pais: o.pais || '', lat: o.lat ?? null, lng: o.lng ?? null };
   const c = map.getCenter(), ini = draft.lat !== null ? [draft.lng, draft.lat] : [c.lng, c.lat];   // obra nova: pino provisório no centro
-  montaDraft(ini, !editId); atualizaCoord();   // obra nova: painel no canto; editar: caixinha junto ao pino
-  if (editId) map.easeTo({ center: ini, offset: [0, 170], duration: 400 });   // deixa espaço para a caixinha acima do pino
+  montaDraft(ini); atualizaCoord();
+  if (editId || innerWidth <= 700) map.easeTo({ center: ini, offset: deslocPainel(), duration: 400 });   // pino fica fora de trás do painel
 }
 // Pino laranja arrastável + caixinha do formulário presa a ele
-function montaDraft(ll, painel) {
+const deslocPainel = () => innerWidth > 700 ? [-170, 0] : [0, -150];
+function montaDraft(ll) {
   if (draftMarca) draftMarca.remove();
-  el('holder').appendChild(formEl); el('painelNova').classList.remove('open');
-  if (popForm) { popForm.remove(); popForm = null; }
   draftMarca = new maplibregl.Marker({ color: '#e8a020', draggable: true }).setLngLat(ll).addTo(map);
-  draftMarca.on('drag', () => popForm && popForm.setLngLat(draftMarca.getLngLat()));
-  draftMarca.on('dragend', () => { const q = draftMarca.getLngLat(); draft.lat = q.lat; draft.lng = q.lng; atualizaCoord(); popForm && popForm.setLngLat(q); });
-  if (painel) { el('painelNova').appendChild(formEl); el('painelNova').classList.add('open'); return; }
-  popForm = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '340px', offset: 44, className: 'pop' })
-    .setLngLat(ll).setDOMContent(formEl).addTo(map);
+  draftMarca.on('dragend', () => { const q = draftMarca.getLngLat(); draft.lat = q.lat; draft.lng = q.lng; atualizaCoord(); });
+  el('painelNova').appendChild(formEl); el('painelNova').classList.add('open');
 }
 function fecharForm() {
   el('holder').appendChild(formEl); el('painelNova').classList.remove('open');
-  if (popForm) { popForm.remove(); popForm = null; }
   el('sug').style.display = 'none';
   if (draftMarca) { draftMarca.remove(); draftMarca = null; }
 }
@@ -348,8 +326,7 @@ function atualizaCoord() { el('fCoord').textContent = draft && draft.lat !== nul
 function setPonto(lat, lng, voar) {
   draft.lat = lat; draft.lng = lng; atualizaCoord();
   if (draftMarca) draftMarca.setLngLat([lng, lat]);
-  if (popForm) popForm.setLngLat([lng, lat]);
-  if (voar) map.flyTo({ center: [lng, lat], zoom: 9, offset: popForm ? [0, 170] : [0, 0], speed: .9 });
+  if (voar) map.flyTo({ center: [lng, lat], zoom: 9, offset: deslocPainel(), speed: .9 });
 }
 function buscarCidade() {
   clearTimeout(tGeo); const q = el('fCidade').value.trim();
