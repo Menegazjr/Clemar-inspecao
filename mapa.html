@@ -82,9 +82,12 @@ body { height:100dvh; overflow:hidden; }
 </style>
 </head>
 <body>
-<div id="bannerUpdate" style="display:none;background:var(--steel);color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:12px;font-family:var(--font-cond);border-bottom:2px solid var(--blue)">
-  <span style="font-size:14px;font-weight:600">Nova versão disponível</span>
-  <button class="btn btn-blue btn-sm" onclick="aplicarAtualizacao()">🔄 Atualizar agora</button>
+<div id="bannerUpdate" style="display:none;position:fixed;top:0;left:0;right:0;z-index:10000;background:#ffc21a;color:#1a2940;padding:14px 20px;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 22px rgba(0,0,0,.5);font-family:var(--font-cond);border-bottom:3px solid #1a2940">
+  <div style="display:flex;align-items:center;gap:10px">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+    <span style="font-size:16px;font-weight:700">Nova versão disponível — atualize para continuar usando</span>
+  </div>
+  <button onclick="aplicarAtualizacao()" style="background:#1a2940;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-family:var(--font-cond);font-size:15px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap">🔄 Atualizar agora</button>
 </div>
 <nav class="topnav">
   <div class="topnav-brand">
@@ -117,7 +120,7 @@ body { height:100dvh; overflow:hidden; }
     <div id="holder" style="display:none"><div class="formbox" id="pForm">
       <button class="x" onclick="fecharForm()">×</button>
       <h3 id="fTitulo">Nova obra</h3>
-      <div class="hint">Escolha a cidade na lista e ajuste o pino arrastando ou clicando no mapa.</div>
+      <div class="hint">Escolha a cidade na lista. Para ajustar o local, arraste o pino laranja.</div>
       <div class="fld"><label>Nome da obra *</label><input class="inp" id="fNome"></div>
       <div class="fld"><label>Cliente</label><input class="inp" id="fCliente"></div>
       <div class="fld"><label>Cidade *</label><input class="inp" id="fCidade" autocomplete="off" oninput="buscarCidade()"><div class="sug" id="sug" style="display:none"></div></div>
@@ -206,7 +209,6 @@ function desenhaUFs() {
   map.addLayer({ id: 'ufs-linha', type: 'line', source: 'ufs', paint: { 'line-color': '#8fc3f0', 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.8, 9, 2], 'line-opacity': 0.9 } }, antes);
 }
 map.on('style.load', () => { colorir(); try { desenhaUFs(); } catch (e) {} });
-map.on('click', e => { if (!el('holder').contains(formEl)) setPonto(e.lngLat.lat, e.lngLat.lng); });
 function atualizaNomes() {
   const c = map.cameraForBounds(BRASIL, { padding: 20 });   // zoom que enquadra o Brasil inteiro nesta tela
   el('mapbox').classList.toggle('perto', !!c && map.getZoom() >= c.zoom + 0.7);
@@ -352,7 +354,7 @@ function buscarCidade() {
 async function salvar() {
   const nome = el('fNome').value.trim(), cidade = el('fCidade').value.trim();
   if (!nome || !cidade) { toast('Preencha o nome e a cidade.'); return; }
-  if (draft.lat === null) { toast('Escolha a cidade na lista ou clique no mapa.'); return; }
+  if (draft.lat === null) { toast('Escolha a cidade na lista ou arraste o pino laranja.'); return; }
   const linkTxt = el('fLink').value.trim(), link = urlSegura(linkTxt);
   if (linkTxt && !link) { toast('Link do supervisório inválido.'); return; }
   const row = { nome, cliente: el('fCliente').value.trim(), cidade, uf: draft.uf, pais: draft.pais || '', manutencao: el('fManut').checked, lat: draft.lat, lng: draft.lng,
