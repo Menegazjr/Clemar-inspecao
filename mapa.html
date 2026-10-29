@@ -12,7 +12,8 @@
 <link rel="stylesheet" href="style.css">
 <style>
 :root { --blue:#0a8fe0; --blue-glow:#19b4ff; }
-body { height:100dvh; overflow:hidden; }
+body { height:100dvh; overflow:hidden; overscroll-behavior:none; }
+button, a, .item, .dot { touch-action:manipulation; }
 .wrap { display:flex; flex:1; min-height:0; }
 #side { width:310px; min-width:310px; background:var(--steel); color:#fff; display:flex; flex-direction:column; border-right:1px solid rgba(255,255,255,.08); }
 .side-head { padding:14px; display:flex; flex-direction:column; gap:10px; border-bottom:1px solid rgba(255,255,255,.08); }
@@ -74,9 +75,23 @@ body { height:100dvh; overflow:hidden; }
 .pin b { position:absolute; inset:0; border-radius:50%; border:2px solid var(--c); animation:pulso 2s infinite; }
 @keyframes pulso { 0% { transform:scale(.5); opacity:1; } 100% { transform:scale(2.2); opacity:0; } }
 #toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--steel); color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; display:none; z-index:999; }
+.only-mobile { display:none; }
+.side-acoes { flex-wrap:wrap; gap:8px; }
+#veu { display:none; }
 @media (max-width:700px) {
-  .wrap { flex-direction:column; } #side { width:auto; min-width:0; max-height:34%; overflow:auto; } #lista { min-height:140px; }
-  .panel { top:auto; bottom:0; left:0; right:0; width:auto; max-height:62%; border-radius:14px 14px 0 0; }
+  .only-mobile { display:flex; }
+  .topnav-actions { display:none; }
+  .wrap { position:relative; }
+  #side { position:absolute; top:0; bottom:0; left:0; width:min(88vw,340px); min-width:0; z-index:30; transform:translateX(-102%); transition:transform .25s ease; }
+  .wrap.menu-aberto #side { transform:none; box-shadow:8px 0 30px rgba(0,0,0,.5); }
+  .wrap.recolhido #side { display:flex; }
+  .wrap.menu-aberto #veu { display:block; position:absolute; inset:0; background:rgba(0,0,0,.45); z-index:25; }
+  .mapbtn { width:auto; height:42px; padding:0 14px; font:700 15px var(--font-cond); border-radius:8px; }
+  .panel { top:auto; bottom:0; left:0; right:0; width:auto; max-height:56%; border-radius:14px 14px 0 0; padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px)); -webkit-overflow-scrolling:touch; }
+  .pin { width:30px; height:30px; } .pin i { inset:7px; } .pin .nm { top:34px; }
+  .dot { width:28px; height:28px; }
+  .maplibregl-ctrl-group { display:none !important; }
+  .pop .maplibregl-popup-close-button { font-size:26px; padding:4px 12px; }
   .btn-hide-mobile { display:none; }
 }
 </style>
@@ -95,15 +110,21 @@ body { height:100dvh; overflow:hidden; }
     <div><div class="topnav-title">MAPA DE OBRAS</div><div class="topnav-subtitle btn-hide-mobile">Supervisórios</div></div>
   </div>
   <div class="topnav-actions">
-    <button class="btn btn-blue" id="btnNova" style="display:none" onclick="novaObra()">+ <span class="btn-hide-mobile">Nova obra</span></button>
+    <button class="btn btn-blue js-nova" id="btnNova" style="display:none" onclick="novaObra()">+ <span class="btn-hide-mobile">Nova obra</span></button>
     <a class="btn btn-steel" href="index.html">Inspeções</a>
-    <button class="btn btn-steel" id="btnAuth" onclick="authClick()">Entrar</button>
+    <button class="btn btn-steel js-auth" id="btnAuth" onclick="authClick()">Entrar</button>
   </div>
 </nav>
 
 <div class="wrap">
   <aside id="side">
     <div class="side-head">
+      <div class="side-acoes only-mobile">
+        <button class="btn btn-blue js-nova" style="display:none" onclick="novaObra()">+ Nova obra</button>
+        <a class="btn btn-steel" href="index.html">Inspeções</a>
+        <button class="btn btn-steel js-auth" onclick="authClick()">Entrar</button>
+        <button class="btn btn-steel" onclick="alternarMenu()" aria-label="Fechar menu" style="margin-left:auto">✕</button>
+      </div>
       <h2><span>Obras <small id="cont">0</small></span><button class="btn btn-steel btn-sm" onclick="carregar().then(()=>toast('Obras atualizadas'))" title="Atualizar obras" style="padding:2px 10px">↻</button></h2>
       <input class="inp" id="busca" placeholder="Buscar obra, cliente ou cidade…" oninput="renderLista()">
       <div class="chips" id="chips"></div>
@@ -111,6 +132,7 @@ body { height:100dvh; overflow:hidden; }
     </div>
     <div id="lista"></div>
   </aside>
+  <div id="veu" onclick="alternarMenu()"></div>
   <div id="mapbox">
     <div id="map"></div>
     <button class="mapbtn" id="btnSide" onclick="alternarMenu()" title="Recolher menu">◀</button>
@@ -214,7 +236,8 @@ function atualizaNomes() {
   el('mapbox').classList.toggle('perto', !!c && map.getZoom() >= c.zoom + 0.7);
 }
 map.on('zoom', atualizaNomes); map.on('resize', atualizaNomes);
-function verBrasil() { map.fitBounds(BRASIL, { padding: 20, duration: 900 }); }
+function verBrasil() {
+  fechaMenuMobile(); map.fitBounds(BRASIL, { padding: 20, duration: 900 }); }
 
 // ── DADOS ──
 async function carregar() {
@@ -266,15 +289,23 @@ function renderLista() {
     : '<div class="vazio">Nenhuma obra encontrada.</div>';
 }
 function verTudo() {
+  fechaMenuMobile();
   const l = visiveis(); if (!l.length) return;
   const b = new maplibregl.LngLatBounds(); l.forEach(o => b.extend([o.lng, o.lat]));
   map.fitBounds(b, { padding: 90, maxZoom: 8, duration: 900 });
 }
-function alternarMenu() {
-  const r = document.querySelector('.wrap').classList.toggle('recolhido');
-  el('btnSide').textContent = r ? '☰' : '◀'; el('btnSide').title = r ? 'Mostrar menu' : 'Recolher menu';
-  setTimeout(() => map.resize(), 60);
+const movel = () => innerWidth <= 700;
+function fechaMenuMobile() { document.querySelector('.wrap').classList.remove('menu-aberto'); }
+function rotuloMenu() {
+  const r = document.querySelector('.wrap').classList.contains('recolhido');
+  el('btnSide').textContent = movel() ? '☰ Menu' : (r ? '☰' : '◀');
+  el('btnSide').title = r ? 'Mostrar menu' : 'Recolher menu';
 }
+function alternarMenu() {
+  document.querySelector('.wrap').classList.toggle(movel() ? 'menu-aberto' : 'recolhido');   // celular: gaveta; computador: recolhe
+  rotuloMenu(); setTimeout(() => map.resize(), 60);
+}
+addEventListener('resize', rotuloMenu);
 function urlSegura(u) {
   if (!u) return '';
   u = u.trim(); if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(u)) u = 'https://' + u;
@@ -285,6 +316,7 @@ function urlSegura(u) {
 function abrir(id, centralizar) {
   const o = obras.find(x => x.id === id); if (!o) return;
   fecharForm(); fechaPop();
+  if (centralizar) fechaMenuMobile();
   const c = COR[o.status] || COR['Em andamento'], link = urlSegura(o.supervisorio_url);
   const html = `<h3>${esc(o.nome)}</h3>
     <span class="tag" style="background:${c}22;color:${c};border:1px solid ${c}66">${esc(o.status)}</span>${o.manutencao ? '<span class="tag" style="background:#e8a02022;color:#b57400;border:1px solid #e8a02066;margin-left:6px">🔧 Manutenção</span>' : ''}
@@ -298,7 +330,7 @@ function abrir(id, centralizar) {
 }
 
 // ── FORMULÁRIO ──
-function novaObra() { editId = null; abrirForm({}); }
+function novaObra() { fechaMenuMobile(); editId = null; abrirForm({}); }
 function editar(id) { editId = id; abrirForm(obras.find(o => o.id === id)); }
 function abrirForm(o) {
   fechaPop();
@@ -312,7 +344,7 @@ function abrirForm(o) {
   if (editId || innerWidth <= 700) map.easeTo({ center: ini, offset: deslocPainel(), duration: 400 });   // pino fica fora de trás do painel
 }
 // Pino laranja arrastável + caixinha do formulário presa a ele
-const deslocPainel = () => innerWidth > 700 ? [-170, 0] : [0, -150];
+const deslocPainel = () => innerWidth > 700 ? [-170, 0] : [0, -Math.round(map.getContainer().clientHeight * 0.28)];
 function montaDraft(ll) {
   if (draftMarca) draftMarca.remove();
   draftMarca = new maplibregl.Marker({ color: '#e8a020', draggable: true }).setLngLat(ll).addTo(map);
@@ -351,7 +383,9 @@ function buscarCidade() {
     } catch (e) { toast('Falha ao buscar cidade.'); }
   }, 600);
 }
+let salvando = false;
 async function salvar() {
+  if (salvando) return;
   const nome = el('fNome').value.trim(), cidade = el('fCidade').value.trim();
   if (!nome || !cidade) { toast('Preencha o nome e a cidade.'); return; }
   if (draft.lat === null) { toast('Escolha a cidade na lista ou arraste o pino laranja.'); return; }
@@ -360,7 +394,7 @@ async function salvar() {
   const row = { nome, cliente: el('fCliente').value.trim(), cidade, uf: draft.uf, pais: draft.pais || '', manutencao: el('fManut').checked, lat: draft.lat, lng: draft.lng,
     status: el('fStatus').value, cor: el('fCor').value, supervisorio_url: link, observacoes: el('fObs').value.trim(), atualizado_em: new Date().toISOString() };
   const q = editId ? supa.from('obras_mapa').update(row).eq('id', editId) : supa.from('obras_mapa').insert([{ ...row, criado_por: user.email }]);
-  const { error } = await q;
+  salvando = true; const { error } = await q; salvando = false;
   if (error) { toast('Erro ao salvar: ' + error.message); return; }
   const id = editId; fecharForm(); await carregar(); toast('Obra salva!'); if (id) abrir(id);
 }
@@ -379,10 +413,11 @@ async function checarSessao() {
     const { data: r } = await supa.from('usuarios').select('aprovado, role').eq('id', user.id).single();
     podeEditar = !!(r && (r.aprovado || r.role === 'admin'));
   }
-  el('btnNova').style.display = podeEditar ? '' : 'none';
-  el('btnAuth').textContent = user ? 'Sair' : 'Entrar';
+  document.querySelectorAll('.js-nova').forEach(b => b.style.display = podeEditar ? '' : 'none');
+  document.querySelectorAll('.js-auth').forEach(b => b.textContent = user ? 'Sair' : 'Entrar');
 }
 function authClick() {
+  fechaMenuMobile();
   if (user) { supa.auth.signOut().then(() => { fecharForm(); fechaPop(); checarSessao(); }); }
   else el('pLogin').classList.add('open');
 }
@@ -418,7 +453,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-renderChips(); checarSessao(); carregar(); carregaUFs();
+rotuloMenu(); renderChips(); checarSessao(); carregar(); carregaUFs();
 </script>
 </body>
 </html>
