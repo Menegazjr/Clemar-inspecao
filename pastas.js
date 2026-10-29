@@ -449,6 +449,12 @@ function caminhoAte(id) {
   return caminho;
 }
 
+// Quantos relatórios há dentro de uma pasta (inclui subpastas)
+function contaPasta(id) {
+  const ids = new Set(idsDescendentes(id));
+  return relatorios.filter(r => ids.has(r.pasta_id)).length;
+}
+
 function renderizarPastasBar() {
   const bar = document.getElementById('pastasBar');
   if (!bar) return;
@@ -463,24 +469,25 @@ function renderizarPastasBar() {
     caminho.forEach((p, i) => {
       crumbs.push(`<span class="pasta-breadcrumb-sep">›</span>`);
       if (i < caminho.length - 1) {
-        crumbs.push(`<button class="pasta-breadcrumb-item" onclick="navegarPasta('${p.id}')">${p.nome}</button>`);
+        crumbs.push(`<button class="pasta-breadcrumb-item" onclick="navegarPasta('${p.id}')">${escH(p.nome)}</button>`);
       } else {
-        crumbs.push(`<span class="pasta-breadcrumb-item atual">${p.nome}</span>`);
+        crumbs.push(`<span class="pasta-breadcrumb-item atual">${escH(p.nome)}</span>`);
       }
     });
     breadcrumb = `<div class="pasta-breadcrumb">${crumbs.join('')}</div>`;
   }
 
-  // Chips — clique único entra na pasta e filtra relatórios
+  // Chips — clique único entra na pasta e mostra tudo o que há dentro dela (com contagem)
   const chips = nivelAtual.map(p => `
     <button class="pasta-chip ${pastaAtivaId === p.id ? 'ativa' : ''}" onclick="entrarPasta('${p.id}')">
-      📁 ${p.nome}
-      <span class="pasta-del" onclick="event.stopPropagation();confirmarExcluirPasta('${p.id}','${p.nome.replace(/'/g,"\'")}')" style="position:relative;z-index:2">×</span>
+      📁 ${escH(p.nome)} <small class="pasta-count">${contaPasta(p.id)}</small>
+      <span class="pasta-del" onclick="event.stopPropagation();confirmarExcluirPasta('${p.id}')" style="position:relative;z-index:2">×</span>
     </button>`).join('');
 
+  const nTodos = relatorios.length, nSem = relatorios.filter(r => !r.pasta_id).length;
   const chipsFixos = _pastaPaiAtualId === null ? `
-    <button class="pasta-chip ${pastaAtivaId === null ? 'ativa' : ''}" onclick="filtrarPasta(null)">Todos</button>
-    <button class="pasta-chip sem-pasta ${pastaAtivaId === 'sem-pasta' ? 'ativa' : ''}" onclick="filtrarPasta('sem-pasta')">Sem pasta</button>
+    <button class="pasta-chip ${pastaAtivaId === null ? 'ativa' : ''}" onclick="filtrarPasta(null)">Todos <small class="pasta-count">${nTodos}</small></button>
+    <button class="pasta-chip sem-pasta ${pastaAtivaId === 'sem-pasta' ? 'ativa' : ''}" onclick="filtrarPasta('sem-pasta')">Sem pasta <small class="pasta-count">${nSem}</small></button>
   ` : `
     <button class="pasta-chip" onclick="navegarPasta(null);filtrarPasta(null)">← Início</button>
   `;
@@ -504,25 +511,16 @@ function filtrarPasta(id) {
 }
 
 function entrarPasta(id) {
-  const temFilhos = pastas.some(p => p.pasta_pai_id === id);
-  if (temFilhos) {
-    // Tem subpastas — só navega, não filtra ainda
-    _pastaPaiAtualId = id;
-    pastaAtivaId = null;
-    renderizarPastasBar();
-    renderizarLista();
-  } else {
-    // Pasta folha — navega e filtra os relatórios
-    _pastaPaiAtualId = id;
-    pastaAtivaId = id;
-    renderizarPastasBar();
-    renderizarLista();
-  }
+  // Entra na pasta: mostra tudo o que há dentro dela (inclusive subpastas); as subpastas aparecem como atalhos
+  _pastaPaiAtualId = id;
+  pastaAtivaId = id;
+  renderizarPastasBar();
+  renderizarLista();
 }
 
 function navegarPasta(paiId) {
   _pastaPaiAtualId = paiId;
-  pastaAtivaId = null;
+  pastaAtivaId = paiId;   // null = todos; senão mostra a pasta (com subpastas)
   renderizarPastasBar();
   renderizarLista();
 }
@@ -569,11 +567,14 @@ async function criarPasta() {
 }
 
 async function confirmarExcluirPasta(id, nome) {
+  nome = nome || (pastas.find(p => p.id === id) || {}).nome || '';
+  const paiDaExcluida = (pastas.find(p => p.id === id) || {}).pasta_pai_id || null;
   if (!confirm(`Excluir a pasta "${nome}"? Os relatórios dentro dela não serão excluídos.`)) return;
   const { error } = await supa.from('pastas').delete().eq('id', id);
   if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
   pastas = pastas.filter(p => p.id !== id);
-  if (pastaAtivaId === id) pastaAtivaId = null;
+  if (pastaAtivaId === id) pastaAtivaId = paiDaExcluida;
+  if (_pastaPaiAtualId === id) _pastaPaiAtualId = paiDaExcluida;
   renderizarPastasBar();
   renderizarLista();
   showAlert(`Pasta excluída.`, 'warn');
