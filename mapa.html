@@ -58,6 +58,8 @@ button, a, .item, .dot { touch-action:manipulation; }
 .wrap.recolhido #side { display:none; }
 .pop .maplibregl-popup-content { border-radius:12px; padding:14px 16px 12px; min-width:230px; box-shadow:0 10px 30px rgba(0,0,0,.45); }
 .pop .maplibregl-popup-close-button { font-size:20px; padding:2px 8px; color:var(--ink-light); }
+@keyframes giraRef { to { transform:rotate(360deg); } }
+.girando { animation:giraRef .8s linear infinite; }
 .dots { display:flex; align-items:center; gap:9px; padding:2px 0; }
 .dot { width:22px; height:22px; border-radius:50%; border:2px solid #fff; background:var(--c); cursor:pointer; padding:0; box-shadow:0 0 8px var(--c); transition:.15s; }
 .dot.on { transform:scale(1.2); box-shadow:0 0 0 3px rgba(255,255,255,.35), 0 0 10px var(--c); }
@@ -125,7 +127,7 @@ button, a, .item, .dot { touch-action:manipulation; }
         <button class="btn btn-steel js-auth" onclick="authClick()">Entrar</button>
         <button class="btn btn-steel" onclick="alternarMenu()" aria-label="Fechar menu" style="margin-left:auto">✕</button>
       </div>
-      <h2><span>Obras <small id="cont">0</small></span><button class="btn btn-steel btn-sm" onclick="carregar().then(()=>toast('Obras atualizadas'))" title="Atualizar obras" style="padding:2px 10px">↻</button></h2>
+      <h2><span>Obras <small id="cont">0</small> <small id="hora" style="color:rgba(255,255,255,.45);margin-left:4px"></small></span><button class="btn btn-steel btn-sm" onclick="atualizarManual()" title="Atualizar obras" style="padding:2px 10px"><span id="icoRef" style="display:inline-block">↻</span></button></h2>
       <input class="inp" id="busca" placeholder="Buscar obra, cliente ou cidade…" oninput="renderLista()">
       <div class="chips" id="chips"></div>
       <div style="display:flex;gap:8px"><button class="btn btn-steel" onclick="verBrasil()" style="flex:1;justify-content:center">Ver Brasil</button><button class="btn btn-steel" onclick="verTudo()" style="flex:1;justify-content:center">Ver todas</button></div>
@@ -240,12 +242,30 @@ function verBrasil() {
   fechaMenuMobile(); map.fitBounds(BRASIL, { padding: 20, duration: 900 }); }
 
 // ── DADOS ──
+let _sig = '';
+// Busca as obras; só redesenha o mapa se algo mudou. Devolve true (mudou), false (igual) ou null (erro)
 async function carregar() {
   const { data, error } = await supa.from('obras_mapa').select('*').order('nome');
-  if (error) { toast('Erro ao carregar obras: ' + error.message); return; }
+  if (error) { toast('Erro ao carregar obras: ' + error.message); return null; }
+  el('hora').textContent = '· ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const sig = JSON.stringify(data || []);
+  if (sig === _sig) return false;
+  _sig = sig;
   obras = (data || []).map(o => o.status === 'Parada' ? { ...o, status: 'Paralisada' } : o);
   atualiza();
+  return true;
 }
+let recarregando = false;
+async function atualizarManual() {
+  if (recarregando) return; recarregando = true; el('icoRef').classList.add('girando');
+  const [mudou] = await Promise.all([carregar(), new Promise(r => setTimeout(r, 700))]);   // seta gira pelo menos um instante
+  el('icoRef').classList.remove('girando'); recarregando = false;
+  if (mudou !== null) toast(mudou ? `Atualizado: ${obras.length} obras` : 'Nenhuma novidade — já está atualizado');
+}
+// Atualização automática (telão): a cada 2 minutos e ao voltar para a aba; não mexe na tela se o formulário estiver aberto
+const formFechado = () => el('holder').contains(formEl);
+setInterval(() => { if (!document.hidden && formFechado()) carregar(); }, 120000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && formFechado()) carregar(); });
 function renderPinos() {
   Object.values(marcas).forEach(m => m.remove()); marcas = {};
   const grupos = {};

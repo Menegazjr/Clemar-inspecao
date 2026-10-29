@@ -1,5 +1,5 @@
 // Versão do cache — altere este número a cada deploy para forçar atualização
-const VERSION = '1.9.17';
+const VERSION = '1.9.18';
 const CACHE = `clemar-${VERSION}`;
 
 const ASSETS = [
@@ -58,6 +58,9 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
+  // Ignora o que não é GET http(s) (ex.: chrome-extension://) — a Cache API não aceita esses esquemas
+  if (e.request.method !== 'GET' || !/^https?:$/.test(url.protocol)) return;
+
   // Supabase sempre vai para a rede
   if (url.hostname.includes('supabase.co')) {
     e.respondWith(fetch(e.request).catch(() => new Response('offline', { status: 503 })));
@@ -69,7 +72,7 @@ self.addEventListener('fetch', e => {
     e.respondWith(
       fetch(e.request).then(resp => {
         const clone = resp.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
+        caches.open(CACHE).then(c => c.put(e.request, clone).catch(() => {}));
         return resp;
       }).catch(() => caches.match(e.request))
     );
@@ -83,7 +86,7 @@ self.addEventListener('fetch', e => {
     e.respondWith(
       fetch(e.request).then(resp => {
         const clone = resp.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
+        caches.open(CACHE).then(c => c.put(e.request, clone).catch(() => {}));
         return resp;
       }).catch(() => caches.match(e.request))
     );
@@ -94,7 +97,7 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
       const clone = resp.clone();
-      caches.open(CACHE).then(c => c.put(e.request, clone));
+      caches.open(CACHE).then(c => c.put(e.request, clone).catch(() => {}));
       return resp;
     }))
   );
