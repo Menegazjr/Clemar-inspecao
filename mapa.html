@@ -44,7 +44,7 @@ body { height:100dvh; overflow:hidden; }
 .pin { width:22px; height:22px; cursor:pointer; }
 .pin:hover { z-index:5; }
 .pin .nm { position:absolute; left:50%; top:28px; transform:translateX(-50%); white-space:nowrap; font:600 12px var(--font-cond); letter-spacing:.3px; color:#fff; background:rgba(15,25,35,.88); border:1px solid var(--c); padding:2px 9px; border-radius:10px; pointer-events:none; opacity:0; transition:opacity .15s; }
-.nomes.perto .pin .nm, .pin:hover .nm { opacity:1; }
+.perto .pin .nm, .pin:hover .nm { opacity:1; }
 .cluster { width:var(--s); height:var(--s); border-radius:50%; background:radial-gradient(circle at 35% 30%, #35b8ff, #0a6fc0); border:3px solid rgba(255,255,255,.92); color:#fff; font:700 14px var(--font-cond); display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 0 0 7px rgba(25,180,255,.25), 0 4px 14px rgba(0,0,0,.55); }
 .cluster:hover { filter:brightness(1.12); }
 .pin .mt { position:absolute; right:-10px; top:-10px; width:18px; height:18px; border-radius:50%; background:#fff; border:2px solid var(--c); font-style:normal; font-size:9px; line-height:14px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.5); }
@@ -63,6 +63,7 @@ body { height:100dvh; overflow:hidden; }
 .dot.mnt { background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.5); font-size:11px; line-height:1; box-shadow:none; margin-left:auto; }
 .dot.mnt.on { background:#fff; }
 .dots.filtrando .dot:not(.on) { opacity:.3; }
+.panel .formbox { width:auto; max-height:none; overflow:visible; }
 .formbox { position:relative; width:290px; max-width:100%; max-height:55vh; overflow:auto; padding:2px 4px 0 0; }
 .formbox h3 { font-family:var(--font-cond); font-size:19px; color:var(--steel); padding-right:24px; }
 .formbox .x { position:absolute; top:-4px; right:0; background:none; border:none; font-size:22px; color:var(--ink-light); cursor:pointer; }
@@ -102,7 +103,6 @@ body { height:100dvh; overflow:hidden; }
       <input class="inp" id="busca" placeholder="Buscar obra, cliente ou cidade…" oninput="renderLista()">
       <div class="chips" id="chips"></div>
       <div style="display:flex;gap:8px"><button class="btn btn-steel" onclick="verBrasil()" style="flex:1;justify-content:center">Ver Brasil</button><button class="btn btn-steel" onclick="verTudo()" style="flex:1;justify-content:center">Ver todas</button></div>
-      <button class="btn btn-steel" id="btnNomes" onclick="alternarNomes()" style="justify-content:center"></button>
     </div>
     <div id="lista"></div>
   </aside>
@@ -111,6 +111,7 @@ body { height:100dvh; overflow:hidden; }
     <button class="mapbtn" id="btnSide" onclick="alternarMenu()" title="Recolher menu">◀</button>
 
 
+    <div class="panel" id="painelNova"></div>
     <div id="holder" style="display:none"><div class="formbox" id="pForm">
       <button class="x" onclick="fecharForm()">×</button>
       <h3 id="fTitulo">Nova obra</h3>
@@ -163,12 +164,13 @@ function toast(t) { const e = el('toast'); e.textContent = t; e.style.display = 
 
 // ── MAPA ──
 const COR_TERRA = '#2f4561', COR_AGUA = '#15233a';
+const BRASIL = [[-74, -34], [-34, 5.5]];
 const UF_URLS = ['https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application%2Fvnd.geo%2Bjson&intrarregiao=UF&qualidade=minima',
                  'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson'];
 let ufData = null;
 map = new maplibregl.Map({
   container: 'map', style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-  center: [-52, -14], zoom: 3.4, pitch: 0, maxPitch: 0, bearing: 0,
+  bounds: BRASIL, fitBoundsOptions: { padding: 20 }, pitch: 0, maxPitch: 0, bearing: 0,
   dragRotate: false, attributionControl: { compact: true }
 });
 map.touchZoomRotate.disableRotation(); map.keyboard.disableRotation();   // norte sempre para cima, sem inclinação
@@ -203,10 +205,14 @@ function desenhaUFs() {
   map.addLayer({ id: 'ufs-linha', type: 'line', source: 'ufs', paint: { 'line-color': '#8fc3f0', 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.8, 9, 2], 'line-opacity': 0.9 } }, antes);
 }
 map.on('style.load', () => { colorir(); try { desenhaUFs(); } catch (e) {} });
-map.on('click', e => { if (popForm) setPonto(e.lngLat.lat, e.lngLat.lng); });
+map.on('click', e => { if (!el('holder').contains(formEl)) setPonto(e.lngLat.lat, e.lngLat.lng); });
 map.on('moveend', desenhaPinos); map.on('resize', desenhaPinos);
-map.on('zoom', () => el('mapbox').classList.toggle('perto', map.getZoom() >= 6.5));
-function verBrasil() { map.flyTo({ center: [-52, -14], zoom: 3.4, pitch: 0, bearing: 0, speed: .9 }); }
+function atualizaNomes() {
+  const c = map.cameraForBounds(BRASIL, { padding: 20 });   // zoom que enquadra o Brasil inteiro nesta tela
+  el('mapbox').classList.toggle('perto', !!c && map.getZoom() >= c.zoom + 0.7);
+}
+map.on('zoom', atualizaNomes); map.on('resize', atualizaNomes);
+function verBrasil() { map.fitBounds(BRASIL, { padding: 20, duration: 900 }); }
 
 // ── DADOS ──
 async function carregar() {
@@ -217,7 +223,7 @@ async function carregar() {
 }
 function renderPinos() {
   Object.values(marcas).forEach(m => m.remove()); marcas = {};
-  idx = new Supercluster({ radius: 55, maxZoom: 12, minPoints: 2 });
+  idx = new Supercluster({ radius: 8, maxZoom: 12, minPoints: 2 });
   idx.load(visiveis().map(o => ({ type: 'Feature', properties: { id: o.id }, geometry: { type: 'Point', coordinates: [o.lng, o.lat] } })));
   desenhaPinos();
 }
@@ -317,21 +323,24 @@ function abrirForm(o) {
   el('fLink').value = o.supervisorio_url || ''; el('fObs').value = o.observacoes || '';
   draft = { uf: o.uf || '', pais: o.pais || '', lat: o.lat ?? null, lng: o.lng ?? null };
   const c = map.getCenter(), ini = draft.lat !== null ? [draft.lng, draft.lat] : [c.lng, c.lat];   // obra nova: pino provisório no centro
-  montaDraft(ini); atualizaCoord();
-  map.easeTo({ center: ini, offset: [0, 170], duration: 400 });   // deixa espaço para a caixinha acima do pino
+  montaDraft(ini, !editId); atualizaCoord();   // obra nova: painel no canto; editar: caixinha junto ao pino
+  if (editId) map.easeTo({ center: ini, offset: [0, 170], duration: 400 });   // deixa espaço para a caixinha acima do pino
 }
 // Pino laranja arrastável + caixinha do formulário presa a ele
-function montaDraft(ll) {
+function montaDraft(ll, painel) {
   if (draftMarca) draftMarca.remove();
-  if (popForm) { el('holder').appendChild(formEl); popForm.remove(); }
+  el('holder').appendChild(formEl); el('painelNova').classList.remove('open');
+  if (popForm) { popForm.remove(); popForm = null; }
   draftMarca = new maplibregl.Marker({ color: '#e8a020', draggable: true }).setLngLat(ll).addTo(map);
   draftMarca.on('drag', () => popForm && popForm.setLngLat(draftMarca.getLngLat()));
   draftMarca.on('dragend', () => { const q = draftMarca.getLngLat(); draft.lat = q.lat; draft.lng = q.lng; atualizaCoord(); popForm && popForm.setLngLat(q); });
+  if (painel) { el('painelNova').appendChild(formEl); el('painelNova').classList.add('open'); return; }
   popForm = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '340px', offset: 44, className: 'pop' })
     .setLngLat(ll).setDOMContent(formEl).addTo(map);
 }
 function fecharForm() {
-  if (popForm) { el('holder').appendChild(formEl); popForm.remove(); popForm = null; }
+  el('holder').appendChild(formEl); el('painelNova').classList.remove('open');
+  if (popForm) { popForm.remove(); popForm = null; }
   el('sug').style.display = 'none';
   if (draftMarca) { draftMarca.remove(); draftMarca = null; }
 }
@@ -340,7 +349,7 @@ function setPonto(lat, lng, voar) {
   draft.lat = lat; draft.lng = lng; atualizaCoord();
   if (draftMarca) draftMarca.setLngLat([lng, lat]);
   if (popForm) popForm.setLngLat([lng, lat]);
-  if (voar) map.flyTo({ center: [lng, lat], zoom: 9, offset: [0, 170], speed: .9 });
+  if (voar) map.flyTo({ center: [lng, lat], zoom: 9, offset: popForm ? [0, 170] : [0, 0], speed: .9 });
 }
 function buscarCidade() {
   clearTimeout(tGeo); const q = el('fCidade').value.trim();
@@ -407,13 +416,6 @@ async function fazerLogin() {
   el('pLogin').classList.remove('open');
 }
 
-function aplicaNomes(on) {
-  el('mapbox').classList.toggle('nomes', on);
-  el('btnNomes').textContent = on ? 'Nomes: visíveis ao aproximar' : 'Nomes: ao passar o mouse';
-  try { localStorage.setItem('mapaNomes', on ? '1' : '0'); } catch (e) {}
-}
-function alternarNomes() { aplicaNomes(!el('mapbox').classList.contains('nomes')); }
-try { aplicaNomes(localStorage.getItem('mapaNomes') === '1'); } catch (e) { aplicaNomes(false); }
 
 // ── ATUALIZAÇÃO DO APP (mesmo service worker da inspeção) ──
 let _reg = null;
