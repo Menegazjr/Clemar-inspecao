@@ -45,12 +45,23 @@ body { height:100dvh; overflow:hidden; }
 .pin:hover { z-index:5; }
 .pin .nm { position:absolute; left:50%; top:28px; transform:translateX(-50%); white-space:nowrap; font:600 12px var(--font-cond); letter-spacing:.3px; color:#fff; background:rgba(15,25,35,.88); border:1px solid var(--c); padding:2px 9px; border-radius:10px; pointer-events:none; opacity:0; transition:opacity .15s; }
 .nomes .pin .nm, .pin:hover .nm { opacity:1; }
+.pin .mt { position:absolute; right:-10px; top:-10px; width:18px; height:18px; border-radius:50%; background:#fff; border:2px solid var(--c); font-style:normal; font-size:9px; line-height:14px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.5); }
+.chips { display:flex; flex-wrap:wrap; gap:6px; }
+.chip { display:inline-flex; align-items:center; gap:6px; font:600 12px var(--font-cond); padding:3px 10px; border-radius:20px; border:1px solid rgba(255,255,255,.2); background:transparent; color:rgba(255,255,255,.45); cursor:pointer; }
+.chip i { width:9px; height:9px; border-radius:50%; background:var(--c); opacity:.4; }
+.chip.on { color:#fff; border-color:var(--c); background:rgba(255,255,255,.08); } .chip.on i { opacity:1; }
+.chip small { opacity:.7; font-family:var(--font-mono); }
+.mapbtn { position:absolute; top:10px; left:10px; z-index:6; width:34px; height:34px; border:none; border-radius:6px; background:#fff; box-shadow:0 0 0 2px rgba(0,0,0,.1); font-size:15px; cursor:pointer; color:var(--steel); }
+.wrap.recolhido #side { display:none; }
+.pop .maplibregl-popup-content { border-radius:12px; padding:14px 16px 12px; min-width:230px; box-shadow:0 10px 30px rgba(0,0,0,.45); }
+.pop .maplibregl-popup-close-button { font-size:20px; padding:2px 8px; color:var(--ink-light); }
+.pop h3 { font-family:var(--font-cond); font-size:19px; color:var(--steel); padding-right:20px; }
 .pin i { position:absolute; inset:5px; border-radius:50%; background:var(--c); border:2px solid #fff; box-shadow:0 0 12px var(--c); }
 .pin b { position:absolute; inset:0; border-radius:50%; border:2px solid var(--c); animation:pulso 2s infinite; }
 @keyframes pulso { 0% { transform:scale(.5); opacity:1; } 100% { transform:scale(2.2); opacity:0; } }
 #toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--steel); color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; display:none; z-index:999; }
 @media (max-width:700px) {
-  .wrap { flex-direction:column; } #side { width:auto; min-width:0; max-height:34%; }
+  .wrap { flex-direction:column; } #side { width:auto; min-width:0; max-height:34%; overflow:auto; } #lista { min-height:140px; }
   .panel { top:auto; bottom:0; left:0; right:0; width:auto; max-height:62%; border-radius:14px 14px 0 0; }
   .btn-hide-mobile { display:none; }
 }
@@ -78,15 +89,16 @@ body { height:100dvh; overflow:hidden; }
     <div class="side-head">
       <h2><span>Obras <small id="cont">0</small></span><button class="btn btn-steel btn-sm" onclick="carregar().then(()=>toast('Obras atualizadas'))" title="Atualizar obras" style="padding:2px 10px">↻</button></h2>
       <input class="inp" id="busca" placeholder="Buscar obra, cliente ou cidade…" oninput="renderLista()">
-      <button class="btn btn-steel" onclick="verBrasil()" style="justify-content:center">Ver Brasil</button>
+      <div class="chips" id="chips"></div>
+      <div style="display:flex;gap:8px"><button class="btn btn-steel" onclick="verBrasil()" style="flex:1;justify-content:center">Ver Brasil</button><button class="btn btn-steel" onclick="verTudo()" style="flex:1;justify-content:center">Ver todas</button></div>
       <button class="btn btn-steel" id="btnNomes" onclick="alternarNomes()" style="justify-content:center"></button>
     </div>
     <div id="lista"></div>
   </aside>
   <div id="mapbox">
     <div id="map"></div>
+    <button class="mapbtn" id="btnSide" onclick="alternarMenu()" title="Recolher menu">◀</button>
 
-    <div class="panel" id="pDet"></div>
 
     <div class="panel" id="pForm">
       <button class="x" onclick="fecharForm()">×</button>
@@ -97,7 +109,8 @@ body { height:100dvh; overflow:hidden; }
       <div class="fld"><label>Cidade *</label><input class="inp" id="fCidade" autocomplete="off" oninput="buscarCidade()"><div class="sug" id="sug" style="display:none"></div></div>
       <div class="meta" id="fCoord" style="margin-bottom:11px;font-family:var(--font-mono);font-size:11px">Sem localização</div>
       <div class="fld"><label>Status</label>
-        <select class="inp" id="fStatus"><option>Em andamento</option><option>Planejada</option><option>Concluída</option><option>Parada</option></select></div>
+        <select class="inp" id="fStatus"><option>Em andamento</option><option>Concluída</option><option>Planejada</option><option>Paralisada</option><option>Cliente histórico</option></select></div>
+      <div class="fld"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)"><input type="checkbox" id="fManut"> 🔧 Possui contrato de manutenção</label></div>
       <div class="fld"><label>Cor do pino</label>
         <select class="inp" id="fCor"><option value="">Automática (pela cor do status)</option><option value="#19b4ff">Azul</option><option value="#27ae60">Verde</option><option value="#e8a020">Âmbar</option><option value="#ff7a1a">Laranja</option><option value="#c0392b">Vermelho</option><option value="#ff5fa2">Rosa</option><option value="#b57bff">Roxo</option><option value="#ffffff">Branco</option></select></div>
       <div class="fld"><label>Link do supervisório</label><input class="inp" id="fLink" placeholder="https://…" inputmode="url"></div>
@@ -123,9 +136,13 @@ body { height:100dvh; overflow:hidden; }
 <script>
 // Mesmo projeto Supabase do sistema de inspeção
 const supa = supabase.createClient('https://vsxoeqyqhmrljfahqcsb.supabase.co', 'sb_publishable_kBVUT2phcWigWcQNY7PkAQ_xOg72_kt');
-const COR = { 'Em andamento':'#19b4ff', 'Concluída':'#27ae60', 'Parada':'#c0392b', 'Planejada':'#e8a020' };
+const COR = { 'Em andamento':'#2ecc71', 'Concluída':'#19b4ff', 'Planejada':'#e8a020', 'Paralisada':'#e5483a', 'Cliente histórico':'#8a96a3' };
+const STATUS = Object.keys(COR);
+let filtro = new Set(STATUS), soManut = false, popup = null;
 const el = id => document.getElementById(id);
 const corObra = o => o.cor || COR[o.status] || COR['Em andamento'];
+const local = o => o.uf ? `${o.cidade} – ${o.uf}` : (o.pais ? `${o.cidade}, ${o.pais}` : o.cidade);
+const fechaPop = () => { if (popup) { popup.remove(); popup = null; } };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let map, obras = [], marcas = {}, user = null, podeEditar = false, editId = null, draft = null, draftMarca = null, tGeo;
 
@@ -143,12 +160,20 @@ map = new maplibregl.Map({
 });
 map.touchZoomRotate.disableRotation(); map.keyboard.disableRotation();   // norte sempre para cima, sem inclinação
 map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'bottom-right');
-// Terra em azul-acinzentado (em vez de preto) e oceano mais escuro
+map.addControl(new maplibregl.FullscreenControl({ container: el('mapbox') }), 'bottom-right');
+// Rótulos em português (países da região) e cores do mapa
+const _nome = ['to-string', ['coalesce', ['get', 'name:pt'], ['get', 'name_pt'], ['get', 'name_en'], ['get', 'name']]];
+const NOME_PT = ['match', _nome, 'Brazil', 'Brasil', 'Paraguay', 'Paraguai', 'Mexico', 'México', 'Colombia', 'Colômbia', 'Bolivia', 'Bolívia',
+  'Ecuador', 'Equador', 'Uruguay', 'Uruguai', 'Guyana', 'Guiana', 'French Guiana', 'Guiana Francesa', 'United States of America', 'Estados Unidos',
+  'United States', 'Estados Unidos', 'Panama', 'Panamá', 'Dominican Republic', 'República Dominicana', 'Atlantic Ocean', 'Oceano Atlântico',
+  'Pacific Ocean', 'Oceano Pacífico', 'Caribbean Sea', 'Mar do Caribe', 'Gulf of Mexico', 'Golfo do México', _nome];
 function colorir() {
   map.getStyle().layers.forEach(l => {
     try {
       if (l.type === 'background') map.setPaintProperty(l.id, 'background-color', COR_TERRA);
       else if (l.type === 'fill') map.setPaintProperty(l.id, 'fill-color', /water|ocean|sea/i.test(l.id) ? COR_AGUA : COR_TERRA);
+      else if (l.type === 'symbol' && l.layout && l.layout['text-field'] && !/ref|housenumber|height|ele/i.test(JSON.stringify(l.layout['text-field'])))
+        map.setLayoutProperty(l.id, 'text-field', NOME_PT);
     } catch (e) {}
   });
 }
@@ -172,26 +197,47 @@ function verBrasil() { map.flyTo({ center: [-52, -14], zoom: 3.4, pitch: 0, bear
 async function carregar() {
   const { data, error } = await supa.from('obras_mapa').select('*').order('nome');
   if (error) { toast('Erro ao carregar obras: ' + error.message); return; }
-  obras = data || [];
-  renderLista(); renderPinos();
+  obras = (data || []).map(o => o.status === 'Parada' ? { ...o, status: 'Paralisada' } : o);
+  atualiza();
 }
 function renderPinos() {
   Object.values(marcas).forEach(m => m.remove()); marcas = {};
-  obras.forEach(o => {
+  visiveis().forEach(o => {
     const p = document.createElement('div'); p.className = 'pin';
     p.style.setProperty('--c', corObra(o));
-    p.innerHTML = '<i></i><b></b><span class="nm"></span>';
+    p.innerHTML = '<i></i><b></b><span class="nm"></span>' + (o.manutencao ? '<em class="mt">🔧</em>' : '');
     p.querySelector('.nm').textContent = o.nome;
     p.onclick = e => { e.stopPropagation(); abrir(o.id); };
     marcas[o.id] = new maplibregl.Marker({ element: p }).setLngLat([o.lng, o.lat]).addTo(map);
   });
 }
-function renderLista() {
+function visiveis() {
   const q = el('busca').value.toLowerCase().trim();
-  const l = obras.filter(o => [o.nome, o.cliente, o.cidade, o.uf].join(' ').toLowerCase().includes(q));
-  el('cont').textContent = obras.length;
-  el('lista').innerHTML = l.length ? l.map(o => `<div class="item" style="--c:${esc(corObra(o))}" onclick="abrir('${o.id}', true)"><b>${esc(o.nome)}</b><span>${esc(o.cidade)}${o.uf ? ' – ' + esc(o.uf) : ''}${o.cliente ? ' · ' + esc(o.cliente) : ''}</span></div>`).join('')
+  return obras.filter(o => (filtro.has(o.status) || !STATUS.includes(o.status)) && (!soManut || o.manutencao)
+    && [o.nome, o.cliente, o.cidade, o.uf, o.pais].join(' ').toLowerCase().includes(q));
+}
+function renderChips() {
+  el('chips').innerHTML = STATUS.map(st => `<button class="chip${filtro.has(st) ? ' on' : ''}" style="--c:${COR[st]}" onclick="alternaStatus('${st}')"><i></i>${st} <small>${obras.filter(o => o.status === st).length}</small></button>`).join('')
+    + `<button class="chip${soManut ? ' on' : ''}" style="--c:#fff" onclick="alternaManut()">🔧 Manutenção <small>${obras.filter(o => o.manutencao).length}</small></button>`;
+}
+function alternaStatus(st) { filtro.has(st) ? filtro.delete(st) : filtro.add(st); atualiza(); }
+function alternaManut() { soManut = !soManut; atualiza(); }
+function atualiza() { fechaPop(); renderChips(); renderLista(); renderPinos(); }
+function renderLista() {
+  const l = visiveis();
+  el('cont').textContent = l.length;
+  el('lista').innerHTML = l.length ? l.map(o => `<div class="item" style="--c:${esc(corObra(o))}" onclick="abrir('${o.id}', true)"><b>${esc(o.nome)}${o.manutencao ? ' 🔧' : ''}</b><span>${esc(local(o))}${o.cliente ? ' · ' + esc(o.cliente) : ''}</span></div>`).join('')
     : '<div class="vazio">Nenhuma obra encontrada.</div>';
+}
+function verTudo() {
+  const l = visiveis(); if (!l.length) return;
+  const b = new maplibregl.LngLatBounds(); l.forEach(o => b.extend([o.lng, o.lat]));
+  map.fitBounds(b, { padding: 90, maxZoom: 8, duration: 900 });
+}
+function alternarMenu() {
+  const r = document.querySelector('.wrap').classList.toggle('recolhido');
+  el('btnSide').textContent = r ? '☰' : '◀'; el('btnSide').title = r ? 'Mostrar menu' : 'Recolher menu';
+  setTimeout(() => map.resize(), 60);
 }
 function urlSegura(u) {
   if (!u) return '';
@@ -202,29 +248,28 @@ function urlSegura(u) {
 // ── DETALHE ──
 function abrir(id, centralizar) {
   const o = obras.find(x => x.id === id); if (!o) return;
-  fecharForm();
+  fecharForm(); fechaPop();
   const c = COR[o.status] || COR['Em andamento'], link = urlSegura(o.supervisorio_url);
-  el('pDet').innerHTML = `<button class="x" onclick="el('pDet').classList.remove('open')">×</button>
-    <h3>${esc(o.nome)}</h3>
-    <span class="tag" style="background:${c}22;color:${c};border:1px solid ${c}66">${esc(o.status)}</span>
+  const html = `<h3>${esc(o.nome)}</h3>
+    <span class="tag" style="background:${c}22;color:${c};border:1px solid ${c}66">${esc(o.status)}</span>${o.manutencao ? '<span class="tag" style="background:#e8a02022;color:#b57400;border:1px solid #e8a02066;margin-left:6px">🔧 Manutenção</span>' : ''}
     ${o.cliente ? `<div class="meta">🏢 ${esc(o.cliente)}</div>` : ''}
-    <div class="meta">📍 ${esc(o.cidade)}${o.uf ? ' – ' + esc(o.uf) : ''}</div>
+    <div class="meta">📍 ${esc(local(o))}</div>
     ${o.observacoes ? `<div class="meta" style="margin-top:8px">${esc(o.observacoes)}</div>` : ''}
     <div class="acts">${link ? `<a class="btn btn-blue" href="${esc(link)}" target="_blank" rel="noopener noreferrer">Abrir supervisório ↗</a>` : '<span class="meta">Sem supervisório cadastrado</span>'}</div>
     ${podeEditar ? `<div class="acts"><button class="btn btn-outline btn-sm" onclick="editar('${o.id}')">Editar</button><button class="btn btn-danger btn-sm" onclick="excluir('${o.id}')">Excluir</button></div>` : ''}`;
-  el('pDet').classList.add('open');
-  if (centralizar) map.easeTo({ center: [o.lng, o.lat], bearing: 0, duration: 700 });   // só centraliza, sem zoom
+  if (centralizar) map.easeTo({ center: [o.lng, o.lat], bearing: 0, duration: 600 });   // só centraliza, sem zoom
+  popup = new maplibregl.Popup({ offset: 22, maxWidth: '310px', className: 'pop' }).setLngLat([o.lng, o.lat]).setHTML(html).addTo(map);
 }
 
 // ── FORMULÁRIO ──
 function novaObra() { editId = null; abrirForm({}); }
 function editar(id) { editId = id; abrirForm(obras.find(o => o.id === id)); }
 function abrirForm(o) {
-  el('pDet').classList.remove('open');
+  fechaPop();
   el('fTitulo').textContent = editId ? 'Editar obra' : 'Nova obra';
   el('fNome').value = o.nome || ''; el('fCliente').value = o.cliente || ''; el('fCidade').value = o.cidade || '';
-  el('fStatus').value = o.status || 'Em andamento'; el('fCor').value = o.cor || ''; el('fLink').value = o.supervisorio_url || ''; el('fObs').value = o.observacoes || '';
-  draft = { uf: o.uf || '', lat: o.lat ?? null, lng: o.lng ?? null };
+  el('fStatus').value = o.status || 'Em andamento'; el('fCor').value = o.cor || ''; el('fManut').checked = !!o.manutencao; el('fLink').value = o.supervisorio_url || ''; el('fObs').value = o.observacoes || '';
+  draft = { uf: o.uf || '', pais: o.pais || '', lat: o.lat ?? null, lng: o.lng ?? null };
   if (draft.lat !== null) setPonto(draft.lat, draft.lng, true); else atualizaCoord();
   el('pForm').classList.add('open');
 }
@@ -246,7 +291,7 @@ function buscarCidade() {
   if (q.length < 3) { el('sug').style.display = 'none'; return; }
   tGeo = setTimeout(async () => {
     try {
-      const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=br&accept-language=pt-BR&q=' + encodeURIComponent(q));
+      const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=br,py,ve,cu,mx&accept-language=pt-BR&q=' + encodeURIComponent(q));
       const l = await r.json();
       el('sug').innerHTML = l.map((x, i) => `<div data-i="${i}">${esc(x.display_name)}</div>`).join('') || '<div>Nada encontrado</div>';
       el('sug').style.display = 'block';
@@ -254,7 +299,8 @@ function buscarCidade() {
         const i = e.target.dataset.i; if (i === undefined) return;
         const x = l[i], a = x.address || {};
         el('fCidade').value = a.city || a.town || a.village || a.municipality || x.name;
-        draft.uf = (a['ISO3166-2-lvl4'] || '').replace('BR-', '');
+        const br = (a.country_code || '') === 'br';
+        draft.uf = br ? (a['ISO3166-2-lvl4'] || '').replace('BR-', '') : ''; draft.pais = br ? '' : (a.country || '');
         el('sug').style.display = 'none';
         setPonto(parseFloat(x.lat), parseFloat(x.lon), true);
       };
@@ -267,7 +313,7 @@ async function salvar() {
   if (draft.lat === null) { toast('Escolha a cidade na lista ou clique no mapa.'); return; }
   const linkTxt = el('fLink').value.trim(), link = urlSegura(linkTxt);
   if (linkTxt && !link) { toast('Link do supervisório inválido.'); return; }
-  const row = { nome, cliente: el('fCliente').value.trim(), cidade, uf: draft.uf, lat: draft.lat, lng: draft.lng,
+  const row = { nome, cliente: el('fCliente').value.trim(), cidade, uf: draft.uf, pais: draft.pais || '', manutencao: el('fManut').checked, lat: draft.lat, lng: draft.lng,
     status: el('fStatus').value, cor: el('fCor').value, supervisorio_url: link, observacoes: el('fObs').value.trim(), atualizado_em: new Date().toISOString() };
   const q = editId ? supa.from('obras_mapa').update(row).eq('id', editId) : supa.from('obras_mapa').insert([{ ...row, criado_por: user.email }]);
   const { error } = await q;
@@ -278,7 +324,7 @@ async function excluir(id) {
   if (!confirm('Excluir esta obra do mapa?')) return;
   const { error } = await supa.from('obras_mapa').delete().eq('id', id);
   if (error) { toast('Erro: ' + error.message); return; }
-  el('pDet').classList.remove('open'); carregar(); toast('Obra excluída.');
+  fechaPop(); carregar(); toast('Obra excluída.');
 }
 
 // ── LOGIN (opcional: só para cadastrar/editar) ──
@@ -293,7 +339,7 @@ async function checarSessao() {
   el('btnAuth').textContent = user ? 'Sair' : 'Entrar';
 }
 function authClick() {
-  if (user) { supa.auth.signOut().then(() => { fecharForm(); el('pDet').classList.remove('open'); checarSessao(); }); }
+  if (user) { supa.auth.signOut().then(() => { fecharForm(); fechaPop(); checarSessao(); }); }
   else el('pLogin').classList.add('open');
 }
 async function fazerLogin() {
@@ -335,7 +381,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-checarSessao(); carregar(); carregaUFs();
+renderChips(); checarSessao(); carregar(); carregaUFs();
 </script>
 </body>
 </html>
