@@ -565,8 +565,8 @@ async function atualizarBadgeUso() {
 
     // Cor conforme uso
     const pct = bytes / (500 * 1024 * 1024);
-    badge.style.borderColor = pct > 0.8 ? 'var(--signal)' : pct > 0.5 ? 'var(--accent)' : 'rgba(255,255,255,0.15)';
-    badge.style.color       = pct > 0.8 ? 'var(--signal)' : pct > 0.5 ? 'var(--accent)' : 'rgba(255,255,255,0.75)';
+    badge.style.borderColor = pct > 0.8 ? 'var(--signal)' : pct > 0.5 ? 'var(--accent)' : 'var(--border)';
+    badge.style.color       = pct > 0.8 ? 'var(--signal)' : pct > 0.5 ? 'var(--accent)' : 'var(--ink-light)';
   } catch(e) { console.warn('badgeUso:', e); }
 }
 

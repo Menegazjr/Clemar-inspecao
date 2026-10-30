@@ -769,3 +769,10 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .relatorio-card.sel { outline: 3px solid var(--accent); }
 .pasta-ren { background: none; border: none; cursor: pointer; color: var(--ink-light); font-size: 14px; padding: 0 6px; }
 .pasta-ren:hover { color: var(--accent); }
+
+/* Barra do topo no celular: o título encolhe em vez de empurrar os botões para fora da tela */
+@media (max-width: 600px) {
+  .topnav-brand { min-width: 0; flex-shrink: 1; overflow: hidden; }
+  .topnav-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topnav-actions, .user-bar { flex-shrink: 0; }
+}
