@@ -754,3 +754,18 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .flimpar { background: none; border: none; color: var(--signal); font: 600 13px var(--font-cond); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 .lista-dica { font-size: 12px; color: var(--ink-light); }
 .pasta-count { font-family: var(--font-mono); font-size: 10px; opacity: .65; margin-left: 2px; }
+
+/* ── Visão por obra, seleção múltipla, renomear pasta ── */
+.grupo-obra { margin-bottom: 12px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.grupo-obra > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; background: var(--steel); color: #fff; }
+.grupo-obra > summary::-webkit-details-marker { display: none; }
+.grupo-nome { font-family: var(--font-cond); font-size: 16px; font-weight: 700; }
+.grupo-meta { font-size: 12px; opacity: .7; }
+.grupo-obra .relatorio-card { margin: 8px; }
+.visita-tag { font-family: var(--font-cond); font-size: 11px; font-weight: 700; color: var(--accent); background: var(--surface); border-radius: 10px; padding: 1px 8px; margin-left: 8px; white-space: nowrap; }
+.barra-sel { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 200; align-items: center; gap: 10px; background: var(--steel); color: #fff; padding: 10px 14px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.4); font-family: var(--font-cond); font-weight: 600; white-space: nowrap; }
+.chk { width: 20px; height: 20px; border: 2px solid var(--border-strong); border-radius: 5px; flex-shrink: 0; margin: 0 10px 0 4px; align-self: center; }
+.chk.on { background: var(--accent); border-color: var(--accent); }
+.relatorio-card.sel { outline: 3px solid var(--accent); }
+.pasta-ren { background: none; border: none; cursor: pointer; color: var(--ink-light); font-size: 14px; padding: 0 6px; }
+.pasta-ren:hover { color: var(--accent); }

@@ -6,9 +6,9 @@ async function abrirRelatorio(id) {
   setTimeout(() => { _abrindoRelatorio = false; }, 1500);
 
   // 1. Buscar dados SEM fotos primeiro — rápido
-  const { data, error: err1 } = await supa.from('relatorios')
-    .select('id,numero,data,data_fim,obra,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em')
-    .eq('id', id).single();
+  const SEL = 'id,numero,data,data_fim,obra,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em';
+  let { data, error: err1 } = await supa.from('relatorios').select(SEL + ',obra_id').eq('id', id).single();
+  if (err1 && /obra_id/.test(err1.message)) ({ data, error: err1 } = await supa.from('relatorios').select(SEL).eq('id', id).single());   // SQL do vínculo ainda não rodou
   if (err1) { showAlert('Erro ao abrir: ' + err1.message, 'err'); _abrindoRelatorio = false; return; }
   data.fotos = []; // fotos virão em segundo plano
 
@@ -118,6 +118,7 @@ async function salvar() {
   r.data_fim       = document.getElementById('fieldDataFim').value || null;
   r.cliente        = document.getElementById('fieldCliente').value;
   r.obra           = document.getElementById('fieldObra').value;
+  if ('obra_id' in r) r.obra_id = document.getElementById('fieldObraMapa').value || null;
   r.cc             = document.getElementById('fieldCC').value;
   r.localidade     = document.getElementById('fieldLocalidade').value;
   r.responsavel    = document.getElementById('fieldResponsavel').value;
@@ -412,15 +413,14 @@ function confirmarExcluir() {
 async function duplicarRelatorio(id) {
   const { data: orig, error } = await supa.from('relatorios').select('*').eq('id', id).single();
   if (error) { showAlert('Erro ao duplicar: ' + error.message, 'err'); return; }
-  const num = (relatorios.length > 0 ? Math.max(...relatorios.map(r => r.numero)) : 0) + 1;
   const hoje = new Date().toISOString().slice(0, 10);
   orig.fotos = Array.isArray(orig.fotos) ? orig.fotos : (orig.fotos ? Object.values(orig.fotos) : []);
-  const { id: _, atualizado_em: __, _tamanho: ___, ...campos } = orig;
-  const novo = { ...campos, numero: num, data: hoje, assin_data: hoje, atualizado_em: new Date().toISOString(), user_id: currentUser.id };
-  const { data, error: err2 } = await supa.from('relatorios').insert([novo]).select().single();
+  const { id: _, atualizado_em: __, _tamanho: ___, numero: _n, ...campos } = orig;
+  const novo = { ...campos, data: hoje, assin_data: hoje, atualizado_em: new Date().toISOString(), user_id: currentUser.id, criado_por: currentUser.email };
+  const { data, error: err2 } = await inserirComNumero(novo);
   if (err2) { showAlert('Erro ao duplicar: ' + err2.message, 'err'); return; }
   relatorios.unshift(data);
-  showAlert(`Relatório #${num} criado como cópia!`, 'ok');
+  showAlert(`Relatório #${data.numero} criado como cópia!`, 'ok');
   carregarLista();
 }
 

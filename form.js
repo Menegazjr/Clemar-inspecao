@@ -22,6 +22,7 @@ function carregarFormulario() {
   document.getElementById('fieldDataFim').value     = r.data_fim || '';
   document.getElementById('fieldCliente').value     = r.cliente || '';
   document.getElementById('fieldObra').value        = r.obra || '';
+  popularSelectObras(r.obra_id);
   document.getElementById('fieldCC').value          = r.cc || '';
   document.getElementById('fieldLocalidade').value  = r.localidade || '';
   document.getElementById('fieldResponsavel').value = r.responsavel || '';

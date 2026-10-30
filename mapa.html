@@ -354,7 +354,7 @@ function abrir(id, centralizar) {
     ${o.cliente ? `<div class="meta">🏢 ${esc(o.cliente)}</div>` : ''}
     <div class="meta">📍 ${esc(local(o))}</div>
     ${o.observacoes ? `<div class="meta" style="margin-top:8px">${esc(o.observacoes)}</div>` : ''}
-    <div class="acts">${link ? `<a class="btn btn-blue" href="${esc(link)}" target="_blank" rel="noopener noreferrer">Abrir supervisório ↗</a>` : '<span class="meta">Sem supervisório cadastrado</span>'}</div>
+    <div class="acts">${link ? `<a class="btn btn-blue" href="${esc(link)}" target="_blank" rel="noopener noreferrer">Abrir supervisório ↗</a>` : '<span class="meta">Sem supervisório cadastrado</span>'}<a class="btn btn-outline btn-sm" href="index.html#obra=${esc(o.id)}">📋 Relatórios</a></div>
     ${podeEditar ? `<div class="acts"><button class="btn btn-outline btn-sm" onclick="editar('${o.id}')">Editar</button><button class="btn btn-danger btn-sm" onclick="excluir('${o.id}')">Excluir</button></div>` : ''}`;
   if (centralizar) map.easeTo({ center: [o.lng, o.lat], bearing: 0, duration: 600 });   // só centraliza, sem zoom
   popup = new maplibregl.Popup({ offset: 22, maxWidth: '310px', className: 'pop' }).setLngLat([o.lng, o.lat]).setHTML(html).addTo(map);

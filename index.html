@@ -218,6 +218,30 @@
           Novo Relatório
         </button>
       </div>
+      <div class="lista-tools">
+        <div class="lista-busca">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" id="listaBusca" placeholder="Buscar por obra, cliente, cidade, nº, data ou pasta…" oninput="aoBuscar(this.value)" autocomplete="off">
+        </div>
+        <div class="lista-filtros" id="listaFiltros">
+          <button class="fchip" data-sit="Liberado" style="--c:var(--ok)" onclick="alternarSit('Liberado')"><i></i>Liberado</button>
+          <button class="fchip" data-sit="Em elaboração" style="--c:var(--accent)" onclick="alternarSit('Em elaboração')"><i></i>Em elaboração</button>
+          <button class="fchip" data-sit="Concluído" style="--c:#0a8fe0" onclick="alternarSit('Concluído')"><i></i>Concluído</button>
+          <button class="fchip" data-sit="Em avaliação" style="--c:#8a96a3" onclick="alternarSit('Em avaliação')"><i></i>Em avaliação</button>
+          <button class="fchip" id="fMeus" onclick="alternarMeus()">👤 Só meus</button>
+          <button class="fchip" id="fAgrupar" onclick="alternarAgrupar()" title="Agrupar as visitas por obra">🗂 Por obra</button>
+          <button class="fchip" id="fSel" onclick="alternarSelecao()" title="Selecionar vários para mover de pasta">☑ Selecionar</button>
+          <button class="flimpar" id="btnLimparFiltros" style="display:none" onclick="limparFiltros()">Limpar</button>
+          <select class="lista-ordem" id="listaOrdem" onchange="aoOrdenar(this.value)" title="Ordenar por">
+            <option value="numero_desc">Nº (maior primeiro)</option>
+            <option value="editado">Última edição</option>
+            <option value="data">Data da visita</option>
+            <option value="obra">Obra (A–Z)</option>
+            <option value="numero_asc">Nº (menor primeiro)</option>
+          </select>
+        </div>
+        <div class="lista-dica" id="listaDica" style="display:none">Buscando em todas as pastas</div>
+      </div>
       <div id="pastasBar" class="pastas-bar"></div>
       <div id="listaRelatorios">
         <div style="text-align:center;padding:40px;color:var(--ink-light)">Carregando relatórios...</div>
@@ -271,6 +295,7 @@
                 <div class="field"><label>Início da Inspeção</label><input type="date" id="fieldData"></div>
                 <div class="field"><label>Fim da Inspeção</label><input type="date" id="fieldDataFim"></div>
                 <div class="field"><label>Cliente</label><input type="text" id="fieldCliente" placeholder="ex: OI, CLARO, DPRF"></div>
+                <div class="field span-2"><label>Obra cadastrada no mapa</label><select id="fieldObraMapa" onchange="aoEscolherObraMapa(this.value)"><option value="">— sem vínculo com o mapa —</option></select></div>
                 <div class="field span-2"><label>Nome da Obra / Projeto</label><input type="text" id="fieldObra" placeholder="ex: Expansão Rede Norte"></div>
                 <div class="field"><label>CC — Centro de Custo</label><input type="text" id="fieldCC" placeholder="ex: CC-0599"></div>
                 <div class="field span-2"><label>Localidade / Endereço</label><input type="text" id="fieldLocalidade" placeholder="ex: Rua das Flores, 123 – Foz do Iguaçu/PR"></div>
@@ -525,6 +550,11 @@
 
 
   <!-- App -->
+  <div id="barraSel" class="barra-sel" style="display:none">
+    <span id="selCont">0 selecionados</span>
+    <button class="btn btn-primary btn-sm" id="btnMoverSel" onclick="moverSelecionados()">📁 Mover para pasta…</button>
+    <button class="btn btn-outline btn-sm" onclick="sairSelecao()" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.4)">Cancelar</button>
+  </div>
   <script src="utils.js"></script>
   <script src="auth.js"></script>
   <script src="nav.js"></script>
