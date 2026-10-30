@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migrar fotos para o Storage — Clemar</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#f3f5f8; color:#1a2940; margin:0; padding:24px; }
+  .box { max-width:760px; margin:0 auto; background:#fff; border-radius:12px; padding:24px; box-shadow:0 2px 16px rgba(0,0,0,.08); }
+  h1 { margin:0 0 6px; font-size:22px; } p, li { line-height:1.5; font-size:14px; }
+  #status { font-weight:600; margin:14px 0; padding:10px 12px; background:#eef3fa; border-radius:8px; }
+  button { padding:10px 18px; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; margin-right:8px; background:#1a2940; color:#fff; }
+  button.pri { background:#0a8fe0; } button.stop { background:#c0392b; } button:disabled { opacity:.4; cursor:not-allowed; }
+  input { padding:8px; border:1px solid #cbd3de; border-radius:6px; width:90px; font-size:14px; }
+  progress { width:100%; height:14px; margin:16px 0 6px; }
+  #resumo { font-size:13px; color:#44546a; margin-bottom:8px; }
+  pre { background:#0f1b2d; color:#cfe3ff; border-radius:8px; padding:12px; height:260px; overflow:auto; font-size:12px; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Migrar fotos antigas para o Storage</h1>
+  <p>Ferramenta de uso único, só para administradores. Ela pega as fotos que ainda estão dentro dos relatórios (no banco) e as move para o Storage do Supabase, liberando espaço do banco.</p>
+  <ul>
+    <li>Cada foto é enviada, <b>conferida</b> (o arquivo é baixado de volta e o tamanho comparado) e só então removida do banco.</li>
+    <li>Se qualquer foto falhar, ela continua no banco do jeito que estava.</li>
+    <li>Pode parar e rodar de novo quando quiser: o que já foi migrado é ignorado.</li>
+    <li>Rode antes o <b>supabase_fotos_storage.sql</b> e suba o sistema novo. Evite rodar com outras pessoas editando relatórios.</li>
+  </ul>
+  <div id="status">Verificando login…</div>
+  <p><label>Processar no máximo <input id="limite" type="number" min="1" placeholder="todos"> relatório(s) com fotos
+    <small>(use 1 ou 2 para testar primeiro)</small></label></p>
+  <button id="btnAnalisar" disabled>1) Analisar (não altera nada)</button>
+  <button id="btnMigrar" class="pri" disabled>2) Migrar</button>
+  <button id="btnParar" class="stop" disabled>Parar</button>
+  <progress id="barra" value="0" max="1"></progress>
+  <div id="resumo"></div>
+  <pre id="log"></pre>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const supa = supabase.createClient('https://vsxoeqyqhmrljfahqcsb.supabase.co', 'sb_publishable_kBVUT2phcWigWcQNY7PkAQ_xOg72_kt');
+const B = 'relatorio-fotos';
+const $ = id => document.getElementById(id);
+const log = t => { const l = $('log'); l.textContent += t + '\n'; l.scrollTop = l.scrollHeight; };
+const mb = b => (b / 1048576).toFixed(1) + ' MB';
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+let parar = false, rodando = false, admin = false;
+
+function dataUrlParaBlob(d) {
+  const i = d.indexOf(','), bin = atob(d.slice(i + 1)), u8 = new Uint8Array(bin.length);
+  for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+  return new Blob([u8], { type: 'image/jpeg' });
+}
+// mesmo tratamento que o sistema faz ao abrir um relatório (inclui o formato antigo)
+function normalizar(f) {
+  if (!f) f = []; else if (typeof f === 'string') f = JSON.parse(f); else if (typeof f === 'object' && !Array.isArray(f)) f = Object.values(f);
+  f = (f || []).filter(x => x && typeof x === 'object');
+  if (f.length && !f[0].fotos) f = f.map(x => ({ id: x.id || uid(), titulo: x.local || '', descricao: x.descricao || '',
+    fotos: [{ id: uid(), base64: x.base64 || '', largura: x.largura || 0, altura: x.altura || 0, timestamp: x.timestamp || '' }] }));
+  return f;
+}
+function botoes(ocupado) {
+  $('btnAnalisar').disabled = $('btnMigrar').disabled = ocupado || !admin;
+  $('btnParar').disabled = !ocupado;
+}
+function resumo(st) {
+  $('resumo').textContent = `Relatórios lidos: ${st.rel} · com fotos a migrar: ${st.pend} · fotos: ${st.fotos} (${mb(st.bytes)}) · migradas: ${st.ok} · falhas: ${st.falhas} · conflitos: ${st.conflitos}`;
+}
+
+async function processar(simular) {
+  if (rodando) return; rodando = true; parar = false; $('log').textContent = ''; botoes(true);
+  const lim = parseInt($('limite').value) || Infinity;
+  const st = { rel: 0, pend: 0, fotos: 0, bytes: 0, ok: 0, falhas: 0, conflitos: 0 };
+  const { data: lista, error } = await supa.from('relatorios').select('id,numero').order('numero');
+  if (error) { log('Erro ao listar relatórios: ' + error.message); rodando = false; botoes(false); return; }
+  $('barra').max = lista.length;
+  for (let i = 0; i < lista.length && !parar && st.pend < lim; i++) {
+    $('barra').value = i;
+    const { id, numero } = lista[i];
+    let d;
+    try { const r = await supa.from('relatorios').select('id,numero,fotos,versao').eq('id', id).single(); if (r.error) throw r.error; d = r.data; }
+    catch (e) { log(`#${numero}: erro ao ler (${e.message || e})`); continue; }
+    const grupos = normalizar(d.fotos), pend = [];
+    grupos.forEach(g => (g.fotos || []).forEach(f => { if (f.base64 && !f.path && String(f.base64).startsWith('data:')) pend.push(f); }));
+    st.rel++;
+    if (!pend.length) continue;
+    const bytes = pend.reduce((a, f) => a + Math.round(f.base64.length * 0.75), 0);
+    st.pend++; st.fotos += pend.length; st.bytes += bytes;
+    if (simular) { log(`#${numero}: ${pend.length} foto(s), ${mb(bytes)}`); resumo(st); continue; }
+    let migradas = 0;
+    for (const f of pend) {
+      if (!f.id) f.id = uid();
+      const path = `${id}/${f.id}.jpg`;
+      try {
+        const blob = dataUrlParaBlob(f.base64);
+        const up = await supa.storage.from(B).upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+        if (up.error) throw up.error;
+        const dl = await supa.storage.from(B).download(path);   // confere que o arquivo chegou inteiro
+        if (dl.error || !dl.data || dl.data.size !== blob.size) throw new Error('conferência do arquivo falhou');
+        f.path = path; delete f.base64; migradas++; st.ok++;
+      } catch (e) { st.falhas++; log(`#${numero}: foto ${f.id} NÃO migrada (${e.message || e}) — continua no banco`); }
+    }
+    if (migradas) {
+      let q = supa.from('relatorios').update({ fotos: grupos }).eq('id', id);
+      q = d.versao ? q.eq('versao', d.versao) : q.is('versao', null);   // só grava se ninguém mexeu no relatório nesse meio tempo
+      const { data: up, error: e2 } = await q.select('id');
+      if (e2 || !up || !up.length) { st.conflitos++; log(`#${numero}: o relatório foi alterado durante a migração — nada mudou no banco; rode de novo depois`); }
+      else log(`#${numero}: ${migradas} foto(s) migrada(s) ✓`);
+    }
+    resumo(st);
+  }
+  $('barra').value = $('barra').max;
+  log(parar ? '— Parado pelo usuário —' : (simular ? '— Análise concluída (nada foi alterado) —' : '— Migração concluída —'));
+  if (!simular && !parar) log('O Supabase libera o espaço do banco aos poucos (limpeza automática). O uso pode demorar para cair no painel.');
+  rodando = false; botoes(false);
+}
+
+$('btnAnalisar').onclick = () => processar(true);
+$('btnMigrar').onclick = () => { if (confirm('Migrar as fotos agora? Cada foto é conferida antes de sair do banco.')) processar(false); };
+$('btnParar').onclick = () => { parar = true; };
+
+(async () => {
+  const { data: { session } } = await supa.auth.getSession();
+  if (!session) { $('status').textContent = 'Faça login no sistema de inspeção (index.html) e volte a esta página.'; return; }
+  const { data: u } = await supa.from('usuarios').select('role').eq('id', session.user.id).single();
+  if (!u || u.role !== 'admin') { $('status').textContent = 'Esta ferramenta é só para administradores.'; return; }
+  admin = true; $('status').textContent = '✅ Administrador: ' + session.user.email; botoes(false);
+})();
+</script>
+</body>
+</html>

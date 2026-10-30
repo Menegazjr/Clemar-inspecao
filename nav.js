@@ -311,6 +311,7 @@ async function novoRelatorio() {
   const { data, error } = await inserirComNumero(novo);
   if (error) { showAlert('Erro ao criar relatório: ' + error.message, 'err'); return; }
   currentId = data.id;
+  _fotosProntasId = data.id;
   currentRelatorio = data;
   _versaoAberta = null;           // novo relatório — sem conflito possível
   _relatorioRecemCriado = data.id; // marca como recém criado, sem edição ainda

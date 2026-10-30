@@ -98,6 +98,26 @@ button, a, .item, .dot { touch-action:manipulation; }
   .pop .maplibregl-popup-close-button { font-size:26px; padding:4px 12px; }
   .btn-hide-mobile { display:none; }
 }
+/* ── Legenda das cores ── */
+.legenda { position:absolute; top:12px; right:12px; z-index:4; }
+.leg-toggle { display:none; }
+.leg-corpo { background:rgba(21,35,58,.88); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,.14); border-radius:12px; padding:12px 16px 10px; color:#fff; box-shadow:0 8px 28px rgba(0,0,0,.4); min-width:200px; }
+.leg-titulo { font:700 11px var(--font-cond); letter-spacing:2px; text-transform:uppercase; color:var(--blue-glow); margin-bottom:6px; }
+.leg-row { display:flex; align-items:center; gap:10px; font:600 15px var(--font-cond); padding:3px 0; transition:opacity .2s; }
+.leg-row i { width:14px; height:14px; border-radius:50%; background:var(--c); border:2px solid #fff; box-shadow:0 0 8px var(--c); flex-shrink:0; }
+.leg-row b { margin-left:auto; padding-left:18px; font:500 13px var(--font-mono); opacity:.8; }
+.leg-row.apagado { opacity:.35; }
+.leg-sep { height:1px; background:rgba(255,255,255,.14); margin:6px 0; }
+.leg-mt, .leg-grupo { width:18px; height:18px; border-radius:50%; font-style:normal; text-align:center; flex-shrink:0; }
+.leg-mt { background:#fff; font-size:10px; line-height:18px; }
+.leg-grupo { background:#0a8fe0; border:2px solid #fff; color:#fff; font-size:10px; font-weight:700; line-height:14px; }
+.form-aberto .legenda { display:none; }
+@media (min-width:1500px) { .leg-corpo { padding:16px 22px 14px; min-width:260px; } .leg-row { font-size:19px; padding:5px 0; } .leg-row i { width:18px; height:18px; } .leg-row b { font-size:16px; } .leg-titulo { font-size:13px; } }
+@media (max-width:700px) {
+  .leg-toggle { display:block; margin-left:auto; padding:9px 14px; border:none; border-radius:8px; background:rgba(21,35,58,.92); color:#fff; font:700 14px var(--font-cond); box-shadow:0 2px 10px rgba(0,0,0,.4); }
+  .leg-corpo { display:none; margin-top:8px; }
+  .legenda.aberta .leg-corpo { display:block; }
+}
 </style>
 </head>
 <body>
@@ -140,6 +160,10 @@ button, a, .item, .dot { touch-action:manipulation; }
   <div id="veu" onclick="alternarMenu()"></div>
   <div id="mapbox">
     <div id="map"></div>
+    <div id="legenda" class="legenda">
+      <button class="leg-toggle" onclick="alternarLegenda()">Legenda</button>
+      <div class="leg-corpo" id="legCorpo"></div>
+    </div>
     <button class="mapbtn" id="btnSide" onclick="alternarMenu()" title="Recolher menu">◀</button>
 
 
@@ -155,8 +179,6 @@ button, a, .item, .dot { touch-action:manipulation; }
       <div class="fld"><label>Status</label>
         <select class="inp" id="fStatus"><option>Em andamento</option><option>Concluída</option><option>Planejada</option><option>Paralisada</option><option>Cliente histórico</option></select></div>
       <div class="fld"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)"><input type="checkbox" id="fManut"> 🔧 Possui contrato de manutenção</label></div>
-      <div class="fld"><label>Cor do pino</label>
-        <select class="inp" id="fCor"><option value="">Automática (pela cor do status)</option><option value="#19b4ff">Azul</option><option value="#27ae60">Verde</option><option value="#e8a020">Âmbar</option><option value="#ff7a1a">Laranja</option><option value="#c0392b">Vermelho</option><option value="#ff5fa2">Rosa</option><option value="#b57bff">Roxo</option><option value="#ffffff">Branco</option></select></div>
       <div class="fld"><label>Link do supervisório</label><input class="inp" id="fLink" placeholder="https://…" inputmode="url"></div>
       <div class="fld"><label>Observações</label><textarea class="inp" id="fObs" rows="2"></textarea></div>
       <div class="acts"><button class="btn btn-primary" onclick="salvar()">Salvar</button><button class="btn btn-outline" onclick="fecharForm()">Cancelar</button></div>
@@ -185,7 +207,7 @@ const STATUS = Object.keys(COR);
 let filtro = new Set(), soManut = false, popup = null;
 const el = id => document.getElementById(id);
 const formEl = document.getElementById('pForm');
-const corObra = o => o.cor || COR[o.status] || COR['Em andamento'];
+const corObra = o => COR[o.status] || COR['Em andamento'];
 const local = o => o.uf ? `${o.cidade} – ${o.uf}` : (o.pais ? `${o.cidade}, ${o.pais}` : o.cidade);
 const fechaPop = () => { if (popup) { popup.remove(); popup = null; } };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -305,7 +327,17 @@ function visiveis() {
   return obras.filter(o => (!filtro.size || filtro.has(o.status)) && (!soManut || o.manutencao)
     && [o.nome, o.cliente, o.cidade, o.uf, o.pais].join(' ').toLowerCase().includes(q));
 }
+function alternarLegenda() { el('legenda').classList.toggle('aberta'); }
+function renderLegenda() {
+  const filtrando = filtro.size > 0;
+  el('legCorpo').innerHTML = '<div class="leg-titulo">Legenda</div>'
+    + STATUS.map(st => `<div class="leg-row${filtrando && !filtro.has(st) ? ' apagado' : ''}" style="--c:${COR[st]}"><i></i>${st}<b>${obras.filter(o => o.status === st).length}</b></div>`).join('')
+    + `<div class="leg-sep"></div>
+       <div class="leg-row"><em class="leg-mt">🔧</em>Contrato de manutenção<b>${obras.filter(o => o.manutencao).length}</b></div>
+       <div class="leg-row"><em class="leg-grupo">2</em>Várias obras no mesmo ponto</div>`;
+}
 function renderChips() {
+  renderLegenda();
   const c = el('chips'); c.className = 'dots' + (filtro.size || soManut ? ' filtrando' : '');
   c.innerHTML = STATUS.map(st => `<button class="dot${filtro.has(st) ? ' on' : ''}" style="--c:${COR[st]}" title="${st} (${obras.filter(o => o.status === st).length})" onclick="alternaStatus('${st}')"></button>`).join('')
     + `<button class="dot mnt${soManut ? ' on' : ''}" title="Contrato de manutenção (${obras.filter(o => o.manutencao).length})" onclick="alternaManut()">🔧</button>`;
@@ -367,7 +399,7 @@ function abrirForm(o) {
   fechaPop();
   el('fTitulo').textContent = editId ? 'Editar obra' : 'Nova obra';
   el('fNome').value = o.nome || ''; el('fCliente').value = o.cliente || ''; el('fCidade').value = o.cidade || '';
-  el('fStatus').value = o.status || 'Em andamento'; el('fCor').value = o.cor || ''; el('fManut').checked = !!o.manutencao;
+  el('fStatus').value = o.status || 'Em andamento'; el('fManut').checked = !!o.manutencao;
   el('fLink').value = o.supervisorio_url || ''; el('fObs').value = o.observacoes || '';
   draft = { uf: o.uf || '', pais: o.pais || '', lat: o.lat ?? null, lng: o.lng ?? null };
   const c = map.getCenter(), ini = draft.lat !== null ? [draft.lng, draft.lat] : [c.lng, c.lat];   // obra nova: pino provisório no centro
@@ -380,10 +412,10 @@ function montaDraft(ll) {
   if (draftMarca) draftMarca.remove();
   draftMarca = new maplibregl.Marker({ color: '#e8a020', draggable: true }).setLngLat(ll).addTo(map);
   draftMarca.on('dragend', () => { const q = draftMarca.getLngLat(); draft.lat = q.lat; draft.lng = q.lng; atualizaCoord(); });
-  el('painelNova').appendChild(formEl); el('painelNova').classList.add('open');
+  el('painelNova').appendChild(formEl); el('painelNova').classList.add('open'); el('mapbox').classList.add('form-aberto');
 }
 function fecharForm() {
-  el('holder').appendChild(formEl); el('painelNova').classList.remove('open');
+  el('holder').appendChild(formEl); el('painelNova').classList.remove('open'); el('mapbox').classList.remove('form-aberto');
   el('sug').style.display = 'none';
   if (draftMarca) { draftMarca.remove(); draftMarca = null; }
 }
@@ -423,7 +455,7 @@ async function salvar() {
   const linkTxt = el('fLink').value.trim(), link = urlSegura(linkTxt);
   if (linkTxt && !link) { toast('Link do supervisório inválido.'); return; }
   const row = { nome, cliente: el('fCliente').value.trim(), cidade, uf: draft.uf, pais: draft.pais || '', manutencao: el('fManut').checked, lat: draft.lat, lng: draft.lng,
-    status: el('fStatus').value, cor: el('fCor').value, supervisorio_url: link, observacoes: el('fObs').value.trim(), atualizado_em: new Date().toISOString() };
+    status: el('fStatus').value, supervisorio_url: link, observacoes: el('fObs').value.trim(), atualizado_em: new Date().toISOString() };
   const q = editId ? supa.from('obras_mapa').update(row).eq('id', editId) : supa.from('obras_mapa').insert([{ ...row, criado_por: user.email }]);
   salvando = true; const { error } = await q; salvando = false;
   if (error) { toast('Erro ao salvar: ' + error.message); return; }
