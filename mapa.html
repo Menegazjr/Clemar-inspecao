@@ -140,6 +140,15 @@ button.leg-row.on { background:rgba(25,180,255,.2); box-shadow:inset 0 0 0 1px r
 .leg-mt { color:#1a2940; } .leg-mt .ico { width:11px; height:11px; stroke-width:2.4; }
 .leg-limpar { display:block; width:100%; margin-top:8px; padding:7px; border:1px solid rgba(255,255,255,.25); border-radius:8px; background:transparent; color:#fff; font:600 13px var(--font-cond); cursor:pointer; }
 .legenda.filtrando .leg-toggle::after { content:' ●'; color:#ffc21a; }
+/* ── Botões da caixinha da obra: grade alinhada ── */
+.pop .grade { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+.pop .pb { display:flex; align-items:center; justify-content:center; gap:7px; height:38px; padding:0 12px; border-radius:8px; border:1.5px solid transparent; font:600 14px var(--font-cond); letter-spacing:.3px; text-decoration:none; cursor:pointer; white-space:nowrap; transition:.15s; }
+.pop .pb.largo { grid-column:1 / -1; }
+.pop .pb-azul { background:var(--blue); color:#fff; } .pop .pb-azul:hover { background:#0879c0; }
+.pop .pb-claro { background:#fff; color:var(--steel); border-color:var(--border); } .pop .pb-claro:hover { border-color:var(--blue); color:var(--blue); }
+.pop .pb-off { background:var(--surface); color:var(--ink-light); cursor:default; }
+.pop .pb .ico { width:16px; height:16px; }
+.pop .excluir { display:block; margin:10px auto 0; background:none; border:none; color:var(--signal); font:600 12px var(--font-cond); cursor:pointer; }
 </style>
 </head>
 <body>
@@ -230,6 +239,7 @@ const ICO = {
   predio: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
   pino: '<path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>',
   monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  lapis: '<path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
   prancheta: '<path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6M9 16h6"/>',
   cadeado: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>',
 };
@@ -374,8 +384,7 @@ function renderLegenda() {
     + STATUS.map(st => `<button class="leg-row${filtro.has(st) ? ' on' : ''}${filtro.size && !filtro.has(st) ? ' apagado' : ''}" style="--c:${COR[st]}" onclick="alternaStatus('${st}')"><i></i>${st}<b>${n(o => o.status === st)}</b></button>`).join('')
     + `<div class="leg-sep"></div>
        <button class="leg-row${soManut ? ' on' : ''}" onclick="alternaManut()"><em class="leg-mt">${ico('chave')}</em>Contrato de manutenção<b>${n(o => o.manutencao)}</b></button>
-       <button class="leg-row${soSup ? ' on' : ''}" onclick="alternaSup()"><em class="leg-mt">${ico('monitor')}</em>Com supervisório<b>${n(o => o.tem_supervisorio)}</b></button>
-       <div class="leg-row leg-info"><em class="leg-grupo">2</em>Várias obras no mesmo ponto</div>`
+       <button class="leg-row${soSup ? ' on' : ''}" onclick="alternaSup()"><em class="leg-mt">${ico('monitor')}</em>Com supervisório<b>${n(o => o.tem_supervisorio)}</b></button>`
     + (filtrando ? '<button class="leg-limpar" onclick="limparFiltrosMapa()">Limpar filtros</button>' : '');
   el('legenda').classList.toggle('filtrando', filtrando);
 }
@@ -424,15 +433,14 @@ function abrir(id, centralizar) {
   const link = podeEditar ? urlSegura(o.supervisorio_url) : '';   // supervisório e relatórios: só logado e aprovado
   const lnkRel = `index.html#obra=${encodeURIComponent(o.id)}&nome=${encodeURIComponent(o.nome)}`;
   const acesso = podeEditar
-    ? `<div class="acts">${link ? `<a class="btn btn-blue" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${ico('monitor')} Abrir supervisório</a>` : `<span class="meta">${ico('monitor')}<span>Sem supervisório cadastrado</span></span>`}<a class="btn btn-outline btn-sm" href="${lnkRel}">${ico('prancheta')} Relatórios</a></div>`
-    : `<div class="meta bloqueado">${ico('cadeado')}<span>Entre para acessar o supervisório e os relatórios desta obra.</span></div><div class="acts"><button class="btn btn-steel btn-sm" onclick="authClick()">Entrar</button></div>`;
+    ? `<div class="grade">${link ? `<a class="pb pb-azul largo" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${ico('monitor')} Abrir supervisório</a>` : `<span class="pb pb-off largo">${ico('monitor')} Sem supervisório cadastrado</span>`}<a class="pb pb-claro" href="${lnkRel}">${ico('prancheta')} Relatórios</a><button class="pb pb-claro" onclick="editar('${o.id}')">${ico('lapis')} Editar</button></div><button class="excluir" onclick="excluir('${o.id}')">Excluir obra</button>`
+    : `<div class="meta bloqueado">${ico('cadeado')}<span>Entre para acessar o supervisório e os relatórios desta obra.</span></div><div class="grade"><button class="pb pb-azul largo" onclick="authClick()">Entrar</button></div>`;
   const html = `<h3>${esc(o.nome)}</h3>
     <div class="tags"><span class="tag" style="background:${c}22;color:${c};border:1px solid ${c}66">${esc(o.status)}</span>${o.manutencao ? `<span class="tag tag-mt">${ico('chave')} Manutenção</span>` : ''}</div>
     ${o.cliente ? `<div class="meta">${ico('predio')}<span>${esc(o.cliente)}</span></div>` : ''}
     <div class="meta">${ico('pino')}<span>${esc(local(o))}</span></div>
     ${o.observacoes ? `<div class="meta obs">${esc(o.observacoes)}</div>` : ''}
-    ${acesso}
-    ${podeEditar ? `<div class="acts"><button class="btn btn-outline btn-sm" onclick="editar('${o.id}')">Editar</button><button class="btn btn-danger btn-sm" onclick="excluir('${o.id}')">Excluir</button></div>` : ''}`;
+    ${acesso}`;
   if (centralizar) map.easeTo({ center: [o.lng, o.lat], bearing: 0, duration: 600 });   // só centraliza, sem zoom
   popup = new maplibregl.Popup({ offset: 22, maxWidth: '310px', className: 'pop' }).setLngLat([o.lng, o.lat]).setHTML(html).addTo(map);
 }
