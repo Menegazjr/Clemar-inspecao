@@ -118,6 +118,28 @@ button, a, .item, .dot { touch-action:manipulation; }
   .leg-corpo { display:none; margin-top:8px; }
   .legenda.aberta .leg-corpo { display:block; }
 }
+/* ── Ícones alinhados + legenda que filtra ── */
+.ico { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; vertical-align:middle; }
+.ico-p { width:13px; height:13px; vertical-align:-2px; opacity:.85; }
+.btn .ico { width:16px; height:16px; }
+.pop .meta { display:flex; align-items:flex-start; gap:8px; line-height:1.35; }
+.pop .meta .ico { margin-top:2px; color:var(--ink-light); }
+.pop .meta.obs { margin-top:8px; }
+.pop .meta.bloqueado { margin-top:10px; padding:8px 10px; background:var(--surface); border-radius:8px; }
+.pop .tags { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+.pop .tag { display:inline-flex; align-items:center; gap:5px; margin:0; }
+.tag-mt { background:#e8a02022; color:#9a6200; border:1px solid #e8a02066; }
+.pin .mt { display:flex; align-items:center; justify-content:center; color:#1a2940; }
+.pin .mt .ico { width:10px; height:10px; stroke-width:2.4; }
+.leg-titulo small { text-transform:none; letter-spacing:0; font-weight:500; opacity:.6; margin-left:4px; }
+button.leg-row { background:none; border:none; color:inherit; width:calc(100% + 12px); margin:0 -6px; padding:4px 6px; text-align:left; border-radius:8px; cursor:pointer; }
+button.leg-row:hover { background:rgba(255,255,255,.08); }
+button.leg-row.on { background:rgba(25,180,255,.2); box-shadow:inset 0 0 0 1px rgba(25,180,255,.55); }
+.leg-info { opacity:.75; font-weight:500; }
+.leg-mt, .leg-grupo { display:flex; align-items:center; justify-content:center; }
+.leg-mt { color:#1a2940; } .leg-mt .ico { width:11px; height:11px; stroke-width:2.4; }
+.leg-limpar { display:block; width:100%; margin-top:8px; padding:7px; border:1px solid rgba(255,255,255,.25); border-radius:8px; background:transparent; color:#fff; font:600 13px var(--font-cond); cursor:pointer; }
+.legenda.filtrando .leg-toggle::after { content:' ●'; color:#ffc21a; }
 </style>
 </head>
 <body>
@@ -151,8 +173,7 @@ button, a, .item, .dot { touch-action:manipulation; }
       </div>
       <h2><span>Obras <small id="cont">0</small></span><button class="btn btn-steel btn-sm" onclick="atualizarManual()" title="Atualizar obras" style="padding:2px 10px"><span id="icoRef" style="display:inline-block">↻</span></button></h2>
       <div id="hora" class="hora"></div>
-      <input class="inp" id="busca" placeholder="Buscar obra, cliente ou cidade…" oninput="renderLista()">
-      <div class="chips" id="chips"></div>
+      <input class="inp" id="busca" type="search" name="filtro-obras" placeholder="Buscar obra, cliente ou cidade…" oninput="aoBuscar()" autocomplete="off" autocapitalize="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')">
       <div style="display:flex;gap:8px"><button class="btn btn-steel" onclick="verBrasil()" style="flex:1;justify-content:center">Ver Brasil</button><button class="btn btn-steel" onclick="verTudo()" style="flex:1;justify-content:center">Ver todas</button></div>
     </div>
     <div id="lista"></div>
@@ -204,7 +225,17 @@ button, a, .item, .dot { touch-action:manipulation; }
 const supa = supabase.createClient('https://vsxoeqyqhmrljfahqcsb.supabase.co', 'sb_publishable_kBVUT2phcWigWcQNY7PkAQ_xOg72_kt');
 const COR = { 'Em andamento':'#2ecc71', 'Concluída':'#19b4ff', 'Planejada':'#e8a020', 'Paralisada':'#e5483a', 'Cliente histórico':'#8a96a3' };
 const STATUS = Object.keys(COR);
-let filtro = new Set(), soManut = false, popup = null;
+const ICO = {
+  chave: '<path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>',
+  predio: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
+  pino: '<path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>',
+  monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  prancheta: '<path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6M9 16h6"/>',
+  cadeado: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>',
+};
+const ico = (n, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24">${ICO[n]}</svg>`;
+const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+let filtro = new Set(), soManut = false, soSup = false, popup = null;
 const el = id => document.getElementById(id);
 const formEl = document.getElementById('pForm');
 const corObra = o => COR[o.status] || COR['Em andamento'];
@@ -277,14 +308,17 @@ function mostraHora() {
 }
 setInterval(mostraHora, 30000);
 // Busca as obras; só redesenha o mapa se algo mudou. Devolve true (mudou), false (igual) ou null (erro)
+const COLS_PUB = 'id,nome,cliente,cidade,uf,pais,lat,lng,status,manutencao,observacoes,tem_supervisorio';
 async function carregar() {
-  const { data, error } = await supa.from('obras_mapa').select('*').order('nome');
+  let r = await supa.from('obras_mapa').select(COLS_PUB + (podeEditar ? ',supervisorio_url' : '')).order('nome');
+  if (r.error && /tem_supervisorio/.test(r.error.message)) r = await supa.from('obras_mapa').select('*').order('nome');   // SQL ainda não rodou
+  const { data, error } = r;
   if (error) { toast('Erro ao carregar obras: ' + error.message); return null; }
   ultimaOk = new Date(); mostraHora();
   const sig = JSON.stringify(data || []);
   if (sig === _sig) return false;
   _sig = sig;
-  obras = (data || []).map(o => o.status === 'Parada' ? { ...o, status: 'Paralisada' } : o);
+  obras = (data || []).map(o => ({ ...o, status: o.status === 'Parada' ? 'Paralisada' : o.status, tem_supervisorio: o.tem_supervisorio ?? !!o.supervisorio_url }));
   atualiza();
   return true;
 }
@@ -310,7 +344,7 @@ function renderPinos() {
       p.onclick = e => { e.stopPropagation(); listaGrupo(l); };
     } else {
       p.className = 'pin'; p.style.setProperty('--c', corObra(o));
-      p.innerHTML = '<i></i><b></b><span class="nm"></span>' + (o.manutencao ? '<em class="mt">🔧</em>' : '');
+      p.innerHTML = '<i></i><b></b><span class="nm"></span>' + (o.manutencao ? '<em class="mt">' + ico('chave') + '</em>' : '');
       p.querySelector('.nm').textContent = o.nome;
       p.onclick = e => { e.stopPropagation(); abrir(o.id); };
     }
@@ -323,32 +357,38 @@ function listaGrupo(l) {
   popup = new maplibregl.Popup({ offset: 26, className: 'pop' }).setLngLat([l[0].lng, l[0].lat]).setHTML(`<h3>${l.length} obras aqui</h3>${li}`).addTo(map);
 }
 function visiveis() {
-  const q = el('busca').value.toLowerCase().trim();
-  return obras.filter(o => (!filtro.size || filtro.has(o.status)) && (!soManut || o.manutencao)
-    && [o.nome, o.cliente, o.cidade, o.uf, o.pais].join(' ').toLowerCase().includes(q));
+  const q = norm(el('busca').value).trim();
+  return obras.filter(o => (!filtro.size || filtro.has(o.status)) && (!soManut || o.manutencao) && (!soSup || o.tem_supervisorio)
+    && norm([o.nome, o.cliente, o.cidade, o.uf, o.pais].join(' ')).includes(q));
 }
+// Digitar na busca atualiza a lista E os pinos (apagar o texto traz tudo de volta)
+let tBusca, buscaDigitada = false;
+function aoBuscar() { clearTimeout(tBusca); tBusca = setTimeout(() => { fechaPop(); renderLista(); renderPinos(); }, 150); }
+el('busca').addEventListener('keydown', () => { buscaDigitada = true; });
+// o navegador às vezes preenche a busca com o e-mail salvo do login: se a pessoa não digitou, limpa
+[300, 1200, 3000].forEach(t => setTimeout(() => { if (!buscaDigitada && el('busca').value) { el('busca').value = ''; aoBuscar(); } }, t));
 function alternarLegenda() { el('legenda').classList.toggle('aberta'); }
 function renderLegenda() {
-  const filtrando = filtro.size > 0;
-  el('legCorpo').innerHTML = '<div class="leg-titulo">Legenda</div>'
-    + STATUS.map(st => `<div class="leg-row${filtrando && !filtro.has(st) ? ' apagado' : ''}" style="--c:${COR[st]}"><i></i>${st}<b>${obras.filter(o => o.status === st).length}</b></div>`).join('')
+  const n = f => obras.filter(f).length, filtrando = filtro.size > 0 || soManut || soSup;
+  el('legCorpo').innerHTML = '<div class="leg-titulo">Legenda <small>· toque para filtrar</small></div>'
+    + STATUS.map(st => `<button class="leg-row${filtro.has(st) ? ' on' : ''}${filtro.size && !filtro.has(st) ? ' apagado' : ''}" style="--c:${COR[st]}" onclick="alternaStatus('${st}')"><i></i>${st}<b>${n(o => o.status === st)}</b></button>`).join('')
     + `<div class="leg-sep"></div>
-       <div class="leg-row"><em class="leg-mt">🔧</em>Contrato de manutenção<b>${obras.filter(o => o.manutencao).length}</b></div>
-       <div class="leg-row"><em class="leg-grupo">2</em>Várias obras no mesmo ponto</div>`;
+       <button class="leg-row${soManut ? ' on' : ''}" onclick="alternaManut()"><em class="leg-mt">${ico('chave')}</em>Contrato de manutenção<b>${n(o => o.manutencao)}</b></button>
+       <button class="leg-row${soSup ? ' on' : ''}" onclick="alternaSup()"><em class="leg-mt">${ico('monitor')}</em>Com supervisório<b>${n(o => o.tem_supervisorio)}</b></button>
+       <div class="leg-row leg-info"><em class="leg-grupo">2</em>Várias obras no mesmo ponto</div>`
+    + (filtrando ? '<button class="leg-limpar" onclick="limparFiltrosMapa()">Limpar filtros</button>' : '');
+  el('legenda').classList.toggle('filtrando', filtrando);
 }
-function renderChips() {
-  renderLegenda();
-  const c = el('chips'); c.className = 'dots' + (filtro.size || soManut ? ' filtrando' : '');
-  c.innerHTML = STATUS.map(st => `<button class="dot${filtro.has(st) ? ' on' : ''}" style="--c:${COR[st]}" title="${st} (${obras.filter(o => o.status === st).length})" onclick="alternaStatus('${st}')"></button>`).join('')
-    + `<button class="dot mnt${soManut ? ' on' : ''}" title="Contrato de manutenção (${obras.filter(o => o.manutencao).length})" onclick="alternaManut()">🔧</button>`;
-}
-function alternaStatus(st) { if (filtro.has(st)) filtro.delete(st); else { filtro.add(st); toast(st); } atualiza(); }
-function alternaManut() { soManut = !soManut; if (soManut) toast('Só com contrato de manutenção'); atualiza(); }
+function renderChips() { renderLegenda(); }
+function alternaStatus(st) { filtro.has(st) ? filtro.delete(st) : filtro.add(st); atualiza(); }
+function alternaManut() { soManut = !soManut; atualiza(); }
+function alternaSup() { soSup = !soSup; atualiza(); }
+function limparFiltrosMapa() { filtro.clear(); soManut = false; soSup = false; atualiza(); }
 function atualiza() { fechaPop(); renderChips(); renderLista(); renderPinos(); }
 function renderLista() {
   const l = visiveis();
   el('cont').textContent = l.length;
-  el('lista').innerHTML = l.length ? l.map(o => `<div class="item" style="--c:${esc(corObra(o))}" onclick="abrir('${o.id}', true)"><b>${esc(o.nome)}${o.manutencao ? ' 🔧' : ''}</b><span>${esc(local(o))}${o.cliente ? ' · ' + esc(o.cliente) : ''}</span></div>`).join('')
+  el('lista').innerHTML = l.length ? l.map(o => `<div class="item" style="--c:${esc(corObra(o))}" onclick="abrir('${o.id}', true)"><b>${esc(o.nome)}${o.manutencao ? ' ' + ico('chave', 'ico-p') : ''}</b><span>${esc(local(o))}${o.cliente ? ' · ' + esc(o.cliente) : ''}</span></div>`).join('')
     : '<div class="vazio">Nenhuma obra encontrada.</div>';
 }
 function verTudo() {
@@ -380,13 +420,18 @@ function abrir(id, centralizar) {
   const o = obras.find(x => x.id === id); if (!o) return;
   fecharForm(); fechaPop();
   if (centralizar) fechaMenuMobile();
-  const c = COR[o.status] || COR['Em andamento'], link = urlSegura(o.supervisorio_url);
+  const c = COR[o.status] || COR['Em andamento'];
+  const link = podeEditar ? urlSegura(o.supervisorio_url) : '';   // supervisório e relatórios: só logado e aprovado
+  const lnkRel = `index.html#obra=${encodeURIComponent(o.id)}&nome=${encodeURIComponent(o.nome)}`;
+  const acesso = podeEditar
+    ? `<div class="acts">${link ? `<a class="btn btn-blue" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${ico('monitor')} Abrir supervisório</a>` : `<span class="meta">${ico('monitor')}<span>Sem supervisório cadastrado</span></span>`}<a class="btn btn-outline btn-sm" href="${lnkRel}">${ico('prancheta')} Relatórios</a></div>`
+    : `<div class="meta bloqueado">${ico('cadeado')}<span>Entre para acessar o supervisório e os relatórios desta obra.</span></div><div class="acts"><button class="btn btn-steel btn-sm" onclick="authClick()">Entrar</button></div>`;
   const html = `<h3>${esc(o.nome)}</h3>
-    <span class="tag" style="background:${c}22;color:${c};border:1px solid ${c}66">${esc(o.status)}</span>${o.manutencao ? '<span class="tag" style="background:#e8a02022;color:#b57400;border:1px solid #e8a02066;margin-left:6px">🔧 Manutenção</span>' : ''}
-    ${o.cliente ? `<div class="meta">🏢 ${esc(o.cliente)}</div>` : ''}
-    <div class="meta">📍 ${esc(local(o))}</div>
-    ${o.observacoes ? `<div class="meta" style="margin-top:8px">${esc(o.observacoes)}</div>` : ''}
-    <div class="acts">${link ? `<a class="btn btn-blue" href="${esc(link)}" target="_blank" rel="noopener noreferrer">Abrir supervisório ↗</a>` : '<span class="meta">Sem supervisório cadastrado</span>'}<a class="btn btn-outline btn-sm" href="index.html#obra=${esc(o.id)}">📋 Relatórios</a></div>
+    <div class="tags"><span class="tag" style="background:${c}22;color:${c};border:1px solid ${c}66">${esc(o.status)}</span>${o.manutencao ? `<span class="tag tag-mt">${ico('chave')} Manutenção</span>` : ''}</div>
+    ${o.cliente ? `<div class="meta">${ico('predio')}<span>${esc(o.cliente)}</span></div>` : ''}
+    <div class="meta">${ico('pino')}<span>${esc(local(o))}</span></div>
+    ${o.observacoes ? `<div class="meta obs">${esc(o.observacoes)}</div>` : ''}
+    ${acesso}
     ${podeEditar ? `<div class="acts"><button class="btn btn-outline btn-sm" onclick="editar('${o.id}')">Editar</button><button class="btn btn-danger btn-sm" onclick="excluir('${o.id}')">Excluir</button></div>` : ''}`;
   if (centralizar) map.easeTo({ center: [o.lng, o.lat], bearing: 0, duration: 600 });   // só centraliza, sem zoom
   popup = new maplibregl.Popup({ offset: 22, maxWidth: '310px', className: 'pop' }).setLngLat([o.lng, o.lat]).setHTML(html).addTo(map);
@@ -470,6 +515,7 @@ async function excluir(id) {
 
 // ── LOGIN (opcional: só para cadastrar/editar) ──
 async function checarSessao() {
+  const antes = podeEditar;
   const { data: { session } } = await supa.auth.getSession();
   user = session?.user || null; podeEditar = false;
   if (user) {
@@ -478,6 +524,7 @@ async function checarSessao() {
   }
   document.querySelectorAll('.js-nova').forEach(b => b.style.display = podeEditar ? '' : 'none');
   document.querySelectorAll('.js-auth').forEach(b => b.textContent = user ? 'Sair' : 'Entrar');
+  if (antes !== podeEditar) { _sig = ''; await carregar(); }
 }
 function authClick() {
   fechaMenuMobile();

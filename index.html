@@ -226,7 +226,7 @@
       <div class="lista-tools">
         <div class="lista-busca">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="search" id="listaBusca" placeholder="Buscar por obra, cliente, cidade, nº, data ou pasta…" oninput="aoBuscar(this.value)" autocomplete="off">
+          <input type="search" id="listaBusca" name="busca-relatorios" readonly onfocus="this.removeAttribute('readonly')" placeholder="Buscar por obra, cliente, cidade, nº, data ou pasta…" oninput="aoBuscar(this.value)" autocomplete="off">
         </div>
         <div class="lista-filtros" id="listaFiltros">
           <button class="fchip" data-sit="Liberado" style="--c:var(--ok)" onclick="alternarSit('Liberado')"><i></i>Liberado</button>

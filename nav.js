@@ -87,7 +87,7 @@ async function carregarLista() {
 const escH = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normTxt = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 let _busca = '', _sit = new Set(), _soMeus = false, _ordem = 'numero_desc';
-let _agrupar = false, _selMode = false, _sel = new Set(), _obraId = null, _hashObraAplicado = false;
+let _agrupar = false, _selMode = false, _sel = new Set(), _obraId = null, _obraNome = '', _hashObraAplicado = false;
 let obrasMapa = [];
 
 // O número da visita é gerado pelo banco (sem repetir). Plano B: se o SQL ainda não rodou, calcula aqui.
@@ -120,7 +120,10 @@ function aoEscolherObraMapa(id) {
 function aplicaHashObra() {
   if (_hashObraAplicado) return; _hashObraAplicado = true;
   const m = location.hash.match(/obra=([0-9a-f-]{36})/i);
-  if (m) { _obraId = m[1]; atualizaFiltros(); renderizarLista(); }
+  if (!m) return;
+  const nome = location.hash.match(/nome=([^&]+)/);
+  _obraId = m[1]; _obraNome = nome ? decodeURIComponent(nome[1]) : '';
+  atualizaFiltros(); renderizarLista();
 }
 
 // Agrupar por obra e seleção múltipla
@@ -153,7 +156,8 @@ function alternarSit(v){ _sit.has(v) ? _sit.delete(v) : _sit.add(v); atualizaFil
 function alternarMeus(){ _soMeus = !_soMeus; atualizaFiltros(); renderizarLista(); }
 function aoOrdenar(v)  { _ordem = v; renderizarLista(); }
 function limparFiltros() {
-  _busca = ''; _sit = new Set(); _soMeus = false; _obraId = null;
+  _busca = ''; _sit = new Set(); _soMeus = false; _obraId = null; _obraNome = '';
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   const i = document.getElementById('listaBusca'); if (i) i.value = '';
   atualizaFiltros(); renderizarLista();
 }
@@ -167,7 +171,7 @@ function atualizaFiltros() {
   if (d) {
     const o = _obraId ? obrasMapa.find(x => x.id === _obraId) : null;
     const partes = [];
-    if (_obraId) partes.push(`Só visitas da obra <strong>${escH(o ? o.nome : 'selecionada')}</strong>`);
+    if (_obraId) partes.push(`Só visitas da obra <strong>${escH(o ? o.nome : (_obraNome || 'selecionada'))}</strong> <button class="flimpar" style="margin-left:6px" onclick="limparFiltros()">✕ Ver todos os relatórios</button>`);
     if (_busca.trim()) partes.push('buscando em todas as pastas');
     d.innerHTML = partes.join(' · ');
     d.style.display = partes.length ? '' : 'none';
@@ -181,7 +185,11 @@ function relatoriosVisiveis() {
   const l = relatorios.filter(r => {
     if (_sit.size && !_sit.has(r.situacao || '')) return false;
     if (_soMeus && r.user_id !== currentUser.id) return false;
-    if (_obraId && r.obra_id !== _obraId) return false;
+    if (_obraId) {   // vínculo oficial (obra_id) OU, nos relatórios antigos sem vínculo, o nome da obra
+      const nomeObra = normTxt(_obraNome || (obrasMapa.find(x => x.id === _obraId) || {}).nome).trim(), ro = normTxt(r.obra).trim();
+      const bate = r.obra_id === _obraId || (!r.obra_id && nomeObra.length >= 3 && ro.length >= 3 && (ro === nomeObra || ro.includes(nomeObra) || nomeObra.includes(ro)));
+      if (!bate) return false;
+    }
     if (termos.length) {
       const pasta = r.pasta_id ? caminhoAte(r.pasta_id).map(p => p.nome).join(' ') : '';
       const txt = normTxt([r.numero, r.obra, r.cliente, r.localidade, r.situacao, r.data, r.data ? fmtData(r.data) : '', pasta].join(' '));
