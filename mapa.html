@@ -149,6 +149,14 @@ button.leg-row.on { background:rgba(25,180,255,.2); box-shadow:inset 0 0 0 1px r
 .pop .pb-off { background:var(--surface); color:var(--ink-light); cursor:default; }
 .pop .pb .ico { width:16px; height:16px; }
 .pop .excluir { display:block; margin:10px auto 0; background:none; border:none; color:var(--signal); font:600 12px var(--font-cond); cursor:pointer; }
+/* ── Formulário de obra: botões sempre visíveis ── */
+.panel { overscroll-behavior:contain; }
+.panel .formbox .acts { position:sticky; bottom:0; z-index:3; background:#fff; margin-top:8px; padding:10px 0; border-top:1px solid var(--border); }
+.panel .formbox .acts .btn { flex:1; height:42px; justify-content:center; }
+@media (max-width:700px) {
+  .panel { padding-bottom:0; max-height:60%; }
+  #painelNova .formbox .acts { padding-bottom:calc(12px + env(safe-area-inset-bottom, 0px)); }
+}
 </style>
 </head>
 <body>
@@ -318,11 +326,14 @@ function mostraHora() {
 }
 setInterval(mostraHora, 30000);
 // Busca as obras; só redesenha o mapa se algo mudou. Devolve true (mudou), false (igual) ou null (erro)
+let _seqCarga = 0;
 const COLS_PUB = 'id,nome,cliente,cidade,uf,pais,lat,lng,status,manutencao,observacoes,tem_supervisorio';
 async function carregar() {
+  const seq = ++_seqCarga;
   let r = await supa.from('obras_mapa').select(COLS_PUB + (podeEditar ? ',supervisorio_url' : '')).order('nome');
   if (r.error && /tem_supervisorio/.test(r.error.message)) r = await supa.from('obras_mapa').select('*').order('nome');   // SQL ainda não rodou
   const { data, error } = r;
+  if (seq !== _seqCarga) return null;   // chegou uma resposta mais nova: ignora esta
   if (error) { toast('Erro ao carregar obras: ' + error.message); return null; }
   ultimaOk = new Date(); mostraHora();
   const sig = JSON.stringify(data || []);
@@ -433,7 +444,7 @@ function abrir(id, centralizar) {
   const link = podeEditar ? urlSegura(o.supervisorio_url) : '';   // supervisório e relatórios: só logado e aprovado
   const lnkRel = `index.html#obra=${encodeURIComponent(o.id)}&nome=${encodeURIComponent(o.nome)}`;
   const acesso = podeEditar
-    ? `<div class="grade">${link ? `<a class="pb pb-azul largo" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${ico('monitor')} Abrir supervisório</a>` : `<span class="pb pb-off largo">${ico('monitor')} Sem supervisório cadastrado</span>`}<a class="pb pb-claro" href="${lnkRel}">${ico('prancheta')} Relatórios</a><button class="pb pb-claro" onclick="editar('${o.id}')">${ico('lapis')} Editar</button></div><button class="excluir" onclick="excluir('${o.id}')">Excluir obra</button>`
+    ? `<div class="grade">${link ? `<a class="pb pb-azul largo" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${ico('monitor')} Abrir supervisório</a>` : `<span class="pb pb-off largo">${ico('monitor')} ${o.tem_supervisorio ? 'Link indisponível — atualize a página' : 'Sem supervisório cadastrado'}</span>`}<a class="pb pb-claro" href="${lnkRel}">${ico('prancheta')} Relatórios</a><button class="pb pb-claro" onclick="editar('${o.id}')">${ico('lapis')} Editar</button></div><button class="excluir" onclick="excluir('${o.id}')">Excluir obra</button>`
     : `<div class="meta bloqueado">${ico('cadeado')}<span>Entre para acessar o supervisório e os relatórios desta obra.</span></div><div class="grade"><button class="pb pb-azul largo" onclick="authClick()">Entrar</button></div>`;
   const html = `<h3>${esc(o.nome)}</h3>
     <div class="tags"><span class="tag" style="background:${c}22;color:${c};border:1px solid ${c}66">${esc(o.status)}</span>${o.manutencao ? `<span class="tag tag-mt">${ico('chave')} Manutenção</span>` : ''}</div>
@@ -447,14 +458,20 @@ function abrir(id, centralizar) {
 
 // ── FORMULÁRIO ──
 function novaObra() { fechaMenuMobile(); editId = null; abrirForm({}); }
-function editar(id) { editId = id; abrirForm(obras.find(o => o.id === id)); }
+async function editar(id) {
+  editId = id;
+  let o = obras.find(x => x.id === id) || {};
+  const { data } = await supa.from('obras_mapa').select('*').eq('id', id).single();   // sempre edita com a linha completa do banco (inclui o link)
+  if (data) o = { ...o, ...data };
+  abrirForm(o);
+}
 function abrirForm(o) {
   fechaPop();
   el('fTitulo').textContent = editId ? 'Editar obra' : 'Nova obra';
   el('fNome').value = o.nome || ''; el('fCliente').value = o.cliente || ''; el('fCidade').value = o.cidade || '';
   el('fStatus').value = o.status || 'Em andamento'; el('fManut').checked = !!o.manutencao;
   el('fLink').value = o.supervisorio_url || ''; el('fObs').value = o.observacoes || '';
-  draft = { uf: o.uf || '', pais: o.pais || '', lat: o.lat ?? null, lng: o.lng ?? null };
+  draft = { uf: o.uf || '', pais: o.pais || '', lat: o.lat ?? null, lng: o.lng ?? null, orig: o };
   const c = map.getCenter(), ini = draft.lat !== null ? [draft.lng, draft.lat] : [c.lng, c.lat];   // obra nova: pino provisório no centro
   montaDraft(ini); atualizaCoord();
   if (editId || innerWidth <= 700) map.easeTo({ center: ini, offset: deslocPainel(), duration: 400 });   // pino fica fora de trás do painel
@@ -509,6 +526,10 @@ async function salvar() {
   if (linkTxt && !link) { toast('Link do supervisório inválido.'); return; }
   const row = { nome, cliente: el('fCliente').value.trim(), cidade, uf: draft.uf, pais: draft.pais || '', manutencao: el('fManut').checked, lat: draft.lat, lng: draft.lng,
     status: el('fStatus').value, supervisorio_url: link, observacoes: el('fObs').value.trim(), atualizado_em: new Date().toISOString() };
+  if (editId) {   // ao editar, grava só o que realmente mudou: um campo que não foi carregado nunca é apagado
+    const orig = draft.orig || {};
+    Object.keys(row).forEach(k => { if (k !== 'atualizado_em' && (orig[k] === undefined ? !row[k] : row[k] === orig[k])) delete row[k]; });
+  }
   const q = editId ? supa.from('obras_mapa').update(row).eq('id', editId) : supa.from('obras_mapa').insert([{ ...row, criado_por: user.email }]);
   salvando = true; const { error } = await q; salvando = false;
   if (error) { toast('Erro ao salvar: ' + error.message); return; }
@@ -571,7 +592,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-rotuloMenu(); renderChips(); checarSessao(); carregar(); carregaUFs();
+rotuloMenu(); renderChips(); checarSessao().catch(() => {}).then(() => carregar()); carregaUFs();
 </script>
 </body>
 </html>

@@ -80,8 +80,7 @@ function _gLinha(u) {
   const ini = nome.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase() || '?';
   const badge = st === 'admin' ? '<span class="g-badge adm">Admin</span>' : st === 'aprovado' ? '<span class="g-badge ok">Aprovado</span>' : '<span class="g-badge pend">Pendente</span>';
   let acoes = '';
-  if (eu) acoes = '<span class="g-meta">você</span>';
-  else {
+  if (!eu) {
     if (st === 'pendente') acoes += `<button class="g-btn ok" onclick="aprovarUsuario('${id}')">✓ Aprovar</button>`;
     if (st === 'aprovado') acoes += `<button class="g-btn" onclick="alterarRole('${id}','admin')">Tornar admin</button><button class="g-btn" onclick="revogarUsuario('${id}')">Revogar acesso</button>`;
     if (st === 'admin') acoes += `<button class="g-btn" onclick="alterarRole('${id}','user')">Remover admin</button>`;
@@ -90,8 +89,8 @@ function _gLinha(u) {
   const meta = [escH(u.email), u.criado_em ? 'criado em ' + new Date(u.criado_em).toLocaleDateString('pt-BR') : '', _gRel(u.ultimo_login)].filter(Boolean).join(' · ');
   return `<div class="g-user ${st}">
     <div class="g-avatar" style="background:${_gCorAvatar(u.email)}">${escH(ini)}</div>
-    <div class="g-nome">${escH(nome)} ${badge}</div>
-    <div class="g-acoes">${acoes}</div>
+    <div class="g-nome">${escH(nome)} ${badge}${eu ? '<span class="g-badge voce">você</span>' : ''}</div>
+    ${acoes ? `<div class="g-acoes">${acoes}</div>` : ''}
     <div class="g-meta">${meta}</div>
   </div>`;
 }
