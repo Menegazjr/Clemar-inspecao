@@ -435,10 +435,18 @@ function menuExcluir() {
 
 
 // ── PAINEL ADMIN ──
+const _G_DB_LIMITE = 500 * 1024 * 1024;
+const _G_ST_LIMITE = 1024 * 1024 * 1024;
+let _gUsuarios = [], _gFiltro = 'todos', _gBusca = '';
+
 async function abrirAdmin() {
   document.getElementById('adminPanel').classList.add('open');
   document.body.style.overflow = 'hidden';
-  await carregarUsuariosAdmin();
+  _gFiltro = 'todos';
+  _gBusca = '';
+  const busca = document.getElementById('gBusca');
+  if (busca) busca.value = '';
+  await Promise.all([carregarUsuariosAdmin(), carregarEspaco()]);
 }
 
 function fecharAdmin() {
@@ -447,80 +455,136 @@ function fecharAdmin() {
 }
 
 async function carregarUsuariosAdmin() {
-  const body = document.getElementById('adminBody');
-  body.innerHTML = '<div class="admin-empty">Carregando...</div>';
-  const { data, error } = await supa.from('usuarios').select('*').order('criado_em', { ascending: false });
+  const lista = document.getElementById('gUsuarios');
+  if (!lista) return;
+  lista.innerHTML = '<div class="admin-empty">Carregando usuários…</div>';
+  document.getElementById('gCards').innerHTML = '<div class="admin-empty">Atualizando indicadores…</div>';
+  document.getElementById('gChips').innerHTML = '';
+  const { data, error } = await supa.from('usuarios')
+    .select('id,email,nome,role,aprovado,criado_em,ultimo_login')
+    .order('criado_em', { ascending: false });
   if (error) {
-    body.innerHTML = `<div class="admin-empty" style="color:var(--signal)">Erro: ${escHtml(error.message)}<br><small>Verifique as políticas RLS no Supabase.</small></div>`;
+    lista.innerHTML = `<div class="admin-empty" style="color:var(--signal)">Erro ao carregar usuários: ${escHtml(error.message)}<br><small>Verifique as políticas RLS no Supabase.</small></div>`;
     return;
   }
-  const outros = data || [];
-  if (outros.length === 0) { body.innerHTML = '<div class="admin-empty">Nenhum usuário cadastrado ainda.</div>'; return; }
-  const admins   = outros.filter(u => u.role === 'admin');
-  const pendentes = outros.filter(u => u.role !== 'admin' && !u.aprovado);
-  const aprovados = outros.filter(u => u.role !== 'admin' &&  u.aprovado);
-  const renderRow = u => {
-    const eAdmin  = u.role === 'admin';
-    const ehEuMesmo = u.id === currentUser.id;
-    const email = u.email || '';
-    return `
-    <div class="admin-user-row" id="urow_${u.id}">
-      <div class="admin-user-info">
-        <div class="admin-user-email">${escHtml(u.nome || email.split('@')[0])}
-          ${eAdmin ? '<span style="font-size:10px;background:#1a2940;color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px;font-family:var(--font-mono);vertical-align:middle">ADMIN</span>' : ''}
-        </div>
-        <div class="admin-user-meta">${escHtml(email)}</div>
-        <div class="admin-user-meta" style="margin-top:2px">${u.criado_em ? 'Criado: ' + new Date(u.criado_em).toLocaleDateString('pt-BR') : ''}${u.ultimo_login ? ' · 🕐 ' + fmtDataHora(u.ultimo_login) : ''}</div>
-      </div>
-      ${u.aprovado || eAdmin ? '<span class="admin-badge-ok">✅ Aprovado</span>' : '<span class="admin-badge-pend">⏳ Pendente</span>'}
-      <div class="admin-user-actions">
-        ${!ehEuMesmo ? `
-          ${eAdmin
-            ? `<button class="admin-icon-btn" style="background:#fff3e0;color:#e65100" onclick="alterarRole('${u.id}','user')" title="Remover admin">
-                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-               </button>`
-            : `<button class="admin-icon-btn" style="background:#e8f0fe;color:#1a73e8" onclick="alterarRole('${u.id}','admin')" title="Tornar admin">
-                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-               </button>`}
-          ${!u.aprovado && !eAdmin
-            ? `<button class="admin-icon-btn" style="background:#e8f5e9;color:#27ae60" onclick="aprovarUsuario('${u.id}')" title="Aprovar">
-                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg>
-               </button>`
-            : !eAdmin
-              ? `<button class="admin-icon-btn" style="background:#fff3e0;color:#e65100" onclick="revogarUsuario('${u.id}')" title="Revogar acesso">
-                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                 </button>`
-              : ''}
-          <button class="admin-icon-btn" style="background:#fdecea;color:#c0392b" onclick="excluirUsuario('${u.id}', this.dataset.email)" data-email="${escHtml(email)}" title="Excluir">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
-          </button>
-        ` : '<span style="font-size:11px;color:var(--ink-light);font-family:var(--font-cond)">você</span>'}
-      </div>
-    </div>`;
-  };
-  const sep = (txt) => `<div style="font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-light);margin:14px 0 8px">${txt}</div>`;
-  let html = '';
-  if (admins.length > 0) {
-    html += sep(`🔐 Administradores (${admins.length})`);
-    html += admins.map(renderRow).join('');
+  _gUsuarios = data || [];
+  renderGestao();
+}
+
+async function carregarEspaco() {
+  const box = document.getElementById('gEspaco');
+  if (!box) return;
+  box.innerHTML = '<div class="admin-empty" style="grid-column:1/-1">Calculando espaço…</div>';
+  const [db, storage] = await Promise.all([
+    supa.rpc('db_size'),
+    supa.rpc('storage_size'),
+  ]);
+  box.innerHTML =
+    barraEspaco('Banco de dados', 'relatórios, usuários e obras', db, _G_DB_LIMITE, 'db_size')
+    + barraEspaco('Fotos armazenadas', 'bucket relatorio-fotos', storage, _G_ST_LIMITE, 'storage_size');
+}
+
+function barraEspaco(titulo, subtitulo, resultado, limite, funcao) {
+  const bytes = resultado.error || resultado.data == null ? null : Number(resultado.data);
+  if (bytes == null || !Number.isFinite(bytes) || bytes < 0) {
+    const erro = resultado.error?.message || `A função ${funcao} não retornou um valor válido.`;
+    return `<div class="g-esp"><div class="g-esp-top"><div><b>${titulo}</b><small>${subtitulo}</small></div><span class="g-nd">indisponível</span></div><small>${escHtml(erro)}. Confira se a função está instalada no Supabase.</small></div>`;
   }
-  if (pendentes.length > 0) {
-    html += sep(`⏳ Aguardando aprovação (${pendentes.length})`);
-    html += pendentes.map(renderRow).join('');
+  const percentual = Math.min(100, bytes / limite * 100);
+  const cor = percentual > 80 ? 'var(--signal)' : percentual > 50 ? 'var(--accent)' : 'var(--ok)';
+  return `<div class="g-esp"><div class="g-esp-top"><div><b>${titulo}</b><small>${subtitulo}</small></div><span><strong>${fmtBytes(bytes)}</strong> <em>de ${fmtBytes(limite)}</em></span></div>
+    <div class="g-barra"><i style="width:${Math.max(percentual, 1.5)}%;background:${cor}"></i></div><small>${percentual.toFixed(1)}% do limite de referência do plano gratuito</small></div>`;
+}
+
+const _gStatus = usuario => usuario.role === 'admin' ? 'admin' : usuario.aprovado ? 'aprovado' : 'pendente';
+const _gAvatarCores = ['#0a8fe0', '#27ae60', '#8e44ad', '#e67e22', '#16a085', '#c0392b', '#34495e'];
+const _gCorAvatar = texto => _gAvatarCores[[...String(texto || '')].reduce((soma, caractere) => soma + caractere.charCodeAt(0), 0) % _gAvatarCores.length];
+const _gTempoAcesso = iso => {
+  if (!iso) return 'Nunca acessou';
+  const timestamp = new Date(iso).getTime();
+  if (!Number.isFinite(timestamp)) return 'Acesso sem data válida';
+  const dias = Math.floor((Date.now() - timestamp) / 864e5);
+  return dias <= 0 ? 'Acessou hoje' : dias === 1 ? 'Acessou ontem' : `Acessou há ${dias} dias`;
+};
+
+function gBuscar(valor) {
+  _gBusca = valor;
+  renderGestao();
+}
+
+function gFiltrar(filtro) {
+  _gFiltro = filtro;
+  renderGestao();
+}
+
+function renderGestao() {
+  const cards = document.getElementById('gCards');
+  const chips = document.getElementById('gChips');
+  const lista = document.getElementById('gUsuarios');
+  if (!cards || !chips || !lista) return;
+  const conta = predicado => _gUsuarios.filter(predicado).length;
+  const pendentes = conta(usuario => _gStatus(usuario) === 'pendente');
+  const admins = conta(usuario => _gStatus(usuario) === 'admin');
+  const aprovados = conta(usuario => _gStatus(usuario) === 'aprovado');
+  const semanaAtras = Date.now() - 7 * 864e5;
+  const ativos = conta(usuario => usuario.ultimo_login && new Date(usuario.ultimo_login).getTime() > semanaAtras);
+  const card = (titulo, valor, classe = '') => `<div class="g-card ${classe}"><b>${valor}</b><span>${titulo}</span></div>`;
+  cards.innerHTML = card('Usuários', _gUsuarios.length)
+    + card('Aguardando aprovação', pendentes, pendentes ? 'g-alerta' : '')
+    + card('Administradores', admins)
+    + card('Ativos nos últimos 7 dias', ativos);
+
+  const chip = (filtro, titulo, quantidade) => `<button class="g-chip${_gFiltro === filtro ? ' on' : ''}" onclick="gFiltrar('${filtro}')">${titulo}<small>${quantidade}</small></button>`;
+  chips.innerHTML = chip('todos', 'Todos', _gUsuarios.length)
+    + chip('pendente', 'Pendentes', pendentes)
+    + chip('aprovado', 'Aprovados', aprovados)
+    + chip('admin', 'Admins', admins);
+
+  const norm = texto => String(texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const busca = norm(_gBusca).trim();
+  const prioridade = { pendente: 0, admin: 1, aprovado: 2 };
+  const usuarios = _gUsuarios
+    .filter(usuario => (_gFiltro === 'todos' || _gStatus(usuario) === _gFiltro)
+      && (!busca || norm(`${usuario.nome || ''} ${usuario.email || ''}`).includes(busca)))
+    .sort((a, b) => prioridade[_gStatus(a)] - prioridade[_gStatus(b)]
+      || (b.ultimo_login || '').localeCompare(a.ultimo_login || ''));
+  lista.innerHTML = usuarios.length
+    ? usuarios.map(renderUsuarioAdmin).join('')
+    : '<div class="admin-empty">Nenhum usuário encontrado.</div>';
+}
+
+function renderUsuarioAdmin(usuario) {
+  const status = _gStatus(usuario);
+  const ehAtual = currentUser && usuario.id === currentUser.id;
+  const id = escHtml(usuario.id);
+  const email = usuario.email || '';
+  const nome = usuario.nome || email.split('@')[0] || 'Sem nome';
+  const iniciais = nome.trim().split(/\s+/).slice(0, 2).map(parte => parte[0]).join('').toUpperCase() || '?';
+  const badge = status === 'admin' ? '<span class="g-badge adm">Admin</span>'
+    : status === 'aprovado' ? '<span class="g-badge ok">Aprovado</span>'
+    : '<span class="g-badge pend">Pendente</span>';
+  let acoes = '';
+  if (!ehAtual) {
+    if (status === 'pendente') acoes += `<button class="g-btn ok" onclick="aprovarUsuario('${id}')">✓ Aprovar</button>`;
+    if (status === 'aprovado') acoes += `<button class="g-btn" onclick="alterarRole('${id}','admin')">Tornar admin</button><button class="g-btn" onclick="revogarUsuario('${id}')">Revogar acesso</button>`;
+    if (status === 'admin') acoes += `<button class="g-btn" onclick="alterarRole('${id}','user')">Remover admin</button>`;
+    acoes += `<button class="g-btn perigo" onclick="excluirUsuario('${id}', this.dataset.email)" data-email="${escHtml(email)}">Excluir</button>`;
   }
-  if (aprovados.length > 0) {
-    html += sep(`✅ Aprovados (${aprovados.length})`);
-    html += aprovados.map(renderRow).join('');
-  }
-  if (!html) html = '<div class="admin-empty">Nenhum outro usuário cadastrado ainda.</div>';
-  body.innerHTML = html;
+  const criado = usuario.criado_em ? `Criado em ${new Date(usuario.criado_em).toLocaleDateString('pt-BR')}` : '';
+  const meta = [escHtml(email), criado, _gTempoAcesso(usuario.ultimo_login)].filter(Boolean).join(' · ');
+  return `<div class="g-user${status === 'pendente' ? ' pendente' : ''}">
+    <div class="g-avatar" style="background:${_gCorAvatar(email)}">${escHtml(iniciais)}</div>
+    <div class="g-nome">${escHtml(nome)} ${badge}${ehAtual ? '<span class="g-badge voce">Você</span>' : ''}</div>
+    <div class="g-acoes">${acoes || (ehAtual ? '<span class="g-voce-label">Sua conta</span>' : '')}</div>
+    <div class="g-meta">${meta}</div>
+  </div>`;
 }
 
 async function excluirUsuario(id, email) {
-  if (!confirm(`Excluir o usuário ${email}? Isso remove o acesso permanentemente.`)) return;
+  if (!confirm(`Excluir o perfil de ${email}? A conta de autenticação continuará no Supabase; um novo acesso dependerá de aprovação.`)) return;
   const { error } = await supa.from('usuarios').delete().eq('id', id);
   if (error) { showAlert('Erro ao excluir: ' + error.message, 'err'); return; }
-  showAlert('Usuário excluído.', 'warn');
+  showAlert('Perfil removido. A conta de autenticação não foi apagada.', 'warn');
   await carregarUsuariosAdmin();
 }
 

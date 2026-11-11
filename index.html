@@ -164,9 +164,9 @@
         <span id="badgeUsoDbTxt">—</span>
         <span style="opacity:0.45">/ 500 MB</span>
       </span>
-      <button id="btnAdmin" style="display:none" onclick="abrirAdmin()" class="btn-admin" title="Usuários">
+      <button id="btnAdmin" style="display:none" onclick="abrirAdmin()" class="btn-admin" title="Gestão">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        <span class="btn-hide-mobile">Usuários</span>
+        <span class="btn-hide-mobile">Gestão</span>
       </button>
       <button id="btnSair" onclick="fazerLogout()">Sair</button>
     </div>
@@ -174,15 +174,26 @@
 </nav>
 
 
-<!-- PAINEL ADMIN -->
+<!-- PAINEL DE GESTÃO -->
 <div id="adminPanel">
-  <div class="admin-modal">
-    <div class="admin-modal-header">
-      <span class="admin-modal-title">👥 Gerenciar Usuários</span>
-      <button onclick="fecharAdmin()" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer">×</button>
+  <div class="gestao-modal">
+    <div class="gestao-head">
+      <div>
+        <div class="gestao-titulo">Gestão</div>
+        <div class="gestao-sub">Usuários e espaço do Supabase</div>
+      </div>
+      <button class="gestao-x" onclick="fecharAdmin()" aria-label="Fechar">×</button>
     </div>
-    <div class="admin-modal-body" id="adminBody">
-      <div class="admin-empty">Carregando...</div>
+    <div class="gestao-body">
+      <div class="g-cards" id="gCards"><div class="admin-empty">Carregando…</div></div>
+      <h4 class="g-sec">Espaço no Supabase <button class="g-link" onclick="carregarEspaco()">↻ atualizar</button></h4>
+      <div class="g-espaco" id="gEspaco"><div class="admin-empty" style="grid-column:1/-1">Calculando…</div></div>
+      <h4 class="g-sec">Usuários</h4>
+      <div class="g-toolbar">
+        <input id="gBusca" type="search" name="busca-usuarios" placeholder="Buscar por nome ou e-mail…" oninput="gBuscar(this.value)" autocomplete="off">
+        <div class="g-chips" id="gChips"></div>
+      </div>
+      <div id="gUsuarios"><div class="admin-empty">Carregando…</div></div>
     </div>
   </div>
 </div>

@@ -103,6 +103,32 @@ revoke execute on function public.db_size() from anon;
 revoke execute on function public.db_size() from authenticated;
 grant execute on function public.db_size() to authenticated;
 
+create or replace function public.storage_size()
+returns bigint
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+    when (select public.clemar_e_admin()) then coalesce((
+      select sum(
+        case
+          when (o.metadata ->> 'size') ~ '^[0-9]+$'
+            then (o.metadata ->> 'size')::bigint
+          else 0
+        end
+      )::bigint
+      from storage.objects as o
+      where o.bucket_id = 'relatorio-fotos'
+    ), 0)::bigint
+    else null
+  end;
+$$;
+
+revoke all on function public.storage_size() from public, anon;
+grant execute on function public.storage_size() to authenticated;
+
 drop policy if exists "admin atualiza tudo" on public.usuarios;
 drop policy if exists "admin deleta tudo" on public.usuarios;
 drop policy if exists "admin le tudo" on public.usuarios;
