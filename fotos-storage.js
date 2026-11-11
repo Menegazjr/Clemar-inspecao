@@ -33,6 +33,13 @@ async function baixarFotoBase64(path) {
   return blobParaDataUrl(data);
 }
 
+async function tentarBaixarFoto(foto) {
+  if (!foto?.path) throw new Error('A foto não possui caminho no Storage.');
+  foto.base64 = await baixarFotoBase64(foto.path);
+  foto._sig = assinaturaFoto(foto.base64);
+  delete foto._loadError;
+}
+
 async function hidratarFotos(relatorioId, grupos) {
   const fila = [];
   const paths = new Set();

@@ -2,6 +2,7 @@ let _abrindoRelatorio = false;
 let _pendingGrupoId   = null;
 let _relatorioSomenteLeitura = false;
 let _fotosProntasId = null;
+let _erroCargaFotos = null;
 
 function escaparHtml(valor) {
   return String(valor ?? '').replace(/[&<>"']/g, caractere => ({
@@ -98,7 +99,7 @@ function configurarEdicaoRelatorio() {
   aviso.textContent = 'Este relatório pertence a outro usuário. Você pode visualizar e exportar, mas não editar nem excluir.';
   aviso.style.display = _relatorioSomenteLeitura ? 'block' : 'none';
 
-  document.querySelectorAll('#mainContent input, #mainContent select, #mainContent textarea, #mainContent button').forEach(control => {
+  document.querySelectorAll('#mainContent input, #mainContent select, #mainContent textarea, #mainContent button:not(.foto-storage-retry)').forEach(control => {
     if (!control.dataset.originallyDisabled) {
       control.dataset.originallyDisabled = control.disabled ? 'true' : 'false';
     }
@@ -127,29 +128,22 @@ async function abrirRelatorio(id) {
   if (_abrindoRelatorio) return;
   _abrindoRelatorio = true;
 
-  // Carrega os dados e as fotos na mesma consulta para aplicar a mesma autorização.
-  const { data, error: err1 } = await supa.from('relatorios')
-    .select('id,numero,data,data_fim,obra,obra_mapa_id,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em,fotos')
-    .eq('id', id).single();
-  if (err1) { showAlert('Erro ao abrir: ' + err1.message, 'err'); _abrindoRelatorio = false; return; }
-  mostrarLoadingFotos(true);
+  let data;
+  let err1;
   try {
-    data.fotos = normalizarFotosRelatorio(data.fotos);
-    if (typeof hidratarFotos === 'function') {
-      const falhas = await hidratarFotos(id, data.fotos);
-      if (falhas) {
-        showAlert(`${falhas} foto(s) do Storage não carregaram. Os arquivos foram preservados para nova tentativa.`, 'warn');
-      }
-    }
+    ({ data, error: err1 } = await supa.from('relatorios')
+      .select('id,numero,data,data_fim,obra,obra_mapa_id,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em')
+      .eq('id', id).single());
   } catch (error) {
-    console.error('Erro ao interpretar as fotos do relatório:', error);
-    mostrarLoadingFotos(false);
     _abrindoRelatorio = false;
-    showAlert('Não foi possível exibir as fotos deste relatório: ' + error.message, 'err');
+    showAlert('Erro ao abrir: ' + error.message, 'err');
     return;
   }
+  if (err1) { showAlert('Erro ao abrir: ' + err1.message, 'err'); _abrindoRelatorio = false; return; }
   mostrarLoadingFotos(false);
-  _fotosProntasId = id;
+  data.fotos = [];
+  _fotosProntasId = null;
+  _erroCargaFotos = null;
 
   data._tamanho = fmtBytes(new Blob([JSON.stringify(data)]).size);
   currentId = id;
@@ -159,7 +153,7 @@ async function abrirRelatorio(id) {
   _versaoAberta = data.versao || data.atualizado_em || null;
   _relatorioRecemCriado = null;
 
-  // Exibe o relatório já com as fotos carregadas.
+  // Exibe primeiro os campos do relatório; as fotos são buscadas em seguida.
   exibirForm();
   const tf = document.getElementById('tabForm');
   const tc = document.getElementById('tabConfig');
@@ -170,6 +164,7 @@ async function abrirRelatorio(id) {
   renderizarFotos();
   configurarEdicaoRelatorio();
   _abrindoRelatorio = false;
+  setTimeout(() => carregarFotosRelatorio(id, data), 0);
 
   ocultarBannerPresenca();
   verificarPresenca(id).then(presenca => {
@@ -180,6 +175,108 @@ async function abrirRelatorio(id) {
       iniciarHeartbeat(id);
     }
   });
+}
+
+async function carregarFotosRelatorio(id, relatorio) {
+  let fotosConsultadas = false;
+  if (currentId === id && currentRelatorio === relatorio) {
+    _erroCargaFotos = null;
+    renderizarFotos();
+  }
+  if (currentId === id) mostrarLoadingFotos(true);
+  try {
+    const { data, error } = await supa.from('relatorios')
+      .select('fotos')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    fotosConsultadas = true;
+    if (currentId !== id || currentRelatorio !== relatorio) return;
+    relatorio.fotos = normalizarFotosRelatorio(data.fotos);
+    _erroCargaFotos = null;
+    renderizarFotos();
+    if (typeof hidratarFotos === 'function') {
+      const falhas = await hidratarFotos(id, relatorio.fotos);
+      if (currentId !== id || currentRelatorio !== relatorio) return;
+      if (falhas) {
+        _fotosProntasId = id;
+        renderizarFotos();
+        configurarEdicaoRelatorio();
+        atualizarTamanhoRelatorio(relatorio);
+        showAlert(`${falhas} foto(s) não carregaram no Storage. Verifique a conexão e as permissões de acesso.`, 'warn');
+        return;
+      }
+    }
+    if (currentId !== id || currentRelatorio !== relatorio) return;
+    _fotosProntasId = id;
+    renderizarFotos();
+    configurarEdicaoRelatorio();
+    atualizarTamanhoRelatorio(relatorio);
+  } catch (error) {
+    console.error(`Erro ao carregar fotos do relatório ${id}:`, error);
+    if (currentId === id && currentRelatorio === relatorio) {
+      if (fotosConsultadas) {
+        _fotosProntasId = id;
+        relatorio.fotos.forEach(grupo => (grupo.fotos || []).forEach(foto => {
+          if (foto.path && !foto.base64) foto._loadError = error.message || String(error);
+        }));
+        renderizarFotos();
+        configurarEdicaoRelatorio();
+        atualizarTamanhoRelatorio(relatorio);
+      } else {
+        _erroCargaFotos = { id, message: error.message || String(error) };
+        renderizarFotos();
+      }
+      showAlert('Não foi possível carregar as fotos: ' + error.message, 'err');
+    }
+  } finally {
+    if (currentId === id) mostrarLoadingFotos(false);
+  }
+}
+
+async function tentarCarregarFotoStorage(fotoId, grupoId) {
+  const relatorio = getRelatorioAtual();
+  const grupo = relatorio?.fotos?.find(item => item.id === grupoId);
+  const foto = grupo?.fotos?.find(item => item.id === fotoId);
+  if (!relatorio || !foto || typeof tentarBaixarFoto !== 'function') return;
+  mostrarLoadingFotos(true);
+  try {
+    await tentarBaixarFoto(foto);
+    renderizarFotos();
+    configurarEdicaoRelatorio();
+    atualizarTamanhoRelatorio(relatorio);
+  } catch (error) {
+    foto._loadError = error.message || String(error);
+    console.error(`Falha ao tentar novamente a foto ${foto.path}:`, error);
+    renderizarFotos();
+    configurarEdicaoRelatorio();
+    showAlert('Não foi possível carregar a foto: ' + foto._loadError, 'err');
+  } finally {
+    mostrarLoadingFotos(false);
+  }
+}
+
+function fotoImagemFalhou(imagem, fotoId, grupoId) {
+  const relatorio = getRelatorioAtual();
+  const foto = relatorio?.fotos?.find(grupo => grupo.id === grupoId)
+    ?.fotos?.find(item => item.id === fotoId);
+  if (foto) foto._loadError = 'O navegador não conseguiu decodificar os dados da imagem.';
+  imagem.style.display = 'none';
+  const fallback = imagem.nextElementSibling;
+  if (!fallback) return;
+  fallback.style.display = 'flex';
+  fallback.textContent = 'Falha ao exibir foto';
+  if (foto?.path) {
+    const botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'btn btn-sm btn-outline foto-storage-retry';
+    botao.textContent = 'Tentar novamente';
+    botao.addEventListener('click', event => {
+      event.stopPropagation();
+      tentarCarregarFotoStorage(fotoId, grupoId);
+    });
+    fallback.appendChild(botao);
+  }
 }
 
 function mostrarLoadingFotos(ativo) {

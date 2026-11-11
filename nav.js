@@ -1,4 +1,5 @@
 function exibirLista() {
+  mostrarLoadingFotos(false);
   document.getElementById('viewLista').style.display = 'flex';
   document.getElementById('viewForm').style.display  = 'none';
   document.getElementById('navLista').style.display  = 'flex';
