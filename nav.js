@@ -99,16 +99,17 @@ async function carregarLista() {
 // ═══════════════════════════════════════════════
 const escH = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normTxt = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-let _busca = '', _sit = new Set(), _soMeus = false, _ordem = 'numero_desc';
+let _busca = '', _sit = new Set(), _soMeus = false, _ordem = 'obra';
 let _agrupar = true, _selMode = false, _sel = new Set();
 let _obraMapaFiltroId = '';
 let _obraMapaFiltroNome = '';
+const collatorObras = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 const ORDENS = {
   numero_desc: (a, b) => b.numero - a.numero,
   numero_asc:  (a, b) => a.numero - b.numero,
   editado:     (a, b) => (b.atualizado_em || '').localeCompare(a.atualizado_em || '') || b.numero - a.numero,
   data:        (a, b) => (b.data || '').localeCompare(a.data || '') || b.numero - a.numero,
-  obra:        (a, b) => (a.obra || '~').localeCompare(b.obra || '~', 'pt-BR') || b.numero - a.numero,
+  obra:        (a, b) => collatorObras.compare(a.obra || '~', b.obra || '~') || b.numero - a.numero,
 };
 // ids de uma pasta e de todas as subpastas dentro dela
 function idsDescendentes(id) {
@@ -169,6 +170,14 @@ function limparFiltros() {
 }
 function atualizaFiltros() {
   document.querySelectorAll('#listaFiltros .fchip[data-sit]').forEach(b => b.classList.toggle('on', _sit.has(b.dataset.sit)));
+  const sitLabel = document.getElementById('filtroSituacaoLabel');
+  if (sitLabel) {
+    sitLabel.classList.toggle('on', _sit.size > 0);
+    const count = document.getElementById('filtroSituacaoCount');
+    if (count) count.textContent = _sit.size ? String(_sit.size) : '';
+  }
+  const ordem = document.getElementById('listaOrdem');
+  if (ordem && ordem.value !== _ordem) ordem.value = _ordem;
   const m = document.getElementById('fMeus'); if (m) m.classList.toggle('on', _soMeus);
   const a = document.getElementById('fAgrupar'); if (a) a.classList.toggle('on', _agrupar);
   const s = document.getElementById('fSel'); if (s) s.classList.toggle('on', _selMode);
@@ -279,7 +288,7 @@ function renderizarLista() {
       grupos.get(chave).relatorios.push(r);
     });
     container.innerHTML = [...grupos.values()]
-      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
+      .sort((a, b) => collatorObras.compare(a.nome, b.nome))
       .map(grupo => `
       <details class="grupo-obra">
         <summary><strong>${escH(grupo.nome)}</strong><small>${grupo.relatorios.length} relatório(s)</small></summary>
