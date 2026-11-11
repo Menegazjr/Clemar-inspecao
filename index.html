@@ -228,21 +228,25 @@
           <input type="search" id="listaBusca" name="busca-relatorios" placeholder="Buscar obra, cliente, cidade ou nº…" oninput="aoBuscar(this.value)" autocomplete="off">
         </div>
         <div class="lista-filtros" id="listaFiltros">
-          <button class="flimpar" id="btnLimparFiltros" style="display:none" onclick="limparFiltros()">Limpar</button>
-          <button class="fchip" data-sit="Liberado" style="--c:var(--ok)" onclick="alternarSit('Liberado')"><i></i>Liberado</button>
-          <button class="fchip" data-sit="Em elaboração" style="--c:var(--accent)" onclick="alternarSit('Em elaboração')"><i></i>Em elaboração</button>
-          <button class="fchip" data-sit="Concluído" style="--c:#0a8fe0" onclick="alternarSit('Concluído')"><i></i>Concluído</button>
-          <button class="fchip" data-sit="Em avaliação" style="--c:#8a96a3" onclick="alternarSit('Em avaliação')"><i></i>Em avaliação</button>
-          <button class="fchip" id="fMeus" onclick="alternarMeus()">👤 Só meus</button>
-          <button class="fchip" id="fAgrupar" onclick="alternarAgrupar()" title="Agrupar as visitas por obra">🗂 Por obra</button>
-          <button class="fchip" id="fSel" onclick="alternarSelecao()" title="Selecionar vários para mover de pasta">☑ Selecionar</button>
-          <select class="lista-ordem" id="listaOrdem" onchange="aoOrdenar(this.value)" title="Ordenar por">
-            <option value="numero_desc">Nº (maior primeiro)</option>
-            <option value="editado">Última edição</option>
-            <option value="data">Data da visita</option>
-            <option value="obra">Obra (A–Z)</option>
-            <option value="numero_asc">Nº (menor primeiro)</option>
-          </select>
+          <div class="lista-filtros-status">
+            <button class="flimpar" id="btnLimparFiltros" style="display:none" onclick="limparFiltros()">Limpar</button>
+            <button class="fchip" data-sit="Liberado" style="--c:var(--ok)" onclick="alternarSit('Liberado')"><i></i>Liberado</button>
+            <button class="fchip" data-sit="Em elaboração" style="--c:var(--accent)" onclick="alternarSit('Em elaboração')"><i></i>Em elaboração</button>
+            <button class="fchip" data-sit="Concluído" style="--c:#0a8fe0" onclick="alternarSit('Concluído')"><i></i>Concluído</button>
+            <button class="fchip" data-sit="Em avaliação" style="--c:#8a96a3" onclick="alternarSit('Em avaliação')"><i></i>Em avaliação</button>
+          </div>
+          <div class="lista-filtros-acoes">
+            <button class="fchip" id="fMeus" onclick="alternarMeus()">👤 Só meus</button>
+            <button class="fchip" id="fAgrupar" onclick="alternarAgrupar()" title="Agrupar as visitas por obra">🗂 Por obra</button>
+            <button class="fchip" id="fSel" onclick="alternarSelecao()" title="Selecionar vários para mover de pasta">☑ Selecionar</button>
+            <select class="lista-ordem" id="listaOrdem" onchange="aoOrdenar(this.value)" title="Ordenar por">
+              <option value="numero_desc">Nº (maior primeiro)</option>
+              <option value="editado">Última edição</option>
+              <option value="data">Data da visita</option>
+              <option value="obra">Obra (A–Z)</option>
+              <option value="numero_asc">Nº (menor primeiro)</option>
+            </select>
+          </div>
         </div>
         <div class="lista-dica" id="listaDica" style="display:none">Buscando em todas as pastas</div>
       </div>

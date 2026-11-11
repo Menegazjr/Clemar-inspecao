@@ -278,7 +278,9 @@ function renderizarLista() {
       if (!grupos.has(chave)) grupos.set(chave, { nome: r.obra || '(sem nome de obra)', relatorios: [] });
       grupos.get(chave).relatorios.push(r);
     });
-    container.innerHTML = [...grupos.values()].map(grupo => `
+    container.innerHTML = [...grupos.values()]
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }))
+      .map(grupo => `
       <details class="grupo-obra">
         <summary><strong>${escH(grupo.nome)}</strong><small>${grupo.relatorios.length} relatório(s)</small></summary>
         ${grupo.relatorios.map(renderCard).join('')}

@@ -762,13 +762,15 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .lista-busca svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: var(--ink-light); pointer-events: none; }
 .lista-busca input { width: 100%; padding: 11px 14px 11px 38px; border: 2px solid var(--border); border-radius: var(--radius); background: var(--white); font: 16px var(--font); color: var(--ink); outline: none; }
 .lista-busca input:focus { border-color: var(--accent); }
-.lista-filtros { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; overflow: visible; padding-bottom: 2px; }
+.lista-filtros { display: flex; flex-direction: column; align-items: stretch; gap: 8px; overflow: visible; padding-bottom: 2px; }
 .lista-filtros::-webkit-scrollbar { display: none; }
+.lista-filtros-status, .lista-filtros-acoes { display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; min-width: 0; }
+.lista-filtros-acoes { justify-content: flex-end; }
 .fchip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 20px; border: 2px solid var(--border); background: var(--white); color: var(--ink-mid); font-family: var(--font-cond); font-size: 13px; font-weight: 600; letter-spacing: .4px; white-space: nowrap; cursor: pointer; touch-action: manipulation; transition: all .15s; }
 .fchip i { width: 9px; height: 9px; border-radius: 50%; background: var(--c, var(--ink-light)); flex-shrink: 0; }
 .fchip:hover { border-color: var(--accent); }
 .fchip.on { background: var(--steel); border-color: var(--steel); color: #fff; }
-.lista-ordem { margin-left: auto; flex-shrink: 0; padding: 6px 10px; border: 2px solid var(--border); border-radius: 20px; background: var(--white); font: 600 13px var(--font-cond); color: var(--ink-mid); }
+.lista-ordem { margin-left: auto; flex: 0 0 auto; padding: 6px 10px; border: 2px solid var(--border); border-radius: 20px; background: var(--white); font: 600 13px var(--font-cond); color: var(--ink-mid); }
 .flimpar { background: none; border: none; color: var(--signal); font: 600 13px var(--font-cond); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 .lista-dica { font-size: 12px; color: var(--ink-light); }
 .pasta-count { font-family: var(--font-mono); font-size: 10px; opacity: .65; margin-left: 2px; }
@@ -784,9 +786,11 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .chk.on { background: var(--accent); border-color: var(--accent); }
 .relatorio-card.sel { outline: 3px solid var(--accent); }
 @media (max-width: 600px) {
-  .lista-filtros { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 6px; }
-  .lista-filtros .fchip, .lista-filtros .flimpar, .lista-filtros .lista-ordem { flex: 0 0 auto; }
-  .lista-filtros .lista-ordem { margin-left: 0; }
+  .lista-filtros-status, .lista-filtros-acoes { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+  .lista-filtros-status::-webkit-scrollbar, .lista-filtros-acoes::-webkit-scrollbar { display: none; }
+  .lista-filtros-status .fchip, .lista-filtros-status .flimpar,
+  .lista-filtros-acoes .fchip, .lista-filtros-acoes .lista-ordem { flex: 0 0 auto; }
+  .lista-filtros-acoes .lista-ordem { margin-left: 0; }
   .barra-sel { width: calc(100% - 24px); justify-content: center; gap: 6px; padding: 9px 8px; }
   .barra-sel .btn { padding: 8px; font-size: 12px; }
 }
