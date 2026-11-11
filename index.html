@@ -31,7 +31,11 @@
     @keyframes girar { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   </style>
 </head>
-<body>
+<body class="session-pending">
+<div id="sessionLoader" role="status" aria-live="polite">
+  <span class="session-loader-spinner"></span>
+  Validando sessão...
+</div>
 <div id="bannerUpdate" style="display:none;position:fixed;top:0;left:0;right:0;z-index:10000;background:var(--steel);color:#fff;padding:14px 20px;display:none;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-family:var(--font-cond)">
   <div style="display:flex;align-items:center;gap:10px">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
@@ -640,9 +644,6 @@
           })
           .catch(e => console.warn('SW erro:', e));
 
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          window.location.reload();
-        });
       });
     }
   </script>

@@ -5,6 +5,10 @@ function toggleForm(showCad) {
   document.getElementById('formCadastro').style.display = showCad ? '' : 'none';
 }
 
+function finalizarValidacaoSessaoInicial() {
+  document.body.classList.remove('session-pending');
+}
+
 async function fazerLogin() {
   const email    = document.getElementById('authEmail').value.trim();
   const senha    = document.getElementById('authPassword').value;
@@ -61,6 +65,7 @@ async function aoLogar(user) {
     const msg = document.getElementById('authMsg');
     msg.textContent = 'Não foi possível validar seu cadastro: ' + erroBusca.message;
     msg.style.display = 'block';
+    finalizarValidacaoSessaoInicial();
     return;
   }
 
@@ -80,6 +85,7 @@ async function aoLogar(user) {
     const msg = document.getElementById('authMsg');
     msg.textContent = 'Não foi possível validar seu cadastro: ' + erroPerfil.message;
     msg.style.display = 'block';
+    finalizarValidacaoSessaoInicial();
     return;
   }
 
@@ -92,6 +98,7 @@ async function aoLogar(user) {
     const msg = document.getElementById('authMsg');
     msg.textContent = 'Não foi possível verificar sua aprovação: ' + error.message;
     msg.style.display = 'block';
+    finalizarValidacaoSessaoInicial();
     return;
   }
 
@@ -106,6 +113,7 @@ async function aoLogar(user) {
       const msg = document.getElementById('authMsg');
       msg.textContent = '⏳ Seu acesso está aguardando aprovação do administrador.';
       msg.style.display = 'block';
+      finalizarValidacaoSessaoInicial();
       return;
     }
   }
@@ -126,6 +134,7 @@ async function aoLogar(user) {
 
   await carregarPastas();
   exibirLista();
+  finalizarValidacaoSessaoInicial();
 }
 
 async function fazerLogout() {

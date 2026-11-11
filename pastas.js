@@ -670,9 +670,20 @@ document.addEventListener('keydown', e => { if(e.key==='Escape') fecharViewerBtn
 //  INIT — VERIFICA SESSÃO
 // ═══════════════════════════════════════════════
 (async function() {
-  const { data: { session } } = await supa.auth.getSession();
-  if (session && session.user) {
-    aoLogar(session.user);
+  try {
+    const { data: { session }, error } = await supa.auth.getSession();
+    if (error) throw error;
+    if (session?.user) {
+      await aoLogar(session.user);
+    } else {
+      finalizarValidacaoSessaoInicial();
+    }
+  } catch (error) {
+    console.error('Falha ao restaurar a sessão:', error);
+    const msg = document.getElementById('authMsg');
+    msg.textContent = 'Não foi possível verificar sua sessão: ' + error.message;
+    msg.style.display = 'block';
+    finalizarValidacaoSessaoInicial();
   }
 })();
 

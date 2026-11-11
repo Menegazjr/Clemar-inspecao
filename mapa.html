@@ -13,6 +13,14 @@
 <style>
 :root { --blue:#0a8fe0; --blue-glow:#19b4ff; }
 body { height:100dvh; overflow:hidden; overscroll-behavior:none; }
+body.session-pending #pLogin { display:none !important; }
+#sessionLoaderMapa { display:none; }
+body.session-pending #sessionLoaderMapa {
+  position:fixed; inset:0; z-index:10001;
+  display:flex; align-items:center; justify-content:center; gap:12px;
+  background:var(--steel); color:#fff; font:600 16px var(--font-cond);
+}
+.session-loader-spinner { width:22px; height:22px; border:3px solid rgba(255,255,255,.3); border-top-color:var(--accent); border-radius:50%; animation:giraRef .8s linear infinite; }
 button, a, .item, .dot { touch-action:manipulation; }
 .wrap { display:flex; flex:1; min-height:0; }
 .wrap.bloqueado { display:none; }
@@ -101,7 +109,11 @@ button, a, .item, .dot { touch-action:manipulation; }
 }
 </style>
 </head>
-<body>
+<body class="session-pending">
+<div id="sessionLoaderMapa" role="status" aria-live="polite">
+  <span class="session-loader-spinner"></span>
+  Validando sessão...
+</div>
 <div id="bannerUpdate" style="display:none;position:fixed;top:0;left:0;right:0;z-index:10000;background:#ffc21a;color:#1a2940;padding:14px 20px;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 22px rgba(0,0,0,.5);font-family:var(--font-cond);border-bottom:3px solid #1a2940">
   <div style="display:flex;align-items:center;gap:10px">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
@@ -165,7 +177,7 @@ button, a, .item, .dot { touch-action:manipulation; }
   </div>
 </div>
 
-<div class="auth-card panel open" id="pLogin" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);right:auto;width:min(380px,92vw);z-index:50;bottom:auto;border-radius:12px">
+<div class="auth-card panel" id="pLogin" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);right:auto;width:min(380px,92vw);z-index:50;bottom:auto;border-radius:12px">
   <div class="auth-title">Acesso ao mapa de obras</div>
   <div class="auth-sub">Entre com uma conta aprovada para visualizar e editar o mapa.</div>
   <div id="loginErr" class="auth-error"></div>
@@ -456,23 +468,32 @@ function bloquearMapa(mensagem = '') {
 
 async function checarSessao() {
   const tentativa = ++verificacaoSessao;
-  const { data, error } = await supa.auth.getSession();
-  if (tentativa !== verificacaoSessao) return;
-  if (error) { user = null; bloquearMapa('Não foi possível verificar sua sessão. Tente novamente.'); return; }
-  const session = data.session;
-  user = session?.user || null; podeEditar = false;
-  if (!user) { bloquearMapa(); return; }
-  const estavaLiberado = !document.querySelector('.wrap').classList.contains('bloqueado');
-  const { data: r, error: erroPerfil } = await supa.from('usuarios').select('aprovado, role').eq('id', user.id).single();
-  if (tentativa !== verificacaoSessao) return;
-  if (erroPerfil) { bloquearMapa('Não foi possível validar sua autorização. Tente novamente ou contate o administrador.'); return; }
-  podeEditar = !!(r && (r.aprovado || r.role === 'admin'));
-  document.querySelectorAll('.js-nova').forEach(b => b.style.display = podeEditar ? '' : 'none');
-  document.querySelectorAll('.js-auth').forEach(b => b.textContent = user ? 'Sair' : 'Entrar');
-  if (!podeEditar) { bloquearMapa('Seu acesso ainda não foi aprovado pelo administrador.'); return; }
-  document.querySelector('.wrap').classList.remove('bloqueado');
-  el('pLogin').classList.remove('open');
-  if (!estavaLiberado) await carregar();
+  try {
+    const { data, error } = await supa.auth.getSession();
+    if (tentativa !== verificacaoSessao) return;
+    if (error) { user = null; bloquearMapa('Não foi possível verificar sua sessão. Tente novamente.'); return; }
+    const session = data.session;
+    user = session?.user || null; podeEditar = false;
+    if (!user) { bloquearMapa(); return; }
+    const estavaLiberado = !document.querySelector('.wrap').classList.contains('bloqueado');
+    const { data: r, error: erroPerfil } = await supa.from('usuarios').select('aprovado, role').eq('id', user.id).single();
+    if (tentativa !== verificacaoSessao) return;
+    if (erroPerfil) { bloquearMapa('Não foi possível validar sua autorização. Tente novamente ou contate o administrador.'); return; }
+    podeEditar = !!(r && (r.aprovado || r.role === 'admin'));
+    document.querySelectorAll('.js-nova').forEach(b => b.style.display = podeEditar ? '' : 'none');
+    document.querySelectorAll('.js-auth').forEach(b => b.textContent = user ? 'Sair' : 'Entrar');
+    if (!podeEditar) { bloquearMapa('Seu acesso ainda não foi aprovado pelo administrador.'); return; }
+    document.querySelector('.wrap').classList.remove('bloqueado');
+    el('pLogin').classList.remove('open');
+    if (!estavaLiberado) carregar();
+  } catch (error) {
+    if (tentativa === verificacaoSessao) {
+      user = null;
+      bloquearMapa('Não foi possível validar sua sessão: ' + error.message);
+    }
+  } finally {
+    if (tentativa === verificacaoSessao) document.body.classList.remove('session-pending');
+  }
 }
 async function authClick() {
   fechaMenuMobile();
@@ -514,7 +535,6 @@ if ('serviceWorker' in navigator) {
       });
       reg.update(); setInterval(() => reg.update(), 60000);
     }).catch(() => {});
-    navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
   });
 }
 
