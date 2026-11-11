@@ -100,7 +100,7 @@ async function carregarLista() {
 const escH = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normTxt = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 let _busca = '', _sit = new Set(), _soMeus = false, _ordem = 'numero_desc';
-let _agrupar = false, _selMode = false, _sel = new Set();
+let _agrupar = true, _selMode = false, _sel = new Set();
 let _obraMapaFiltroId = '';
 let _obraMapaFiltroNome = '';
 const ORDENS = {
