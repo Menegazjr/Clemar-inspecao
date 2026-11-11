@@ -69,7 +69,7 @@
       </div>
       <div class="auth-field">
         <label>Senha</label>
-        <input type="password" id="authPassword" placeholder="••••••••" autocomplete="current-password">
+        <input type="password" id="authPassword" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()">
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <input type="checkbox" id="lembrarMe" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">

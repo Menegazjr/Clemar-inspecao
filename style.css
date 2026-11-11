@@ -72,6 +72,7 @@ body { font-family: var(--font); background: var(--surface); color: var(--ink); 
 .topnav-title { font-family: var(--font-cond); font-size: 17px; font-weight: 600; letter-spacing: 1px; line-height: 1; }
 .topnav-subtitle { font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 2px; text-transform: uppercase; }
 .topnav-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; justify-content: flex-end; }
+.topnav-actions #navLista { display: flex; align-items: center; gap: 8px; }
 .user-bar {
   display: flex; align-items: center; gap: 6px;
   padding: 4px 8px; background: rgba(255,255,255,0.1);

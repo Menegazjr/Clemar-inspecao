@@ -1,7 +1,7 @@
 function exibirLista() {
   document.getElementById('viewLista').style.display = 'flex';
   document.getElementById('viewForm').style.display  = 'none';
-  document.getElementById('navLista').style.display  = 'block';
+  document.getElementById('navLista').style.display  = 'flex';
   document.getElementById('navForm').style.display   = 'none';
   document.getElementById('btnSair').style.display   = '';
   document.getElementById('mobileBarForm').classList.remove('visivel');
