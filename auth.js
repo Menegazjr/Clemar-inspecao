@@ -53,17 +53,31 @@ async function fazerCadastro() {
 
 async function aoLogar(user) {
   // Garante registro na tabela usuarios e busca role
-  await supa.from('usuarios').upsert({
+  const { error: erroPerfil } = await supa.from('usuarios').upsert({
     id:    user.id,
     email: user.email,
     nome:  user.user_metadata?.nome || user.email.split('@')[0],
     ultimo_login: new Date().toISOString(),
   }, { onConflict: 'id' });
+  if (erroPerfil) {
+    await supa.auth.signOut();
+    const msg = document.getElementById('authMsg');
+    msg.textContent = 'Não foi possível validar seu cadastro: ' + erroPerfil.message;
+    msg.style.display = 'block';
+    return;
+  }
 
-  const { data: reg } = await supa.from('usuarios')
+  const { data: reg, error } = await supa.from('usuarios')
     .select('aprovado, role')
     .eq('id', user.id)
     .single();
+  if (error) {
+    await supa.auth.signOut();
+    const msg = document.getElementById('authMsg');
+    msg.textContent = 'Não foi possível verificar sua aprovação: ' + error.message;
+    msg.style.display = 'block';
+    return;
+  }
 
   // Anexa role ao currentUser para uso global
   currentUser = { ...user, role: reg?.role || 'user' };

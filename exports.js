@@ -377,7 +377,7 @@ function fmtData(iso) {
   return `${d}/${m}/${y}`;
 }
 function escHtml(s) {
-  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function fecharModal(id) { document.getElementById(id).classList.remove('open'); }
 
@@ -402,6 +402,10 @@ let _menuCardNum = null;
 function abrirMenuCard(id, num) {
   _menuCardId  = id;
   _menuCardNum = num;
+  const relatorio = relatorios.find(r => r.id === id);
+  const podeAlterar = currentUser?.role === 'admin' || relatorio?.user_id === currentUser?.id;
+  document.getElementById('btnMoverRelatorio').style.display = podeAlterar ? '' : 'none';
+  document.getElementById('btnExcluirRelatorio').style.display = podeAlterar ? '' : 'none';
   document.getElementById('cardMenuTitle').textContent = 'Relatório #' + String(num).padStart(3,'0');
   document.getElementById('cardMenuOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -447,7 +451,7 @@ async function carregarUsuariosAdmin() {
   body.innerHTML = '<div class="admin-empty">Carregando...</div>';
   const { data, error } = await supa.from('usuarios').select('*').order('criado_em', { ascending: false });
   if (error) {
-    body.innerHTML = `<div class="admin-empty" style="color:var(--signal)">Erro: ${error.message}<br><small>Verifique as políticas RLS no Supabase.</small></div>`;
+    body.innerHTML = `<div class="admin-empty" style="color:var(--signal)">Erro: ${escHtml(error.message)}<br><small>Verifique as políticas RLS no Supabase.</small></div>`;
     return;
   }
   const outros = data || [];
@@ -458,13 +462,14 @@ async function carregarUsuariosAdmin() {
   const renderRow = u => {
     const eAdmin  = u.role === 'admin';
     const ehEuMesmo = u.id === currentUser.id;
+    const email = u.email || '';
     return `
     <div class="admin-user-row" id="urow_${u.id}">
       <div class="admin-user-info">
-        <div class="admin-user-email">${u.nome || u.email.split('@')[0]}
+        <div class="admin-user-email">${escHtml(u.nome || email.split('@')[0])}
           ${eAdmin ? '<span style="font-size:10px;background:#1a2940;color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px;font-family:var(--font-mono);vertical-align:middle">ADMIN</span>' : ''}
         </div>
-        <div class="admin-user-meta">${u.email}</div>
+        <div class="admin-user-meta">${escHtml(email)}</div>
         <div class="admin-user-meta" style="margin-top:2px">${u.criado_em ? 'Criado: ' + new Date(u.criado_em).toLocaleDateString('pt-BR') : ''}${u.ultimo_login ? ' · 🕐 ' + fmtDataHora(u.ultimo_login) : ''}</div>
       </div>
       ${u.aprovado || eAdmin ? '<span class="admin-badge-ok">✅ Aprovado</span>' : '<span class="admin-badge-pend">⏳ Pendente</span>'}
@@ -486,7 +491,7 @@ async function carregarUsuariosAdmin() {
                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                  </button>`
               : ''}
-          <button class="admin-icon-btn" style="background:#fdecea;color:#c0392b" onclick="excluirUsuario('${u.id}','${u.email}')" title="Excluir">
+          <button class="admin-icon-btn" style="background:#fdecea;color:#c0392b" onclick="excluirUsuario('${u.id}', this.dataset.email)" data-email="${escHtml(email)}" title="Excluir">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
           </button>
         ` : '<span style="font-size:11px;color:var(--ink-light);font-family:var(--font-cond)">você</span>'}
@@ -523,21 +528,30 @@ async function excluirUsuario(id, email) {
 async function alterarRole(id, novoRole) {
   const acao = novoRole === 'admin' ? 'tornar administrador' : 'remover privilégios de admin de';
   if (!confirm(`Deseja ${acao} este usuário?`)) return;
-  const { error } = await supa.from('usuarios').update({ role: novoRole }).eq('id', id);
+  const { error } = await supa.rpc('admin_atualizar_usuario', {
+    p_usuario_id: id,
+    p_role: novoRole,
+  });
   if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
   showAlert(novoRole === 'admin' ? 'Usuário promovido a admin!' : 'Privilégios de admin removidos.', 'ok');
   await carregarUsuariosAdmin();
 }
 
 async function aprovarUsuario(id) {
-  const { error } = await supa.from('usuarios').update({ aprovado: true }).eq('id', id);
+  const { error } = await supa.rpc('admin_atualizar_usuario', {
+    p_usuario_id: id,
+    p_aprovado: true,
+  });
   if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
   showAlert('Usuário aprovado!', 'ok');
   await carregarUsuariosAdmin();
 }
 
 async function revogarUsuario(id) {
-  const { error } = await supa.from('usuarios').update({ aprovado: false }).eq('id', id);
+  const { error } = await supa.rpc('admin_atualizar_usuario', {
+    p_usuario_id: id,
+    p_aprovado: false,
+  });
   if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
   showAlert('Acesso revogado.', 'warn');
   await carregarUsuariosAdmin();

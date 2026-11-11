@@ -1,17 +1,58 @@
 let _abrindoRelatorio = false;
 let _pendingGrupoId   = null;
+let _relatorioSomenteLeitura = false;
+
+function configurarEdicaoRelatorio() {
+  const relatorio = getRelatorioAtual();
+  if (!relatorio || !currentUser) return;
+  _relatorioSomenteLeitura = currentUser.role !== 'admin' && relatorio.user_id !== currentUser.id;
+
+  let aviso = document.getElementById('relatorioReadOnlyNotice');
+  if (!aviso) {
+    aviso = document.createElement('div');
+    aviso.id = 'relatorioReadOnlyNotice';
+    aviso.className = 'hint';
+    document.getElementById('mainContent').prepend(aviso);
+  }
+  aviso.textContent = 'Este relatório pertence a outro usuário. Você pode visualizar e exportar, mas não editar nem excluir.';
+  aviso.style.display = _relatorioSomenteLeitura ? 'block' : 'none';
+
+  document.querySelectorAll('#mainContent input, #mainContent select, #mainContent textarea, #mainContent button').forEach(control => {
+    if (!control.dataset.originallyDisabled) {
+      control.dataset.originallyDisabled = control.disabled ? 'true' : 'false';
+    }
+    control.disabled = _relatorioSomenteLeitura || control.dataset.originallyDisabled === 'true';
+  });
+  document.querySelectorAll('#mainContent .ql-editor').forEach(editor => {
+    editor.contentEditable = String(!_relatorioSomenteLeitura);
+  });
+  document.querySelectorAll('#mainContent .ql-toolbar').forEach(toolbar => {
+    toolbar.style.display = _relatorioSomenteLeitura ? 'none' : '';
+  });
+  document.querySelectorAll('button[onclick="salvar()"], button[onclick="confirmarExcluir()"]').forEach(button => {
+    button.style.display = _relatorioSomenteLeitura ? 'none' : '';
+  });
+  setTimeout(() => {
+    document.querySelectorAll('#mainContent .ql-editor').forEach(editor => {
+      editor.contentEditable = String(!_relatorioSomenteLeitura);
+    });
+    document.querySelectorAll('#mainContent .ql-toolbar').forEach(toolbar => {
+      toolbar.style.display = _relatorioSomenteLeitura ? 'none' : '';
+    });
+  }, 100);
+}
+
 async function abrirRelatorio(id) {
   if (_abrindoRelatorio) return;
   _abrindoRelatorio = true;
   setTimeout(() => { _abrindoRelatorio = false; }, 1500);
 
   // 1. Buscar dados SEM fotos primeiro — rápido
-  const SEL = 'id,numero,data,data_fim,obra,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em';
-  let { data, error: err1 } = await supa.from('relatorios').select(SEL + ',obra_id').eq('id', id).single();
-  if (err1 && /obra_id/.test(err1.message)) ({ data, error: err1 } = await supa.from('relatorios').select(SEL).eq('id', id).single());   // SQL do vínculo ainda não rodou
+  const { data, error: err1 } = await supa.from('relatorios')
+    .select('id,numero,data,data_fim,obra,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em')
+    .eq('id', id).single();
   if (err1) { showAlert('Erro ao abrir: ' + err1.message, 'err'); _abrindoRelatorio = false; return; }
   data.fotos = []; // fotos virão em segundo plano
-  _fotosProntasId = null;
 
   data._tamanho = fmtBytes(new Blob([JSON.stringify(data)]).size);
   currentId = id;
@@ -33,7 +74,7 @@ async function abrirRelatorio(id) {
   mostrarLoadingFotos(true);
 
   // 3. Buscar fotos em segundo plano
-  supa.from('relatorios').select('fotos').eq('id', id).single().then(async ({ data: fd, error: ferr }) => {
+  supa.from('relatorios').select('fotos').eq('id', id).single().then(({ data: fd, error: ferr }) => {
     console.log('foto fetch result:', fd ? 'ok' : 'null', ferr?.message || '');
     if (!fd || currentId !== id) { mostrarLoadingFotos(false); return; }
     try {
@@ -55,14 +96,11 @@ async function abrirRelatorio(id) {
         }));
       }
       console.log('fotos final:', fotos.length, 'grupos');
-      const falhasFotos = (typeof hidratarFotos === 'function') ? await hidratarFotos(id, fotos) : 0;   // baixa do Storage as fotos já migradas
-      if (currentId !== id) { mostrarLoadingFotos(false); return; }
       currentRelatorio.fotos = fotos;
-      _fotosProntasId = id;
-      if (falhasFotos) showAlert(`${falhasFotos} foto(s) não carregaram. Feche e abra o relatório de novo antes de exportar.`, 'warn');
       const idxF = relatorios.findIndex(r => r.id === id);
       if (idxF >= 0) relatorios[idxF].fotos = fotos;
       renderizarFotos();
+      configurarEdicaoRelatorio();
       console.log('renderizarFotos chamado');
     } catch(e) { console.error('erro fotos:', e); }
     mostrarLoadingFotos(false);
@@ -116,6 +154,10 @@ function getRelatorioAtual() {
 }
 
 async function salvar() {
+  if (_relatorioSomenteLeitura) {
+    showAlert('Você não pode editar relatórios de outros usuários.', 'err');
+    return;
+  }
   const r = getRelatorioAtual();
   if (!r) { showAlert('Nenhum relatório aberto.', 'warn'); return; }
   // Coleta campos
@@ -123,7 +165,6 @@ async function salvar() {
   r.data_fim       = document.getElementById('fieldDataFim').value || null;
   r.cliente        = document.getElementById('fieldCliente').value;
   r.obra           = document.getElementById('fieldObra').value;
-  if ('obra_id' in r) r.obra_id = document.getElementById('fieldObraMapa').value || null;
   r.cc             = document.getElementById('fieldCC').value;
   r.localidade     = document.getElementById('fieldLocalidade').value;
   r.responsavel    = document.getElementById('fieldResponsavel').value;
@@ -143,7 +184,7 @@ async function salvar() {
 
   // Salva no Supabase (excluindo user_id, id e campos locais)
   const { user_id, id, _tamanho, fotos: _fotos, criado_por: _criado_por, ...camposSemFotos } = r;
-  const campos = { ...camposSemFotos };
+  const campos = { ...camposSemFotos, fotos: r.fotos };
   // Detecção de conflito: verificar se versão mudou desde que abrimos
   const { data: atual } = await supa.from('relatorios')
     .select('versao, atualizado_em, atualizado_por')
@@ -166,24 +207,11 @@ async function salvar() {
     }
   }
 
-  // Fotos: sobe para o Storage e grava só os caminhos (se algo falhar, a foto continua inline — nunca se perde).
-  // Só grava as fotos depois que elas terminaram de carregar, para nunca apagar fotos por engano.
-  let prepFotos = null;
-  if (_fotosProntasId === r.id) {
-    if (typeof prepararFotosParaSalvar === 'function') {
-      prepFotos = await prepararFotosParaSalvar(r);
-      campos.fotos = prepFotos.fotos;
-      if (prepFotos.falhas) showAlert(`${prepFotos.falhas} foto(s) não subiram para o Storage e foram gravadas no formato antigo.`, 'warn');
-    } else campos.fotos = r.fotos;
-  }
-
   // Atualiza versão antes de salvar
   campos.versao = new Date().toISOString();
 
   const { error } = await supa.from('relatorios').update(campos).eq('id', r.id);
   if (error) { showAlert('Erro ao salvar: ' + error.message, 'err'); return; }
-
-  if (prepFotos && typeof limparFotosOrfas === 'function') limparFotosOrfas(r.id, prepFotos.paths);
 
   // Atualiza versão local
   _versaoAberta = campos.versao;
@@ -201,7 +229,6 @@ async function salvar() {
 
 
 let _excluirTargetId = null;
-let _fotosProntasId = null;   // id do relatório cujas fotos já terminaram de carregar (só então as fotos são gravadas)
 
 // ── Relatório recém criado (sem edição) ──
 let _relatorioRecemCriado = null;
@@ -432,24 +459,26 @@ function confirmarExcluir() {
 async function duplicarRelatorio(id) {
   const { data: orig, error } = await supa.from('relatorios').select('*').eq('id', id).single();
   if (error) { showAlert('Erro ao duplicar: ' + error.message, 'err'); return; }
+  const num = (relatorios.length > 0 ? Math.max(...relatorios.map(r => r.numero)) : 0) + 1;
   const hoje = new Date().toISOString().slice(0, 10);
   orig.fotos = Array.isArray(orig.fotos) ? orig.fotos : (orig.fotos ? Object.values(orig.fotos) : []);
-  const { id: _, atualizado_em: __, _tamanho: ___, numero: _n, ...campos } = orig;
-  const novo = { ...campos, data: hoje, assin_data: hoje, atualizado_em: new Date().toISOString(), user_id: currentUser.id, criado_por: currentUser.email };
-  const { data, error: err2 } = await inserirComNumero(novo);
+  const { id: _, atualizado_em: __, _tamanho: ___, ...campos } = orig;
+  const novo = { ...campos, numero: num, data: hoje, assin_data: hoje, atualizado_em: new Date().toISOString(), user_id: currentUser.id };
+  const { data, error: err2 } = await supa.from('relatorios').insert([novo]).select().single();
   if (err2) { showAlert('Erro ao duplicar: ' + err2.message, 'err'); return; }
-  if (typeof clonarFotos === 'function') {   // copia os arquivos das fotos para a pasta da cópia
-    const clon = await clonarFotos(data.id, data.fotos);
-    if (clon) { const { error: e3 } = await supa.from('relatorios').update({ fotos: clon }).eq('id', data.id); if (!e3) data.fotos = clon; }
-  }
   relatorios.unshift(data);
-  showAlert(`Relatório #${data.numero} criado como cópia!`, 'ok');
+  showAlert(`Relatório #${num} criado como cópia!`, 'ok');
   carregarLista();
 }
 
 async function excluirRelatorio() {
   const targetId = _excluirTargetId || currentId;
   if (!targetId) return;
+  const relatorio = relatorios.find(r => r.id === targetId);
+  if (currentUser?.role !== 'admin' && relatorio?.user_id !== currentUser?.id) {
+    showAlert('Você não pode excluir relatórios de outros usuários.', 'err');
+    return;
+  }
   // Mover para lixeira (soft delete)
   const { error } = await supa.from('relatorios').update({
     excluido_em:  new Date().toISOString(),
@@ -565,15 +594,17 @@ async function atualizarBadgeUso() {
 
     // Cor conforme uso
     const pct = bytes / (500 * 1024 * 1024);
-    badge.style.borderColor = pct > 0.8 ? 'var(--signal)' : pct > 0.5 ? 'var(--accent)' : 'var(--border)';
-    badge.style.color       = pct > 0.8 ? 'var(--signal)' : pct > 0.5 ? 'var(--accent)' : 'var(--ink-light)';
+    badge.style.borderColor = pct > 0.8 ? 'var(--signal)' : pct > 0.5 ? 'var(--accent)' : 'rgba(255,255,255,0.15)';
+    badge.style.color       = pct > 0.8 ? 'var(--signal)' : pct > 0.5 ? 'var(--accent)' : 'rgba(255,255,255,0.75)';
   } catch(e) { console.warn('badgeUso:', e); }
 }
 
 async function atualizarBadgeLixeira() {
-  const { count } = await supa.from('relatorios')
+  let query = supa.from('relatorios')
     .select('id', { count: 'exact', head: true })
     .not('excluido_em', 'is', null);
+  if (currentUser?.role !== 'admin') query = query.eq('user_id', currentUser.id);
+  const { count } = await query;
   ['badgeLixeira','badgeLixeiraForm'].forEach(id => {
     const badge = document.getElementById(id);
     if (!badge) return;
@@ -595,10 +626,12 @@ async function abrirLixeira() {
   const isAdmin = currentUser?.role === 'admin';
   document.getElementById('btnLimparLixeira').style.display = isAdmin ? 'flex' : 'none';
 
-  const { data, error } = await supa.from('relatorios')
+  let query = supa.from('relatorios')
     .select('id, numero, obra, localidade, excluido_em, excluido_por, criado_por')
     .not('excluido_em', 'is', null)
     .order('excluido_em', { ascending: false });
+  if (!isAdmin) query = query.eq('user_id', currentUser.id);
+  const { data, error } = await query;
 
   if (error) { conteudo.innerHTML = `<p style="color:var(--signal)">Erro: ${error.message}</p>`; return; }
   if (!data || data.length === 0) {
@@ -654,7 +687,6 @@ async function confirmarLimparLixeira() {
   const ids = data.map(r => r.id);
   const { error } = await supa.from('relatorios').delete().in('id', ids);
   if (error) { showAlert('Erro ao limpar: ' + error.message, 'err'); return; }
-  if (typeof removerFotosDosRelatorios === 'function') removerFotosDosRelatorios(ids);   // apaga também os arquivos das fotos
   showAlert(`${ids.length} relatório(s) excluído(s) permanentemente.`, 'warn');
   fecharModal('modalLixeira');
   atualizarBadgeLixeira();

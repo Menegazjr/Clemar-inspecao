@@ -1,5 +1,5 @@
 // Versão do cache — altere este número a cada deploy para forçar atualização
-const VERSION = '1.9.28';
+const VERSION = '1.9.20';
 const CACHE = `clemar-${VERSION}`;
 
 const ASSETS = [
@@ -14,8 +14,6 @@ const ASSETS = [
   '/Clemar-inspecao/form.js',
   '/Clemar-inspecao/exports.js',
   '/Clemar-inspecao/pastas.js',
-  '/Clemar-inspecao/fotos-storage.js',
-  '/Clemar-inspecao/admin.js',
   '/Clemar-inspecao/libs.js',
   '/Clemar-inspecao/logo-clemar.png',
   '/Clemar-inspecao/icon-192.png',

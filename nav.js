@@ -11,7 +11,6 @@ function exibirLista() {
 }
 
 function exibirForm() {
-  if (_selMode) sairSelecao();
   // Iniciar editores Quill na primeira vez
   setTimeout(iniciarEditores, 50);
   document.getElementById('viewLista').style.display = 'none';
@@ -20,6 +19,7 @@ function exibirForm() {
   document.getElementById('navForm').style.display   = 'flex';
   document.getElementById('btnSair').style.display   = 'none';
   document.getElementById('mobileBarForm').classList.add('visivel');
+  configurarEdicaoRelatorio();
 }
 
 async function voltarLista() {
@@ -55,11 +55,11 @@ async function carregarLista() {
   if (pastas.length === 0) await carregarPastas();
   const sub = document.getElementById('listSubtitle');
   sub.textContent = 'Carregando...';
-  const COLS = 'id, numero, data, obra, cliente, localidade, situacao, atualizado_em, atualizado_por, criado_por, pasta_id, user_id';
-  const consulta = c => supa.from('relatorios').select(c).is('excluido_em', null).order('numero', { ascending: false });
-  let { data, error } = await consulta(COLS + ', obra_id');
-  if (error && /obra_id/.test(error.message)) ({ data, error } = await consulta(COLS));   // SQL do vínculo ainda não rodou
-  carregarObrasMapa();
+  const { data, error } = await supa
+    .from('relatorios')
+    .select('id, numero, data, obra, cliente, localidade, situacao, atualizado_em, atualizado_por, criado_por, pasta_id, user_id')
+    .is('excluido_em', null)
+    .order('numero', { ascending: false });
   if (error) { showAlert('Erro ao carregar lista: ' + error.message, 'err'); return; }
   relatorios = data || [];
   const totalComTamanho = relatorios.filter(r => r._tamanho);
@@ -78,7 +78,6 @@ async function carregarLista() {
   atualizarBadgeUso();
   renderizarLista();
   renderizarHistorico();
-  aplicaHashObra();
 }
 
 // ═══════════════════════════════════════════════
@@ -87,57 +86,6 @@ async function carregarLista() {
 const escH = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normTxt = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 let _busca = '', _sit = new Set(), _soMeus = false, _ordem = 'numero_desc';
-let _agrupar = false, _selMode = false, _sel = new Set(), _obraId = null, _obraNome = '', _hashObraAplicado = false;
-let obrasMapa = [];
-
-// O número da visita é gerado pelo banco (sem repetir). Plano B: se o SQL ainda não rodou, calcula aqui.
-async function inserirComNumero(obj) {
-  let r = await supa.from('relatorios').insert([obj]).select().single();
-  if (r.error && r.error.code === '23502') {
-    const num = (relatorios.length ? Math.max(...relatorios.map(x => x.numero)) : 0) + 1;
-    r = await supa.from('relatorios').insert([{ ...obj, numero: num }]).select().single();
-  }
-  return r;
-}
-
-// Obras cadastradas no mapa (para vincular o relatório)
-async function carregarObrasMapa() {
-  const { data } = await supa.from('obras_mapa').select('id,nome,cliente,cidade,uf,pais').order('nome');
-  obrasMapa = data || [];
-}
-function popularSelectObras(sel) {
-  const el = document.getElementById('fieldObraMapa'); if (!el) return;
-  el.innerHTML = '<option value="">— sem vínculo com o mapa —</option>' + obrasMapa.map(o => `<option value="${o.id}">${escH(o.nome)} — ${escH(o.cidade)}${o.uf ? '/' + escH(o.uf) : ''}</option>`).join('');
-  el.value = sel || '';
-}
-function aoEscolherObraMapa(id) {
-  const o = obrasMapa.find(x => x.id === id); if (!o) return;
-  document.getElementById('fieldObra').value = o.nome;
-  const cli = document.getElementById('fieldCliente'); if (!cli.value.trim() && o.cliente) cli.value = o.cliente;
-  const loc = document.getElementById('fieldLocalidade'); if (!loc.value.trim()) loc.value = o.cidade + (o.uf ? '/' + o.uf : (o.pais ? ' – ' + o.pais : ''));
-}
-// Link vindo do mapa: index.html#obra=<id> mostra só as visitas daquela obra
-function aplicaHashObra() {
-  if (_hashObraAplicado) return; _hashObraAplicado = true;
-  const m = location.hash.match(/obra=([0-9a-f-]{36})/i);
-  if (!m) return;
-  const nome = location.hash.match(/nome=([^&]+)/);
-  _obraId = m[1]; _obraNome = nome ? decodeURIComponent(nome[1]) : '';
-  atualizaFiltros(); renderizarLista();
-}
-
-// Agrupar por obra e seleção múltipla
-function alternarAgrupar() { _agrupar = !_agrupar; atualizaFiltros(); renderizarLista(); }
-function alternarSelecao() { if (_selMode) { sairSelecao(); return; } _selMode = true; atualizaFiltros(); atualizaBarraSel(); renderizarLista(); }
-function sairSelecao() { _selMode = false; _sel.clear(); atualizaFiltros(); atualizaBarraSel(); renderizarLista(); }
-function alternarSel(id) { _sel.has(id) ? _sel.delete(id) : _sel.add(id); atualizaBarraSel(); renderizarLista(); }
-function atualizaBarraSel() {
-  const b = document.getElementById('barraSel'); if (!b) return;
-  b.style.display = _selMode ? 'flex' : 'none';
-  document.getElementById('selCont').textContent = `${_sel.size} selecionado${_sel.size !== 1 ? 's' : ''}`;
-  document.getElementById('btnMoverSel').disabled = _sel.size === 0;
-}
-function moverSelecionados() { if (_sel.size) { _moverIds = [..._sel]; abrirSeletorPasta(); } }
 const ORDENS = {
   numero_desc: (a, b) => b.numero - a.numero,
   numero_asc:  (a, b) => a.numero - b.numero,
@@ -156,40 +104,25 @@ function alternarSit(v){ _sit.has(v) ? _sit.delete(v) : _sit.add(v); atualizaFil
 function alternarMeus(){ _soMeus = !_soMeus; atualizaFiltros(); renderizarLista(); }
 function aoOrdenar(v)  { _ordem = v; renderizarLista(); }
 function limparFiltros() {
-  _busca = ''; _sit = new Set(); _soMeus = false; _obraId = null; _obraNome = '';
-  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  _busca = ''; _sit = new Set(); _soMeus = false;
   const i = document.getElementById('listaBusca'); if (i) i.value = '';
   atualizaFiltros(); renderizarLista();
 }
 function atualizaFiltros() {
   document.querySelectorAll('#listaFiltros .fchip[data-sit]').forEach(b => b.classList.toggle('on', _sit.has(b.dataset.sit)));
-  const on = (id, v) => { const e = document.getElementById(id); if (e) e.classList.toggle('on', v); };
-  on('fMeus', _soMeus); on('fAgrupar', _agrupar); on('fSel', _selMode);
-  const ativo = !!(_busca.trim() || _sit.size || _soMeus || _obraId);
+  const m = document.getElementById('fMeus'); if (m) m.classList.toggle('on', _soMeus);
+  const ativo = !!(_busca.trim() || _sit.size || _soMeus);
   const l = document.getElementById('btnLimparFiltros'); if (l) l.style.display = ativo ? '' : 'none';
-  const d = document.getElementById('listaDica');
-  if (d) {
-    const o = _obraId ? obrasMapa.find(x => x.id === _obraId) : null;
-    const partes = [];
-    if (_obraId) partes.push(`Só visitas da obra <strong>${escH(o ? o.nome : (_obraNome || 'selecionada'))}</strong> <button class="flimpar" style="margin-left:6px" onclick="limparFiltros()">✕ Ver todos os relatórios</button>`);
-    if (_busca.trim()) partes.push('buscando em todas as pastas');
-    d.innerHTML = partes.join(' · ');
-    d.style.display = partes.length ? '' : 'none';
-  }
+  const d = document.getElementById('listaDica'); if (d) d.style.display = _busca.trim() ? '' : 'none';
 }
 // Relatórios que passam pela busca, filtros e pasta atual, já ordenados.
 // Com texto na busca, procura em TODAS as pastas; sem texto, mostra a pasta atual (inclui subpastas).
 function relatoriosVisiveis() {
   const termos = normTxt(_busca).replace(/#/g, '').trim().split(/\s+/).filter(Boolean);
-  const escopo = (!termos.length && !_obraId && pastaAtivaId && pastaAtivaId !== 'sem-pasta') ? new Set(idsDescendentes(pastaAtivaId)) : null;
+  const escopo = (!termos.length && pastaAtivaId && pastaAtivaId !== 'sem-pasta') ? new Set(idsDescendentes(pastaAtivaId)) : null;
   const l = relatorios.filter(r => {
     if (_sit.size && !_sit.has(r.situacao || '')) return false;
     if (_soMeus && r.user_id !== currentUser.id) return false;
-    if (_obraId) {   // vínculo oficial (obra_id) OU, nos relatórios antigos sem vínculo, o nome da obra
-      const nomeObra = normTxt(_obraNome || (obrasMapa.find(x => x.id === _obraId) || {}).nome).trim(), ro = normTxt(r.obra).trim();
-      const bate = r.obra_id === _obraId || (!r.obra_id && nomeObra.length >= 3 && ro.length >= 3 && (ro === nomeObra || ro.includes(nomeObra) || nomeObra.includes(ro)));
-      if (!bate) return false;
-    }
     if (termos.length) {
       const pasta = r.pasta_id ? caminhoAte(r.pasta_id).map(p => p.nome).join(' ') : '';
       const txt = normTxt([r.numero, r.obra, r.cliente, r.localidade, r.situacao, r.data, r.data ? fmtData(r.data) : '', pasta].join(' '));
@@ -204,7 +137,7 @@ function relatoriosVisiveis() {
 
 function renderizarLista() {
   const container = document.getElementById('listaRelatorios');
-  const filtrando = !!(_busca.trim() || _sit.size || _soMeus || _obraId);
+  const filtrando = !!(_busca.trim() || _sit.size || _soMeus);
   const sub = document.getElementById('listSubtitle');
   if (relatorios.length === 0) {
     container.innerHTML = `
@@ -233,11 +166,7 @@ function renderizarLista() {
     renderizarPastasBar();
     return;
   }
-  container.innerHTML = _agrupar ? htmlAgrupado(lista) : lista.map(r => cardHtml(r)).join('');
-  renderizarPastasBar();   // mantém as contagens das pastas em dia
-}
-
-function cardHtml(r, visita) {
+  container.innerHTML = lista.map(r => {
     const badgeCls = r.situacao === 'Liberado' ? 'badge-conforme'
       : r.situacao === 'Concluído' ? 'badge-conforme'
       : r.situacao === 'Em elaboração' ? 'badge-ressalvas'
@@ -249,13 +178,13 @@ function cardHtml(r, visita) {
       : '';
     const caminhoPasta = r.pasta_id ? caminhoAte(r.pasta_id).map(p => p.nome).join(' › ') : '';
     return `
-      <div class="relatorio-card${_selMode && _sel.has(r.id) ? ' sel' : ''}" onclick="${_selMode ? `alternarSel('${r.id}')` : `abrirRelatorio('${r.id}')`}">
+      <div class="relatorio-card" onclick="abrirRelatorio('${r.id}')">
         <div class="relatorio-card-accent" style="${isMeu ? 'background:var(--ok)' : 'background:var(--accent)'}"></div>
-        <div class="relatorio-card-body">${_selMode ? `<span class="chk${_sel.has(r.id) ? ' on' : ''}"></span>` : ''}
+        <div class="relatorio-card-body">
           <div class="relatorio-card-info">
             <div class="relatorio-card-obra-row">
               <span class="relatorio-card-num">#${String(r.numero).padStart(3,'0')}</span>
-              <span class="relatorio-card-obra">${escH(r.obra) || '(sem nome de obra)'}</span>${visita ? `<span class="visita-tag">Visita ${visita}</span>` : ''}
+              <span class="relatorio-card-obra">${escH(r.obra) || '(sem nome de obra)'}</span>
             </div>
             <div class="relatorio-card-meta">
               <span>📅 ${r.data ? fmtData(r.data) : '—'}</span>
@@ -273,31 +202,17 @@ function cardHtml(r, visita) {
           </button>
         </div>
       </div>`;
-}
-
-// Visão "Por obra": uma seção por obra, com nº de visitas e a data da última
-const nomeGrupo = rs => (rs[0].obra_id && (obrasMapa.find(o => o.id === rs[0].obra_id) || {}).nome) || rs[0].obra || '(sem nome de obra)';
-function htmlAgrupado(lista) {
-  const grupos = new Map();
-  lista.forEach(r => { const k = r.obra_id || 'txt:' + normTxt(r.obra).trim(); if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(r); });
-  const abrir = grupos.size <= 3 || !!_busca.trim() || !!_obraId;
-  return [...grupos.entries()].sort((a, b) => nomeGrupo(a[1]).localeCompare(nomeGrupo(b[1]), 'pt-BR')).map(([k, rs]) => {
-    const idx = new Map([...rs].sort((a, b) => a.numero - b.numero).map((r, i) => [r.id, i + 1]));
-    const ult = rs.map(r => r.data || '').sort().pop();
-    const om = k.startsWith('txt:') ? null : obrasMapa.find(o => o.id === k);
-    return `<details class="grupo-obra"${abrir ? ' open' : ''}>
-      <summary><span class="grupo-nome">${escH(nomeGrupo(rs))}</span>
-        <span class="grupo-meta">${rs.length} visita${rs.length !== 1 ? 's' : ''}${ult ? ' · última em ' + fmtData(ult) : ''}${om ? ' · 🗺️ ' + escH(om.cidade) : ''}</span></summary>
-      ${[...rs].sort(ORDENS[_ordem] || ORDENS.numero_desc).map(r => cardHtml(r, idx.get(r.id) + '/' + rs.length)).join('')}
-    </details>`;
   }).join('');
+  renderizarPastasBar();   // mantém as contagens das pastas em dia
 }
 
 async function novoRelatorio() {
+  const num  = (relatorios.length > 0 ? Math.max(...relatorios.map(r=>r.numero)) : 0) + 1;
   const hoje = new Date().toISOString().slice(0,10);
   const novo = {
     user_id:       currentUser.id,
     criado_por:    currentUser.email,
+    numero:        num,
     data:          hoje,
     data_fim:      null,
     cliente:       '',
@@ -316,10 +231,9 @@ async function novoRelatorio() {
     assin_data:    hoje,
     fotos:         [],
   };
-  const { data, error } = await inserirComNumero(novo);
+  const { data, error } = await supa.from('relatorios').insert([novo]).select().single();
   if (error) { showAlert('Erro ao criar relatório: ' + error.message, 'err'); return; }
   currentId = data.id;
-  _fotosProntasId = data.id;
   currentRelatorio = data;
   _versaoAberta = null;           // novo relatório — sem conflito possível
   _relatorioRecemCriado = data.id; // marca como recém criado, sem edição ainda
@@ -327,6 +241,5 @@ async function novoRelatorio() {
   exibirForm();
   carregarFormulario();
   renderizarHistorico();
-  showAlert(`Relatório #${data.numero} criado!`, 'ok');
+  showAlert(`Relatório #${num} criado!`, 'ok');
 }
-

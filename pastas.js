@@ -471,7 +471,7 @@ function renderizarPastasBar() {
       if (i < caminho.length - 1) {
         crumbs.push(`<button class="pasta-breadcrumb-item" onclick="navegarPasta('${p.id}')">${escH(p.nome)}</button>`);
       } else {
-        crumbs.push(`<span class="pasta-breadcrumb-item atual">${escH(p.nome)}</span><button class="pasta-ren" onclick="renomearPasta('${p.id}')" title="Renomear pasta">✎</button>`);
+        crumbs.push(`<span class="pasta-breadcrumb-item atual">${escH(p.nome)}</span>`);
       }
     });
     breadcrumb = `<div class="pasta-breadcrumb">${crumbs.join('')}</div>`;
@@ -581,18 +581,19 @@ async function confirmarExcluirPasta(id, nome) {
 }
 
 // Mover relatório para pasta
-let _moverIds = [];
+let _moverRelatorioId = null;
 
 async function menuMoverPasta() {
   fecharMenuCard();
-  _moverIds = [_menuCardId];
-  await abrirSeletorPasta();
-}
-
-async function abrirSeletorPasta() {
+  _moverRelatorioId = _menuCardId;
+  const relatorio = relatorios.find(r => r.id === _moverRelatorioId);
+  if (currentUser?.role !== 'admin' && relatorio?.user_id !== currentUser?.id) {
+    showAlert('Você não pode mover relatórios de outros usuários.', 'err');
+    return;
+  }
   // Recarregar pastas do banco para garantir dados atualizados
   await carregarPastas();
-  const r = _moverIds.length === 1 ? relatorios.find(x => x.id === _moverIds[0]) : null;
+  const r = relatorios.find(x => x.id === _menuCardId);
   const list = document.getElementById('pastaSelectList');
   list.innerHTML = `
     <button class="pasta-select-item ${!r?.pasta_id ? 'selecionada' : ''}" onclick="moverParaPasta(null)">
@@ -624,25 +625,16 @@ function fecharPastaSelect() {
 
 async function moverParaPasta(pastaId) {
   fecharPastaSelect();
-  if (!_moverIds.length) return;
-  const { error } = await supa.from('relatorios').update({ pasta_id: pastaId }).in('id', _moverIds);
+  if (!_moverRelatorioId) return;
+  const { error } = await supa.from('relatorios').update({ pasta_id: pastaId }).eq('id', _moverRelatorioId);
   if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
-  relatorios.forEach(r => { if (_moverIds.includes(r.id)) r.pasta_id = pastaId; });
-  const nomePasta = pastaId ? caminhoAte(pastaId).map(x => x.nome).join(' › ') : 'sem pasta';
-  showAlert(`${_moverIds.length > 1 ? _moverIds.length + ' relatórios movidos' : 'Movido'} para: ${nomePasta}`, 'ok');
-  _moverIds = [];
-  if (_selMode) sairSelecao(); else renderizarLista();
-}
-
-// Renomear a pasta em que você está
-async function renomearPasta(id) {
-  const p = pastas.find(x => x.id === id); if (!p) return;
-  const nome = (prompt('Novo nome da pasta:', p.nome) || '').trim();
-  if (!nome || nome === p.nome) return;
-  const { error } = await supa.from('pastas').update({ nome }).eq('id', id);
-  if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
-  p.nome = nome; renderizarPastasBar(); renderizarLista();
-  showAlert('Pasta renomeada.', 'ok');
+  const r = relatorios.find(x => x.id === _moverRelatorioId);
+  if (r) r.pasta_id = pastaId;
+  const pastaAlvo = pastaId ? pastas.find(p => p.id === pastaId) : null;
+  const paiAlvo = pastaAlvo ? pastas.find(p => p.id === pastaAlvo.pasta_pai_id) : null;
+  const nomePasta = pastaAlvo ? (paiAlvo ? `${paiAlvo.nome} › ${pastaAlvo.nome}` : pastaAlvo.nome) : 'sem pasta';
+  showAlert(`Movido para: ${nomePasta}`, 'ok');
+  renderizarLista();
 }
 
 
