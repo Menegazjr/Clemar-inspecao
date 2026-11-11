@@ -22,6 +22,7 @@ function carregarFormulario() {
   document.getElementById('fieldDataFim').value     = r.data_fim || '';
   document.getElementById('fieldCliente').value     = r.cliente || '';
   document.getElementById('fieldObra').value        = r.obra || '';
+  carregarObrasMapa(r);
   document.getElementById('fieldCC').value          = r.cc || '';
   document.getElementById('fieldLocalidade').value  = r.localidade || '';
   document.getElementById('fieldResponsavel').value = r.responsavel || '';
@@ -34,11 +35,55 @@ function carregarFormulario() {
   document.getElementById('fieldAssinNome').value   = r.assin_nome || '';
   document.getElementById('fieldAssinData').value   = r.assin_data || '';
   renderizarFotos();
-  // Mostra tamanho
-  const badgeSz = document.getElementById('badgeTamanho');
-  if (badgeSz && r) {
-    const bytes = new Blob([JSON.stringify(r)]).size;
-    badgeSz.textContent = '💾 ' + fmtBytes(bytes);
+  atualizarTamanhoRelatorio(r);
+}
+
+async function carregarObrasMapa(relatorio) {
+  const select = document.getElementById('fieldObraMapa');
+  if (!select) return;
+  select.innerHTML = '<option value="">Sem vínculo com o mapa</option>';
+
+  const { data, error } = await supa.from('obras_mapa').select('id, nome').order('nome');
+  if (error) {
+    showAlert('Não foi possível carregar as obras do mapa: ' + error.message, 'err');
+    return;
+  }
+
+  const obras = data || [];
+  obras.forEach(obra => {
+    const option = document.createElement('option');
+    option.value = obra.id;
+    option.textContent = obra.nome;
+    select.appendChild(option);
+  });
+
+  let obraId = relatorio.obra_mapa_id || '';
+  if (!obraId && relatorio.obra) {
+    const correspondentes = obras.filter(o => o.nome.trim().toLocaleLowerCase() === relatorio.obra.trim().toLocaleLowerCase());
+    if (correspondentes.length === 1) obraId = correspondentes[0].id;
+  }
+  select.value = obraId;
+  const obraSelecionada = obras.find(o => o.id === obraId);
+  if (obraSelecionada && !relatorio.obra) {
+    document.getElementById('fieldObra').value = obraSelecionada.nome;
+  }
+  if (relatorio.obra_mapa_id !== obraId) relatorio.obra_mapa_id = obraId || null;
+}
+
+function selecionarObraMapa(id) {
+  const obra = id ? document.getElementById('fieldObraMapa').selectedOptions[0] : null;
+  if (id && obra) document.getElementById('fieldObra').value = obra.textContent;
+  const relatorio = getRelatorioAtual();
+  if (relatorio) relatorio.obra_mapa_id = id || null;
+}
+
+function limparVinculoObraMapa() {
+  const select = document.getElementById('fieldObraMapa');
+  const obra = select?.selectedOptions[0];
+  if (select && obra && document.getElementById('fieldObra').value !== obra.textContent) {
+    select.value = '';
+    const relatorio = getRelatorioAtual();
+    if (relatorio) relatorio.obra_mapa_id = null;
   }
 }
 
@@ -234,7 +279,7 @@ function renderizarFotos() {
     const fotosHtml = (grupo.fotos||[]).map((f, fi) => {
       const ts = f.timestamp ? new Date(f.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
       const imgArea = f.base64
-        ? `<img src="${f.base64}" style="width:100%;height:200px;object-fit:cover;border-radius:6px;cursor:pointer;display:block;transition:opacity 0.2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1" onclick="abrirViewer('${f.id}','${grupo.id}')" loading="lazy">`
+        ? `<img src="${f.base64}" alt="Foto do relatório" style="width:100%;height:200px;object-fit:cover;border-radius:6px;cursor:pointer;display:block;transition:opacity 0.2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1" onclick="abrirViewer('${f.id}','${grupo.id}')" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" loading="lazy"><div style="display:none;background:var(--surface-2);border-radius:6px;height:200px;align-items:center;justify-content:center;color:var(--signal);font-size:12px">Falha ao decodificar a imagem</div>`
         : `<div style="background:var(--surface-2);border-radius:6px;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink-light);font-size:12px">
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:32px;height:32px;margin-bottom:8px;opacity:0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
              Sem imagem

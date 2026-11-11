@@ -57,21 +57,32 @@ async function carregarLista() {
   sub.textContent = 'Carregando...';
   const { data, error } = await supa
     .from('relatorios')
-    .select('id, numero, data, obra, cliente, localidade, situacao, atualizado_em, atualizado_por, criado_por, pasta_id, user_id')
+    .select('id, numero, data, obra, obra_mapa_id, cliente, localidade, situacao, atualizado_em, atualizado_por, criado_por, pasta_id, user_id')
     .is('excluido_em', null)
     .order('numero', { ascending: false });
   if (error) { showAlert('Erro ao carregar lista: ' + error.message, 'err'); return; }
-  relatorios = data || [];
-  const totalComTamanho = relatorios.filter(r => r._tamanho);
-  const totalBytes = relatorios.reduce((acc, r) => {
-    if (!r._tamanho) return acc;
-    const b = new Blob([JSON.stringify(r)]).size;
-    return acc + b;
-  }, 0);
-  const tamanhoStr = totalComTamanho.length > 0 ? ` · ~${fmtBytes(totalBytes)} em cache` : '';
+  const obraMapaId = new URLSearchParams(location.search).get('obra_mapa_id');
+  let lista = data || [];
+  if (obraMapaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(obraMapaId)) {
+    const { data: obraMapa, error: erroObra } = await supa.from('obras_mapa')
+      .select('nome')
+      .eq('id', obraMapaId)
+      .maybeSingle();
+    if (erroObra) { showAlert('Erro ao localizar a obra do mapa: ' + erroObra.message, 'err'); return; }
+    const nomeObra = obraMapa?.nome ? normTxt(obraMapa.nome.trim()) : '';
+    lista = lista.filter(r =>
+      r.obra_mapa_id === obraMapaId ||
+      (nomeObra && normTxt((r.obra || '').trim()) === nomeObra)
+    );
+  }
+  const tamanhosConhecidos = new Map(relatorios.map(r => [r.id, r._tamanho]).filter(([, tamanho]) => tamanho));
+  relatorios = lista.map(r => ({
+    ...r,
+    _tamanho: tamanhosConhecidos.get(r.id),
+  }));
   sub.textContent = relatorios.length === 0
     ? 'Nenhum relatório ainda'
-    : `${relatorios.length} relatório${relatorios.length !== 1 ? 's' : ''}${tamanhoStr}`;
+    : `${relatorios.length} relatório${relatorios.length !== 1 ? 's' : ''}`;
   sub.dataset.base = sub.textContent;
 
   // Atualiza badge de uso — lê tamanho real do banco via SQL RPC
@@ -211,6 +222,7 @@ async function novoRelatorio() {
   const hoje = new Date().toISOString().slice(0,10);
   const novo = {
     user_id:       currentUser.id,
+    obra_mapa_id:  new URLSearchParams(location.search).get('obra_mapa_id') || null,
     criado_por:    currentUser.email,
     numero:        num,
     data:          hoje,

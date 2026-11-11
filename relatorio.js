@@ -61,7 +61,7 @@ async function abrirRelatorio(id) {
 
   // 1. Buscar dados SEM fotos primeiro — rápido
   const { data, error: err1 } = await supa.from('relatorios')
-    .select('id,numero,data,data_fim,obra,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em')
+    .select('id,numero,data,data_fim,obra,obra_mapa_id,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em')
     .eq('id', id).single();
   if (err1) { showAlert('Erro ao abrir: ' + err1.message, 'err'); _abrindoRelatorio = false; return; }
   data.fotos = []; // fotos virão em segundo plano
@@ -87,8 +87,18 @@ async function abrirRelatorio(id) {
 
   // 3. Buscar fotos em segundo plano
   supa.from('relatorios').select('fotos').eq('id', id).single().then(({ data: fd, error: ferr }) => {
-    console.log('foto fetch result:', fd ? 'ok' : 'null', ferr?.message || '');
-    if (!fd || currentId !== id) { mostrarLoadingFotos(false); return; }
+    if (currentId !== id) { mostrarLoadingFotos(false); return; }
+    if (ferr) {
+      console.error('Falha ao carregar fotos do relatório:', ferr);
+      showAlert('Não foi possível carregar as fotos: ' + ferr.message, 'err');
+      mostrarLoadingFotos(false);
+      return;
+    }
+    if (!fd) {
+      showAlert('O relatório não retornou os dados das fotos.', 'err');
+      mostrarLoadingFotos(false);
+      return;
+    }
     try {
       let fotos = fd.fotos;
       console.log('fotos raw:', typeof fotos, Array.isArray(fotos), fotos ? JSON.stringify(fotos).slice(0,200) : 'null');
@@ -119,7 +129,10 @@ async function abrirRelatorio(id) {
       configurarEdicaoRelatorio();
       renderizarLista();
       console.log('renderizarFotos chamado');
-    } catch(e) { console.error('erro fotos:', e); }
+    } catch(e) {
+      console.error('Erro ao interpretar as fotos do relatório:', e);
+      showAlert('Os dados das fotos estão em um formato inválido: ' + e.message, 'err');
+    }
     mostrarLoadingFotos(false);
   });
 
@@ -191,6 +204,7 @@ async function salvar() {
   r.situacao       = document.getElementById('fieldSituacao').value;
   r.parecer        = getEditorHtml(_quillParecer);
   r.assin_nome     = document.getElementById('fieldAssinNome').value;
+  r.obra_mapa_id   = document.getElementById('fieldObraMapa')?.value || null;
 
   r.assin_data     = document.getElementById('fieldAssinData').value;
   r.atualizado_em  = new Date().toISOString();
