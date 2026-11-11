@@ -6,6 +6,10 @@ alter table public.usuarios enable row level security;
 alter table public.relatorios enable row level security;
 alter table public.pastas enable row level security;
 alter table public.obras_mapa enable row level security;
+alter table public.relatorios
+  add column if not exists obra_mapa_id uuid references public.obras_mapa(id) on delete set null;
+create index if not exists relatorios_obra_mapa_id_idx
+  on public.relatorios(obra_mapa_id);
 
 update public.usuarios set role = 'user' where role is null;
 update public.usuarios set aprovado = false where aprovado is null;

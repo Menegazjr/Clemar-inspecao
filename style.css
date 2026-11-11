@@ -85,7 +85,7 @@ body { font-family: var(--font); background: var(--surface); color: var(--ink); 
   .lista-header { justify-content: space-between; }
   .lista-header .btn { margin-left: auto; flex-shrink: 0; }
     .user-bar span#userEmail { max-width: 70px; }
-    /* badge-uso-db visível no mobile */
+    .user-bar .badge-uso-db { display: none !important; }
     .user-bar { gap: 4px; padding: 3px 6px; }
     .user-bar button { padding: 4px 8px; font-size: 11px; }
   }

@@ -271,7 +271,14 @@
                 <div class="field"><label>Início da Inspeção</label><input type="date" id="fieldData"></div>
                 <div class="field"><label>Fim da Inspeção</label><input type="date" id="fieldDataFim"></div>
                 <div class="field"><label>Cliente</label><input type="text" id="fieldCliente" placeholder="ex: OI, CLARO, DPRF"></div>
-                <div class="field span-2"><label>Nome da Obra / Projeto</label><input type="text" id="fieldObra" placeholder="ex: Expansão Rede Norte"></div>
+                <div class="field span-2">
+                  <label>Nome da Obra / Projeto</label>
+                  <input type="text" id="fieldObra" placeholder="ex: Expansão Rede Norte" oninput="limparVinculoObraMapa()">
+                  <label for="fieldObraMapa" style="margin-top:8px">Vincular obra existente no mapa</label>
+                  <select id="fieldObraMapa" onchange="selecionarObraMapa(this.value)">
+                    <option value="">Sem vínculo com o mapa</option>
+                  </select>
+                </div>
                 <div class="field"><label>CC — Centro de Custo</label><input type="text" id="fieldCC" placeholder="ex: CC-0599"></div>
                 <div class="field span-2"><label>Localidade / Endereço</label><input type="text" id="fieldLocalidade" placeholder="ex: Rua das Flores, 123 – Foz do Iguaçu/PR"></div>
                 <div class="field"><label>Responsável pela Visita</label><input type="text" id="fieldResponsavel" placeholder="Nome do visitante"></div>
