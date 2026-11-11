@@ -763,16 +763,18 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .lista-busca input { width: 100%; padding: 11px 14px 11px 38px; border: 2px solid var(--border); border-radius: var(--radius); background: var(--white); font: 16px var(--font); color: var(--ink); outline: none; }
 .lista-busca input:focus { border-color: var(--accent); }
 .lista-filtros { display: flex; align-items: center; gap: 8px; overflow: visible; padding-bottom: 2px; }
-.lista-filtros-acoes { display: flex; align-items: center; flex: 1; min-width: 0; gap: 8px; }
 .filtro-situacao { position: relative; flex: 0 0 auto; }
-.filtro-situacao > summary { display: inline-flex; align-items: center; gap: 8px; list-style: none; padding: 6px 12px; border: 2px solid var(--border); border-radius: 20px; background: var(--white); color: var(--ink-mid); font: 600 13px var(--font-cond); white-space: nowrap; cursor: pointer; }
-.filtro-situacao > summary::-webkit-details-marker { display: none; }
-.filtro-situacao > summary::after { content: '⌄'; font-size: 15px; transition: transform .15s; }
-.filtro-situacao[open] > summary::after { transform: rotate(180deg); }
-.filtro-situacao > summary:hover, .filtro-situacao > summary.on { border-color: var(--steel); }
-.filtro-situacao > summary.on { background: var(--steel); color: #fff; }
+.filtro-situacao > summary, .filtro-opcoes > summary { display: inline-flex; align-items: center; gap: 8px; list-style: none; padding: 6px 12px; border: 2px solid var(--border); border-radius: 20px; background: var(--white); color: var(--ink-mid); font: 600 13px var(--font-cond); white-space: nowrap; cursor: pointer; }
+.filtro-situacao > summary::-webkit-details-marker, .filtro-opcoes > summary::-webkit-details-marker { display: none; }
+.filtro-situacao > summary::after, .filtro-opcoes > summary::after { content: '⌄'; font-size: 15px; transition: transform .15s; }
+.filtro-situacao[open] > summary::after, .filtro-opcoes[open] > summary::after { transform: rotate(180deg); }
+.filtro-situacao > summary:hover, .filtro-situacao > summary.on,
+.filtro-opcoes > summary:hover, .filtro-opcoes > summary.on { border-color: var(--steel); }
+.filtro-situacao > summary.on, .filtro-opcoes > summary.on { background: var(--steel); color: #fff; }
 .filtro-situacao > summary span { min-width: 17px; padding: 1px 5px; border-radius: 10px; background: var(--accent); color: #fff; text-align: center; }
-.filtro-situacao-opcoes { position: absolute; z-index: 20; top: calc(100% + 8px); left: 0; display: grid; gap: 6px; min-width: 190px; padding: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--white); box-shadow: 0 8px 24px rgba(0,0,0,.16); }
+.filtro-situacao-opcoes, .filtro-opcoes-menu { position: absolute; z-index: 20; top: calc(100% + 8px); left: 0; display: grid; gap: 6px; min-width: 190px; padding: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--white); box-shadow: 0 8px 24px rgba(0,0,0,.16); }
+.filtro-opcoes { position: relative; flex: 0 0 auto; }
+.filtro-opcoes-menu { min-width: 230px; }
 .filtro-situacao-opcoes .fchip { justify-content: flex-start; width: 100%; }
 .fchip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 20px; border: 2px solid var(--border); background: var(--white); color: var(--ink-mid); font-family: var(--font-cond); font-size: 13px; font-weight: 600; letter-spacing: .4px; white-space: nowrap; cursor: pointer; touch-action: manipulation; transition: all .15s; }
 .fchip i { width: 9px; height: 9px; border-radius: 50%; background: var(--c, var(--ink-light)); flex-shrink: 0; }
@@ -780,7 +782,7 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .fchip.on { background: var(--steel); border-color: var(--steel); color: #fff; }
 .lista-ordem-wrap { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; color: var(--ink-light); font: 600 12px var(--font-cond); white-space: nowrap; }
 .lista-ordem { padding: 6px 10px; border: 2px solid var(--border); border-radius: 20px; background: var(--white); font: 600 13px var(--font-cond); color: var(--ink-mid); }
-.flimpar { margin-left: auto; padding: 6px 4px; background: none; border: none; color: var(--signal); font: 600 13px var(--font-cond); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.flimpar { justify-self: start; padding: 6px 4px; background: none; border: none; color: var(--signal); font: 600 13px var(--font-cond); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 .lista-dica { font-size: 12px; color: var(--ink-light); }
 .pasta-count { font-family: var(--font-mono); font-size: 10px; opacity: .65; margin-left: 2px; }
 .grupo-obra { margin-bottom: 12px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
@@ -795,11 +797,15 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .chk.on { background: var(--accent); border-color: var(--accent); }
 .relatorio-card.sel { outline: 3px solid var(--accent); }
 @media (max-width: 600px) {
-  .lista-filtros { align-items: flex-start; flex-direction: column; }
-  .lista-filtros-acoes { width: 100%; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
-  .lista-filtros-acoes::-webkit-scrollbar { display: none; }
-  .lista-filtros-acoes > * { flex: 0 0 auto; }
-  .lista-filtros-acoes .flimpar { margin-left: 0; }
+  .lista-filtros { align-items: center; flex-direction: row; }
+  .filtro-situacao, .filtro-opcoes { min-width: 0; }
+  .filtro-situacao-opcoes, .filtro-opcoes-menu { max-width: calc(100vw - 24px); }
+  .filtro-opcoes-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: min(280px, calc(100vw - 24px)); }
+  .filtro-opcoes-menu .lista-ordem-wrap, .filtro-opcoes-menu .flimpar { grid-column: 1 / -1; }
+  .filtro-opcoes-menu .fchip { justify-content: center; padding-inline: 8px; }
+  .grupo-obra > summary { gap: 8px; padding: 11px 12px; }
+  .grupo-obra > summary strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grupo-obra > summary small { display: none; }
   .barra-sel { width: calc(100% - 24px); justify-content: center; gap: 6px; padding: 9px 8px; }
   .barra-sel .btn { padding: 8px; font-size: 12px; }
 }

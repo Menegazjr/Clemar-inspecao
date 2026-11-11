@@ -181,6 +181,8 @@ function atualizaFiltros() {
   const m = document.getElementById('fMeus'); if (m) m.classList.toggle('on', _soMeus);
   const a = document.getElementById('fAgrupar'); if (a) a.classList.toggle('on', _agrupar);
   const s = document.getElementById('fSel'); if (s) s.classList.toggle('on', _selMode);
+  const opcoesLabel = document.getElementById('filtroOpcoesLabel');
+  if (opcoesLabel) opcoesLabel.classList.toggle('on', _soMeus || _selMode || !_agrupar || _ordem !== 'obra');
   const ativo = !!(_busca.trim() || _sit.size || _soMeus || _obraMapaFiltroId);
   const l = document.getElementById('btnLimparFiltros');
   if (l) {
