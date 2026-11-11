@@ -1,117 +1,169 @@
-// ═══════════════════════════════════════════════
-//  FOTOS NO SUPABASE STORAGE
-//  No banco ficam só os caminhos das fotos. Ao abrir o relatório o app baixa as fotos e
-//  continua trabalhando com base64 em memória (tela, visualizador e exportações não mudam).
-//  Se o Storage falhar, a foto continua gravada no formato antigo — nunca se perde.
-// ═══════════════════════════════════════════════
 const FOTOS_BUCKET = 'relatorio-fotos';
-const _fotoPaths = {};   // id do relatório -> caminhos que estão gravados no banco
+const _fotoPaths = {};
 
-function _assinatura(s) { const m = s.length >> 1; return s.length + ':' + s.slice(m, m + 40) + s.slice(-40); }
-
-function _dataUrlParaBlob(d) {
-  const i = d.indexOf(','), cab = d.slice(0, i), bin = atob(d.slice(i + 1));
-  const u8 = new Uint8Array(bin.length);
-  for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
-  return new Blob([u8], { type: (cab.match(/data:([^;]+)/) || [])[1] || 'image/jpeg' });
+function assinaturaFoto(base64) {
+  const meio = base64.length >> 1;
+  return `${base64.length}:${base64.slice(meio, meio + 40)}${base64.slice(-40)}`;
 }
-function _blobParaDataUrl(b) {
-  return new Promise((ok, err) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = err; r.readAsDataURL(b); });
+
+function dataUrlParaBlob(dataUrl) {
+  const separador = dataUrl.indexOf(',');
+  if (separador < 0) throw new Error('Dados da imagem inválidos.');
+  const cabecalho = dataUrl.slice(0, separador);
+  const bytes = atob(dataUrl.slice(separador + 1));
+  const dados = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) dados[i] = bytes.charCodeAt(i);
+  const tipo = (cabecalho.match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
+  return new Blob([dados], { type: tipo });
+}
+
+function blobParaDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('Não foi possível ler a foto baixada.'));
+    reader.readAsDataURL(blob);
+  });
 }
 
 async function baixarFotoBase64(path) {
-  try {
-    const { data, error } = await supa.storage.from(FOTOS_BUCKET).download(path);
-    if (error || !data) return null;
-    return await _blobParaDataUrl(data);
-  } catch (e) { return null; }
+  const { data, error } = await supa.storage.from(FOTOS_BUCKET).download(path);
+  if (error) throw error;
+  if (!data) throw new Error('O Storage não retornou o arquivo da foto.');
+  return blobParaDataUrl(data);
 }
 
-// Baixa do Storage as fotos que já foram migradas. Devolve quantas falharam.
-async function hidratarFotos(relId, grupos) {
-  const fila = [], paths = new Set();
-  (grupos || []).forEach(g => (g.fotos || []).forEach(f => {
-    if (!f || !f.path) return;
-    paths.add(f.path);
-    if (f.base64) f._sig = _assinatura(f.base64); else fila.push(f);
+async function hidratarFotos(relatorioId, grupos) {
+  const fila = [];
+  const paths = new Set();
+  (grupos || []).forEach(grupo => (grupo.fotos || []).forEach(foto => {
+    if (!foto || !foto.path) return;
+    paths.add(foto.path);
+    if (foto.base64) foto._sig = assinaturaFoto(foto.base64);
+    else fila.push(foto);
   }));
-  _fotoPaths[relId] = paths;
-  let falhas = 0, i = 0;
+  _fotoPaths[relatorioId] = paths;
+
+  let falhas = 0;
+  let indice = 0;
   const worker = async () => {
-    while (i < fila.length) {
-      const f = fila[i++], b = await baixarFotoBase64(f.path);
-      if (b) { f.base64 = b; f._sig = _assinatura(b); } else falhas++;
+    while (indice < fila.length) {
+      const foto = fila[indice++];
+      try {
+        foto.base64 = await baixarFotoBase64(foto.path);
+        foto._sig = assinaturaFoto(foto.base64);
+      } catch (error) {
+        foto._loadError = error.message || String(error);
+        falhas++;
+        console.error(`Falha ao baixar foto do Storage (${foto.path}):`, error);
+      }
     }
   };
   await Promise.all([worker(), worker(), worker(), worker()]);
   return falhas;
 }
 
-// Sobe para o Storage as fotos novas/alteradas e devolve a versão que vai para o banco
-// (só caminhos). Foto que não subir segue inline (base64), como antes.
-async function prepararFotosParaSalvar(r) {
-  const grupos = r.fotos || [], paths = new Set();
+async function prepararFotosParaSalvar(relatorio) {
+  const grupos = relatorio.fotos || [];
+  const paths = new Set();
   let falhas = 0;
-  for (const g of grupos) for (const f of (g.fotos || [])) {
-    f._inline = false;
-    if (f.base64) {
-      const sig = _assinatura(f.base64);
-      if (!f.path || f._sig !== sig) {
-        const path = `${r.id}/${f.id}.jpg`;
-        let erro = null;
-        try {
-          const res = await supa.storage.from(FOTOS_BUCKET).upload(path, _dataUrlParaBlob(f.base64), { contentType: 'image/jpeg', upsert: true });
-          erro = res.error;
-        } catch (e) { erro = e; }
-        if (erro) { falhas++; f._inline = true; continue; }
-        f.path = path; f._sig = sig;
+
+  for (const grupo of grupos) {
+    for (const foto of grupo.fotos || []) {
+      foto._inline = false;
+      if (foto.base64) {
+        const assinatura = assinaturaFoto(foto.base64);
+        if (!foto.path || foto._sig !== assinatura) {
+          const path = `${relatorio.id}/${foto.id}.jpg`;
+          try {
+            const { error } = await supa.storage.from(FOTOS_BUCKET).upload(
+              path,
+              dataUrlParaBlob(foto.base64),
+              { contentType: 'image/jpeg', upsert: true }
+            );
+            if (error) throw error;
+            foto.path = path;
+            foto._sig = assinatura;
+          } catch (error) {
+            console.error(`Falha ao enviar foto para o Storage (${path}):`, error);
+            falhas++;
+            foto._inline = true;
+            continue;
+          }
+        }
       }
+      if (foto.path && !foto._inline) paths.add(foto.path);
     }
-    if (f.path && !f._inline) paths.add(f.path);
   }
-  const banco = grupos.map(g => ({
-    ...g,
-    fotos: (g.fotos || []).map(f => {
-      const o = {};
-      Object.keys(f).forEach(k => { if (k[0] !== '_') o[k] = f[k]; });
-      if (o.path && !f._inline) delete o.base64; else delete o.path;
-      return o;
-    })
+
+  const fotos = grupos.map(grupo => ({
+    ...grupo,
+    fotos: (grupo.fotos || []).map(foto => {
+      const salvo = {};
+      Object.keys(foto).forEach(chave => {
+        if (!chave.startsWith('_')) salvo[chave] = foto[chave];
+      });
+      if (salvo.path && !foto._inline) delete salvo.base64;
+      else delete salvo.path;
+      return salvo;
+    }),
   }));
-  return { fotos: banco, paths, falhas };
+  return { fotos, paths, falhas };
 }
 
-// Depois de salvar: apaga do Storage as fotos que saíram do relatório (só da pasta dele)
-async function limparFotosOrfas(relId, pathsAtuais) {
-  const antigos = _fotoPaths[relId];
-  _fotoPaths[relId] = pathsAtuais;
+async function limparFotosOrfas(relatorioId, pathsAtuais) {
+  const antigos = _fotoPaths[relatorioId];
+  _fotoPaths[relatorioId] = pathsAtuais;
   if (!antigos) return;
-  const remover = [...antigos].filter(p => !pathsAtuais.has(p) && p.startsWith(relId + '/'));
-  if (remover.length) { try { await supa.storage.from(FOTOS_BUCKET).remove(remover); } catch (e) {} }
+  const remover = [...antigos].filter(path =>
+    !pathsAtuais.has(path) && path.startsWith(`${relatorioId}/`)
+  );
+  if (remover.length) {
+    const { error } = await supa.storage.from(FOTOS_BUCKET).remove(remover);
+    if (error) console.error('Falha ao remover fotos órfãs do Storage:', error);
+  }
 }
 
-// Duplicar: copia os arquivos para a pasta do novo relatório (nunca compartilha arquivo entre relatórios)
 async function clonarFotos(novoId, grupos) {
   if (!Array.isArray(grupos)) return null;
-  const clone = JSON.parse(JSON.stringify(grupos));
-  let mudou = false;
-  for (const g of clone) for (const f of (g.fotos || [])) {
-    if (!f || !f.path) continue;
-    const novo = `${novoId}/${f.id}.jpg`;
-    const { error } = await supa.storage.from(FOTOS_BUCKET).copy(f.path, novo);
-    if (!error) { f.path = novo; mudou = true; continue; }
-    const b = await baixarFotoBase64(f.path);       // plano B: embute a foto na cópia
-    if (b) { f.base64 = b; delete f.path; mudou = true; }
+  const copia = JSON.parse(JSON.stringify(grupos));
+  for (const grupo of copia) {
+    for (const foto of grupo.fotos || []) {
+      if (!foto.path) continue;
+      const novoPath = `${novoId}/${foto.id}.jpg`;
+      const { error } = await supa.storage.from(FOTOS_BUCKET).copy(foto.path, novoPath);
+      if (!error) {
+        foto.path = novoPath;
+        continue;
+      }
+      console.error(`Falha ao copiar foto do Storage (${foto.path}):`, error);
+      try {
+        foto.base64 = await baixarFotoBase64(foto.path);
+        delete foto.path;
+      } catch (downloadError) {
+        console.error(`Falha ao baixar foto para duplicação (${foto.path}):`, downloadError);
+      }
+    }
   }
-  return mudou ? clone : null;
+  return copia;
 }
 
-// Exclusão definitiva (lixeira): remove os arquivos dos relatórios apagados
 async function removerFotosDosRelatorios(ids) {
+  let falhas = 0;
   for (const id of ids) {
-    try {
-      const { data } = await supa.storage.from(FOTOS_BUCKET).list(id, { limit: 1000 });
-      if (data && data.length) await supa.storage.from(FOTOS_BUCKET).remove(data.map(f => `${id}/${f.name}`));
-    } catch (e) {}
+    const { data, error } = await supa.storage.from(FOTOS_BUCKET).list(id, { limit: 1000 });
+    if (error) {
+      console.error(`Falha ao listar fotos do relatório ${id}:`, error);
+      falhas++;
+      continue;
+    }
+    if (!data?.length) continue;
+    const { error: erroRemocao } = await supa.storage.from(FOTOS_BUCKET)
+      .remove(data.map(foto => `${id}/${foto.name}`));
+    if (erroRemocao) {
+      console.error(`Falha ao remover fotos do relatório ${id}:`, erroRemocao);
+      falhas++;
+    }
   }
+  return falhas;
 }

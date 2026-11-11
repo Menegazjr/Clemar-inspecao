@@ -581,24 +581,38 @@ async function confirmarExcluirPasta(id, nome) {
 }
 
 // Mover relatório para pasta
-let _moverRelatorioId = null;
+let _moverRelatorioIds = [];
 
 async function menuMoverPasta() {
   fecharMenuCard();
-  _moverRelatorioId = _menuCardId;
-  const relatorio = relatorios.find(r => r.id === _moverRelatorioId);
+  abrirSeletorPasta([_menuCardId]);
+}
+
+async function abrirSeletorPasta(ids) {
+  _moverRelatorioIds = [...new Set(ids.filter(Boolean))];
+  if (!_moverRelatorioIds.length) return;
+  const selecionados = relatorios.filter(r => _moverRelatorioIds.includes(r.id));
+  if (selecionados.length !== _moverRelatorioIds.length) {
+    showAlert('Não foi possível localizar todos os relatórios selecionados.', 'err');
+    return;
+  }
+  const relatorio = selecionados[0];
   if (currentUser?.role !== 'admin' && relatorio?.user_id !== currentUser?.id) {
-    showAlert('Você não pode mover relatórios de outros usuários.', 'err');
+    showAlert('Você só pode mover relatórios próprios.', 'err');
+    return;
+  }
+  if (currentUser?.role !== 'admin' && selecionados.some(r => r.user_id !== currentUser?.id)) {
+    showAlert('Você só pode mover relatórios próprios.', 'err');
     return;
   }
   // Recarregar pastas do banco para garantir dados atualizados
   await carregarPastas();
-  const r = relatorios.find(x => x.id === _menuCardId);
+  const pastaAtual = selecionados.length === 1 ? selecionados[0].pasta_id : null;
   const list = document.getElementById('pastaSelectList');
   list.innerHTML = `
-    <button class="pasta-select-item ${!r?.pasta_id ? 'selecionada' : ''}" onclick="moverParaPasta(null)">
+    <button class="pasta-select-item ${selecionados.length === 1 && !pastaAtual ? 'selecionada' : ''}" onclick="moverParaPasta(null)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-      Sem pasta
+      ${_moverRelatorioIds.length > 1 ? 'Mover para sem pasta' : 'Sem pasta'}
     </button>
     ${[...pastas].sort((a,b) => {
       const labelA = (a.pasta_pai_id ? (pastas.find(x=>x.id===a.pasta_pai_id)?.nome||'') + ' › ' : '') + a.nome;
@@ -609,9 +623,9 @@ async function menuMoverPasta() {
       const label = pai ? `${pai.nome} › ${p.nome}` : p.nome;
       const indent = pai ? 'padding-left:24px;' : '';
       return `
-      <button class="pasta-select-item ${r?.pasta_id === p.id ? 'selecionada' : ''}" onclick="moverParaPasta('${p.id}')" style="${indent}">
+      <button class="pasta-select-item ${selecionados.length === 1 && pastaAtual === p.id ? 'selecionada' : ''}" onclick="moverParaPasta('${p.id}')" style="${indent}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-        ${label}
+        ${_moverRelatorioIds.length > 1 ? `Mover para ${label}` : label}
       </button>`;
     }).join('')}`;
   document.getElementById('pastaSelectOverlay').classList.add('open');
@@ -625,15 +639,25 @@ function fecharPastaSelect() {
 
 async function moverParaPasta(pastaId) {
   fecharPastaSelect();
-  if (!_moverRelatorioId) return;
-  const { error } = await supa.from('relatorios').update({ pasta_id: pastaId }).eq('id', _moverRelatorioId);
+  if (!_moverRelatorioIds.length) return;
+  const ids = [..._moverRelatorioIds];
+  const { data: atualizados, error } = await supa.from('relatorios')
+    .update({ pasta_id: pastaId })
+    .in('id', ids)
+    .select('id');
   if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
-  const r = relatorios.find(x => x.id === _moverRelatorioId);
-  if (r) r.pasta_id = pastaId;
+  if ((atualizados || []).length !== ids.length) {
+    showAlert('Nem todos os relatórios foram movidos. Verifique as permissões e tente novamente.', 'err');
+    await carregarLista();
+    return;
+  }
+  relatorios.filter(r => ids.includes(r.id)).forEach(r => { r.pasta_id = pastaId; });
   const pastaAlvo = pastaId ? pastas.find(p => p.id === pastaId) : null;
   const paiAlvo = pastaAlvo ? pastas.find(p => p.id === pastaAlvo.pasta_pai_id) : null;
   const nomePasta = pastaAlvo ? (paiAlvo ? `${paiAlvo.nome} › ${pastaAlvo.nome}` : pastaAlvo.nome) : 'sem pasta';
-  showAlert(`Movido para: ${nomePasta}`, 'ok');
+  showAlert(`${ids.length === 1 ? 'Movido' : `${ids.length} relatórios movidos`} para: ${nomePasta}`, 'ok');
+  if (typeof sairSelecao === 'function') sairSelecao();
+  _moverRelatorioIds = [];
   renderizarLista();
 }
 

@@ -11,6 +11,7 @@ function exibirLista() {
 }
 
 function exibirForm() {
+  if (_selMode) sairSelecao();
   // Iniciar editores Quill na primeira vez
   setTimeout(iniciarEditores, 50);
   document.getElementById('viewLista').style.display = 'none';
@@ -97,6 +98,7 @@ async function carregarLista() {
 const escH = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normTxt = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 let _busca = '', _sit = new Set(), _soMeus = false, _ordem = 'numero_desc';
+let _agrupar = false, _selMode = false, _sel = new Set();
 const ORDENS = {
   numero_desc: (a, b) => b.numero - a.numero,
   numero_asc:  (a, b) => a.numero - b.numero,
@@ -113,6 +115,43 @@ function idsDescendentes(id) {
 function aoBuscar(v)   { _busca = v; atualizaFiltros(); renderizarLista(); }
 function alternarSit(v){ _sit.has(v) ? _sit.delete(v) : _sit.add(v); atualizaFiltros(); renderizarLista(); }
 function alternarMeus(){ _soMeus = !_soMeus; atualizaFiltros(); renderizarLista(); }
+function alternarAgrupar(){ _agrupar = !_agrupar; atualizaFiltros(); renderizarLista(); }
+function alternarSelecao(){
+  _selMode = !_selMode;
+  _sel.clear();
+  atualizaFiltros();
+  atualizaBarraSel();
+  renderizarLista();
+}
+function sairSelecao(){
+  _selMode = false;
+  _sel.clear();
+  atualizaFiltros();
+  atualizaBarraSel();
+  renderizarLista();
+}
+function alternarSel(id){
+  if (_sel.has(id)) _sel.delete(id);
+  else _sel.add(id);
+  atualizaBarraSel();
+  renderizarLista();
+}
+function atualizaBarraSel(){
+  const barra = document.getElementById('barraSel');
+  if (!barra) return;
+  barra.style.display = _selMode ? 'flex' : 'none';
+  const count = document.getElementById('selCount');
+  if (count) count.textContent = `${_sel.size} selecionado${_sel.size === 1 ? '' : 's'}`;
+  const mover = document.getElementById('btnMoverSelecionados');
+  if (mover) mover.disabled = _sel.size === 0;
+}
+function moverSelecionados(){
+  if (!_sel.size) {
+    showAlert('Selecione ao menos um relatório.', 'warn');
+    return;
+  }
+  abrirSeletorPasta([..._sel]);
+}
 function aoOrdenar(v)  { _ordem = v; renderizarLista(); }
 function limparFiltros() {
   _busca = ''; _sit = new Set(); _soMeus = false;
@@ -122,6 +161,8 @@ function limparFiltros() {
 function atualizaFiltros() {
   document.querySelectorAll('#listaFiltros .fchip[data-sit]').forEach(b => b.classList.toggle('on', _sit.has(b.dataset.sit)));
   const m = document.getElementById('fMeus'); if (m) m.classList.toggle('on', _soMeus);
+  const a = document.getElementById('fAgrupar'); if (a) a.classList.toggle('on', _agrupar);
+  const s = document.getElementById('fSel'); if (s) s.classList.toggle('on', _selMode);
   const ativo = !!(_busca.trim() || _sit.size || _soMeus);
   const l = document.getElementById('btnLimparFiltros'); if (l) l.style.display = ativo ? '' : 'none';
   const d = document.getElementById('listaDica'); if (d) d.style.display = _busca.trim() ? '' : 'none';
@@ -177,21 +218,21 @@ function renderizarLista() {
     renderizarPastasBar();
     return;
   }
-  container.innerHTML = lista.map(r => {
-    const badgeCls = r.situacao === 'Liberado' ? 'badge-conforme'
-      : r.situacao === 'Concluído' ? 'badge-conforme'
-      : r.situacao === 'Em elaboração' ? 'badge-ressalvas'
-      : 'badge-neutro';
+  const renderCard = r => {
+    const badgeCls = r.situacao === 'Liberado' || r.situacao === 'Concluído' ? 'badge-conforme'
+      : r.situacao === 'Em elaboração' ? 'badge-ressalvas' : 'badge-neutro';
     const badgeTxt = escH(r.situacao || 'Sem situação');
     const isMeu = r.user_id === currentUser.id;
     const donoLabel = !isMeu
       ? `<span style="color:var(--accent);font-weight:600;font-size:10px">👤 ${escH(fmtUsuario(r.atualizado_por || r.user_id))}</span>`
       : '';
     const caminhoPasta = r.pasta_id ? caminhoAte(r.pasta_id).map(p => p.nome).join(' › ') : '';
+    const selecionado = _sel.has(r.id);
     return `
-      <div class="relatorio-card" onclick="abrirRelatorio('${r.id}')">
+      <div class="relatorio-card${selecionado ? ' sel' : ''}" onclick="${_selMode ? `alternarSel('${r.id}')` : `abrirRelatorio('${r.id}')`}">
         <div class="relatorio-card-accent" style="${isMeu ? 'background:var(--ok)' : 'background:var(--accent)'}"></div>
         <div class="relatorio-card-body">
+          ${_selMode ? `<span class="chk${selecionado ? ' on' : ''}" aria-hidden="true"></span>` : ''}
           <div class="relatorio-card-info">
             <div class="relatorio-card-obra-row">
               <span class="relatorio-card-num">#${String(r.numero).padStart(3,'0')}</span>
@@ -213,8 +254,24 @@ function renderizarLista() {
           </button>
         </div>
       </div>`;
-  }).join('');
+  };
+  if (_agrupar && !_selMode) {
+    const grupos = new Map();
+    lista.forEach(r => {
+      const chave = r.obra_mapa_id || normTxt(r.obra || '(sem obra)');
+      if (!grupos.has(chave)) grupos.set(chave, { nome: r.obra || '(sem nome de obra)', relatorios: [] });
+      grupos.get(chave).relatorios.push(r);
+    });
+    container.innerHTML = [...grupos.values()].map(grupo => `
+      <details class="grupo-obra" open>
+        <summary><strong>${escH(grupo.nome)}</strong><small>${grupo.relatorios.length} relatório(s)</small></summary>
+        ${grupo.relatorios.map(renderCard).join('')}
+      </details>`).join('');
+  } else {
+    container.innerHTML = lista.map(renderCard).join('');
+  }
   renderizarPastasBar();   // mantém as contagens das pastas em dia
+  atualizaBarraSel();
 }
 
 async function novoRelatorio() {
@@ -247,6 +304,7 @@ async function novoRelatorio() {
   if (error) { showAlert('Erro ao criar relatório: ' + error.message, 'err'); return; }
   currentId = data.id;
   currentRelatorio = data;
+  _fotosProntasId = data.id;
   _versaoAberta = null;           // novo relatório — sem conflito possível
   _relatorioRecemCriado = data.id; // marca como recém criado, sem edição ainda
   relatorios.unshift(data);

@@ -1,6 +1,7 @@
 let _abrindoRelatorio = false;
 let _pendingGrupoId   = null;
 let _relatorioSomenteLeitura = false;
+let _fotosProntasId = null;
 
 function escaparHtml(valor) {
   return String(valor ?? '').replace(/[&<>"']/g, caractere => ({
@@ -125,20 +126,30 @@ function configurarEdicaoRelatorio() {
 async function abrirRelatorio(id) {
   if (_abrindoRelatorio) return;
   _abrindoRelatorio = true;
-  setTimeout(() => { _abrindoRelatorio = false; }, 1500);
 
   // Carrega os dados e as fotos na mesma consulta para aplicar a mesma autorização.
   const { data, error: err1 } = await supa.from('relatorios')
     .select('id,numero,data,data_fim,obra,obra_mapa_id,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em,fotos')
     .eq('id', id).single();
   if (err1) { showAlert('Erro ao abrir: ' + err1.message, 'err'); _abrindoRelatorio = false; return; }
+  mostrarLoadingFotos(true);
   try {
     data.fotos = normalizarFotosRelatorio(data.fotos);
+    if (typeof hidratarFotos === 'function') {
+      const falhas = await hidratarFotos(id, data.fotos);
+      if (falhas) {
+        showAlert(`${falhas} foto(s) do Storage não carregaram. Os arquivos foram preservados para nova tentativa.`, 'warn');
+      }
+    }
   } catch (error) {
     console.error('Erro ao interpretar as fotos do relatório:', error);
-    data.fotos = [];
+    mostrarLoadingFotos(false);
+    _abrindoRelatorio = false;
     showAlert('Não foi possível exibir as fotos deste relatório: ' + error.message, 'err');
+    return;
   }
+  mostrarLoadingFotos(false);
+  _fotosProntasId = id;
 
   data._tamanho = fmtBytes(new Blob([JSON.stringify(data)]).size);
   currentId = id;
@@ -158,6 +169,7 @@ async function abrirRelatorio(id) {
   renderizarHistorico();
   renderizarFotos();
   configurarEdicaoRelatorio();
+  _abrindoRelatorio = false;
 
   ocultarBannerPresenca();
   verificarPresenca(id).then(presenca => {
@@ -238,7 +250,23 @@ async function salvar() {
 
   // Salva no Supabase (excluindo user_id, id e campos locais)
   const { user_id, id, _tamanho, fotos: _fotos, criado_por: _criado_por, ...camposSemFotos } = r;
-  const campos = { ...camposSemFotos, fotos: r.fotos };
+  const campos = { ...camposSemFotos };
+  let prepFotos = null;
+  if (_fotosProntasId === r.id && typeof prepararFotosParaSalvar === 'function') {
+    try {
+      prepFotos = await prepararFotosParaSalvar(r);
+    } catch (error) {
+      console.error('Não foi possível preparar as fotos para salvar:', error);
+      showAlert('Não foi possível preparar as fotos. Nenhuma alteração foi salva; tente novamente.', 'err');
+      return;
+    }
+    campos.fotos = prepFotos.fotos;
+    if (prepFotos.falhas) {
+      showAlert(`${prepFotos.falhas} foto(s) não foram enviadas ao Storage; os arquivos originais foram mantidos.`, 'warn');
+    }
+  } else {
+    showAlert('As fotos não terminaram de carregar. Elas não serão alteradas ao salvar.', 'warn');
+  }
   // Detecção de conflito: verificar se versão mudou desde que abrimos
   const { data: atual } = await supa.from('relatorios')
     .select('versao, atualizado_em, atualizado_por')
@@ -266,6 +294,10 @@ async function salvar() {
 
   const { error } = await supa.from('relatorios').update(campos).eq('id', r.id);
   if (error) { showAlert('Erro ao salvar: ' + error.message, 'err'); return; }
+  if (prepFotos && typeof limparFotosOrfas === 'function') {
+    await limparFotosOrfas(r.id, prepFotos.paths);
+  }
+  _fotosProntasId = r.id;
 
   // Atualiza versão local
   _versaoAberta = campos.versao;
@@ -515,11 +547,22 @@ async function duplicarRelatorio(id) {
   if (error) { showAlert('Erro ao duplicar: ' + error.message, 'err'); return; }
   const num = (relatorios.length > 0 ? Math.max(...relatorios.map(r => r.numero)) : 0) + 1;
   const hoje = new Date().toISOString().slice(0, 10);
-  orig.fotos = Array.isArray(orig.fotos) ? orig.fotos : (orig.fotos ? Object.values(orig.fotos) : []);
-  const { id: _, atualizado_em: __, _tamanho: ___, ...campos } = orig;
-  const novo = { ...campos, numero: num, data: hoje, assin_data: hoje, atualizado_em: new Date().toISOString(), user_id: currentUser.id };
+  orig.fotos = normalizarFotosRelatorio(orig.fotos);
+  const fotosOriginais = orig.fotos;
+  const { id: _, atualizado_em: __, _tamanho: ___, fotos: ____, ...campos } = orig;
+  const novo = { ...campos, fotos: fotosOriginais, numero: num, data: hoje, assin_data: hoje, atualizado_em: new Date().toISOString(), user_id: currentUser.id };
   const { data, error: err2 } = await supa.from('relatorios').insert([novo]).select().single();
   if (err2) { showAlert('Erro ao duplicar: ' + err2.message, 'err'); return; }
+  if (typeof clonarFotos === 'function' && fotosOriginais.length) {
+    const fotosCopiadas = await clonarFotos(data.id, fotosOriginais);
+    if (fotosCopiadas) {
+      const { error: erroFotos } = await supa.from('relatorios').update({ fotos: fotosCopiadas }).eq('id', data.id);
+      if (erroFotos) {
+        console.error('Relatório duplicado, mas não foi possível atualizar as referências das fotos:', erroFotos);
+        showAlert('Relatório duplicado, mas as fotos não foram copiadas. As imagens originais continuam preservadas.', 'warn');
+      }
+    }
+  }
   relatorios.unshift(data);
   showAlert(`Relatório #${num} criado como cópia!`, 'ok');
   carregarLista();
@@ -744,7 +787,12 @@ async function confirmarLimparLixeira() {
   const ids = data.map(r => r.id);
   const { error } = await supa.from('relatorios').delete().in('id', ids);
   if (error) { showAlert('Erro ao limpar: ' + error.message, 'err'); return; }
-  showAlert(`${ids.length} relatório(s) excluído(s) permanentemente.`, 'warn');
+  const falhasFotos = typeof removerFotosDosRelatorios === 'function'
+    ? await removerFotosDosRelatorios(ids)
+    : 0;
+  showAlert(falhasFotos
+    ? `${ids.length} relatório(s) excluído(s); falha ao limpar fotos de ${falhasFotos} relatório(s).`
+    : `${ids.length} relatório(s) excluído(s) permanentemente.`, falhasFotos ? 'warn' : 'ok');
   fecharModal('modalLixeira');
   atualizarBadgeLixeira();
 }

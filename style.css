@@ -759,3 +759,16 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .flimpar { background: none; border: none; color: var(--signal); font: 600 13px var(--font-cond); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 .lista-dica { font-size: 12px; color: var(--ink-light); }
 .pasta-count { font-family: var(--font-mono); font-size: 10px; opacity: .65; margin-left: 2px; }
+.grupo-obra { margin-bottom: 12px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.grupo-obra > summary { list-style: none; cursor: pointer; padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; background: var(--steel); color: #fff; }
+.grupo-obra > summary::-webkit-details-marker { display: none; }
+.grupo-obra > summary small { font-size: 12px; opacity: .7; }
+.grupo-obra .relatorio-card { margin: 8px; }
+.barra-sel { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 200; align-items: center; gap: 10px; background: var(--steel); color: #fff; padding: 10px 14px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.4); font-family: var(--font-cond); font-weight: 600; white-space: nowrap; }
+.chk { width: 20px; height: 20px; border: 2px solid var(--border-strong); border-radius: 5px; flex-shrink: 0; margin: 0 10px 0 4px; align-self: center; }
+.chk.on { background: var(--accent); border-color: var(--accent); }
+.relatorio-card.sel { outline: 3px solid var(--accent); }
+@media (max-width: 600px) {
+  .barra-sel { width: calc(100% - 24px); justify-content: center; gap: 6px; padding: 9px 8px; }
+  .barra-sel .btn { padding: 8px; font-size: 12px; }
+}

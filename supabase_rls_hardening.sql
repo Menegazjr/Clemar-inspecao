@@ -1,6 +1,7 @@
 -- Execute no Supabase SQL Editor depois de aplicar os demais scripts de esquema.
 -- Usuários aprovados podem consultar relatórios compartilhados; somente o dono
 -- ou um administrador pode alterar/excluir cada relatório.
+-- Fotos privadas: aprovados podem ler; somente dono/admin pode gravar/remover.
 
 alter table public.usuarios enable row level security;
 alter table public.relatorios enable row level security;
@@ -274,6 +275,108 @@ begin
   end if;
 end;
 $$;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('relatorio-fotos', 'relatorio-fotos', false, 10485760, array['image/jpeg'])
+on conflict (id) do update
+set public = false,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+do $$
+declare
+  politica record;
+begin
+  for politica in
+    select policyname
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and (
+        coalesce(qual, '') like '%relatorio-fotos%'
+        or coalesce(with_check, '') like '%relatorio-fotos%'
+      )
+  loop
+    execute format('drop policy %I on storage.objects', politica.policyname);
+  end loop;
+end;
+$$;
+
+create policy relatorio_fotos_aprovados_leem on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'relatorio-fotos'
+    and (select public.clemar_usuario_aprovado())
+  );
+
+create policy relatorio_fotos_dono_ou_admin_inserem on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'relatorio-fotos'
+    and (
+      (select public.clemar_e_admin())
+      or (
+        (select public.clemar_usuario_aprovado())
+        and exists (
+          select 1
+          from public.relatorios r
+          where r.id::text = (storage.foldername(name))[1]
+            and r.user_id = (select auth.uid())
+        )
+      )
+    )
+  );
+
+create policy relatorio_fotos_dono_ou_admin_atualizam on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'relatorio-fotos'
+    and (
+      (select public.clemar_e_admin())
+      or (
+        (select public.clemar_usuario_aprovado())
+        and exists (
+          select 1
+          from public.relatorios r
+          where r.id::text = (storage.foldername(name))[1]
+            and r.user_id = (select auth.uid())
+        )
+      )
+    )
+  )
+  with check (
+    bucket_id = 'relatorio-fotos'
+    and (
+      (select public.clemar_e_admin())
+      or (
+        (select public.clemar_usuario_aprovado())
+        and exists (
+          select 1
+          from public.relatorios r
+          where r.id::text = (storage.foldername(name))[1]
+            and r.user_id = (select auth.uid())
+        )
+      )
+    )
+  );
+
+create policy relatorio_fotos_dono_ou_admin_excluem on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'relatorio-fotos'
+    and (
+      (select public.clemar_e_admin())
+      or (
+        (select public.clemar_usuario_aprovado())
+        and exists (
+          select 1
+          from public.relatorios r
+          where r.id::text = (storage.foldername(name))[1]
+            and r.user_id = (select auth.uid())
+        )
+      )
+    )
+  );
 
 revoke all on table public.usuarios, public.relatorios, public.pastas, public.obras_mapa
   from public, anon, authenticated;
