@@ -64,21 +64,21 @@ async function carregarLista() {
     .order('numero', { ascending: false });
   if (error) { showAlert('Erro ao carregar lista: ' + error.message, 'err'); return; }
   const obraMapaId = new URLSearchParams(location.search).get('obra_mapa_id');
-  let lista = data || [];
+  _obraMapaFiltroId = '';
+  _obraMapaFiltroNome = '';
   if (obraMapaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(obraMapaId)) {
     const { data: obraMapa, error: erroObra } = await supa.from('obras_mapa')
       .select('nome')
       .eq('id', obraMapaId)
       .maybeSingle();
     if (erroObra) { showAlert('Erro ao localizar a obra do mapa: ' + erroObra.message, 'err'); return; }
-    const nomeObra = obraMapa?.nome ? normTxt(obraMapa.nome.trim()) : '';
-    lista = lista.filter(r =>
-      r.obra_mapa_id === obraMapaId ||
-      (nomeObra && normTxt((r.obra || '').trim()) === nomeObra)
-    );
+    if (obraMapa) {
+      _obraMapaFiltroId = obraMapaId;
+      _obraMapaFiltroNome = obraMapa.nome || '';
+    }
   }
   const tamanhosConhecidos = new Map(relatorios.map(r => [r.id, r._tamanho]).filter(([, tamanho]) => tamanho));
-  relatorios = lista.map(r => ({
+  relatorios = (data || []).map(r => ({
     ...r,
     _tamanho: tamanhosConhecidos.get(r.id),
   }));
@@ -89,6 +89,7 @@ async function carregarLista() {
 
   // Atualiza badge de uso — lê tamanho real do banco via SQL RPC
   atualizarBadgeUso();
+  atualizaFiltros();
   renderizarLista();
   renderizarHistorico();
 }
@@ -100,6 +101,8 @@ const escH = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&l
 const normTxt = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 let _busca = '', _sit = new Set(), _soMeus = false, _ordem = 'numero_desc';
 let _agrupar = false, _selMode = false, _sel = new Set();
+let _obraMapaFiltroId = '';
+let _obraMapaFiltroNome = '';
 const ORDENS = {
   numero_desc: (a, b) => b.numero - a.numero,
   numero_asc:  (a, b) => a.numero - b.numero,
@@ -156,6 +159,11 @@ function moverSelecionados(){
 function aoOrdenar(v)  { _ordem = v; renderizarLista(); }
 function limparFiltros() {
   _busca = ''; _sit = new Set(); _soMeus = false;
+  _obraMapaFiltroId = '';
+  _obraMapaFiltroNome = '';
+  const url = new URL(location.href);
+  url.searchParams.delete('obra_mapa_id');
+  history.replaceState(history.state, '', url);
   const i = document.getElementById('listaBusca'); if (i) i.value = '';
   atualizaFiltros(); renderizarLista();
 }
@@ -164,8 +172,13 @@ function atualizaFiltros() {
   const m = document.getElementById('fMeus'); if (m) m.classList.toggle('on', _soMeus);
   const a = document.getElementById('fAgrupar'); if (a) a.classList.toggle('on', _agrupar);
   const s = document.getElementById('fSel'); if (s) s.classList.toggle('on', _selMode);
-  const ativo = !!(_busca.trim() || _sit.size || _soMeus);
-  const l = document.getElementById('btnLimparFiltros'); if (l) l.style.display = ativo ? '' : 'none';
+  const ativo = !!(_busca.trim() || _sit.size || _soMeus || _obraMapaFiltroId);
+  const l = document.getElementById('btnLimparFiltros');
+  if (l) {
+    l.style.display = ativo ? '' : 'none';
+    l.textContent = _obraMapaFiltroId ? 'Limpar filtro da obra' : 'Limpar';
+    l.title = _obraMapaFiltroId ? `Mostrar relatórios de todas as obras (filtro atual: ${_obraMapaFiltroNome || 'obra selecionada'})` : 'Limpar filtros';
+  }
   const d = document.getElementById('listaDica'); if (d) d.style.display = _busca.trim() ? '' : 'none';
 }
 // Relatórios que passam pela busca, filtros e pasta atual, já ordenados.
@@ -174,6 +187,8 @@ function relatoriosVisiveis() {
   const termos = normTxt(_busca).replace(/#/g, '').trim().split(/\s+/).filter(Boolean);
   const escopo = (!termos.length && pastaAtivaId && pastaAtivaId !== 'sem-pasta') ? new Set(idsDescendentes(pastaAtivaId)) : null;
   const l = relatorios.filter(r => {
+    if (_obraMapaFiltroId && r.obra_mapa_id !== _obraMapaFiltroId &&
+      (!_obraMapaFiltroNome || normTxt((r.obra || '').trim()) !== normTxt(_obraMapaFiltroNome.trim()))) return false;
     if (_sit.size && !_sit.has(r.situacao || '')) return false;
     if (_soMeus && r.user_id !== currentUser.id) return false;
     if (termos.length) {
@@ -190,9 +205,9 @@ function relatoriosVisiveis() {
 
 function renderizarLista() {
   const container = document.getElementById('listaRelatorios');
-  const filtrando = !!(_busca.trim() || _sit.size || _soMeus);
+  const filtrando = !!(_busca.trim() || _sit.size || _soMeus || _obraMapaFiltroId);
   const sub = document.getElementById('listSubtitle');
-  if (relatorios.length === 0) {
+  if (relatorios.length === 0 && !_obraMapaFiltroId) {
     container.innerHTML = `
       <div class="lista-vazia">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -264,7 +279,7 @@ function renderizarLista() {
       grupos.get(chave).relatorios.push(r);
     });
     container.innerHTML = [...grupos.values()].map(grupo => `
-      <details class="grupo-obra" open>
+      <details class="grupo-obra">
         <summary><strong>${escH(grupo.nome)}</strong><small>${grupo.relatorios.length} relatório(s)</small></summary>
         ${grupo.relatorios.map(renderCard).join('')}
       </details>`).join('');
