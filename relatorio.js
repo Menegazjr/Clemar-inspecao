@@ -30,8 +30,9 @@ function normalizarFotosRelatorio(valor) {
 
   return fotos.filter(f => f && (typeof f === 'object' || typeof f === 'string')).map(f => {
     if (typeof f === 'string') f = { base64: f };
-    if (f.fotos !== undefined) {
-      let imagens = f.fotos;
+    const imagensGrupo = f.fotos ?? f.photos ?? f.images;
+    if (imagensGrupo !== undefined) {
+      let imagens = imagensGrupo;
       if (typeof imagens === 'string') {
         const texto = imagens.trim();
         imagens = texto.startsWith('[') || texto.startsWith('{')
@@ -44,28 +45,46 @@ function normalizarFotosRelatorio(valor) {
       }
       return {
         ...f,
-        fotos: imagens.filter(imagem => imagem && (typeof imagem === 'object' || typeof imagem === 'string'))
-          .map(imagem => typeof imagem === 'string' ? { id: uid(), base64: imagem } : imagem),
+        fotos: imagens.filter(Boolean).map(normalizarImagemRelatorio),
       };
     }
 
-    if (f.base64) {
+    if (obterFonteImagem(f)) {
       return {
         id: f.id || uid(),
         titulo: f.local || f.titulo || '',
         descricao: f.descricao || '',
-        fotos: [{
-          id: uid(),
-          base64: f.base64,
-          largura: f.largura || 0,
-          altura: f.altura || 0,
-          timestamp: f.timestamp || '',
-        }],
+        fotos: [normalizarImagemRelatorio(f)],
       };
     }
 
     throw new Error('Foi encontrado um registro de foto em formato não reconhecido.');
   });
+}
+
+function obterFonteImagem(imagem) {
+  if (typeof imagem === 'string') return imagem;
+  if (!imagem || typeof imagem !== 'object') return '';
+  return imagem.base64 || imagem.dataUrl || imagem.data_url || imagem.url ||
+    imagem.src || imagem.imagem || imagem.image || imagem.data || '';
+}
+
+function normalizarImagemRelatorio(imagem) {
+  if (typeof imagem === 'string') imagem = { base64: imagem };
+  const fonte = obterFonteImagem(imagem);
+  if (typeof fonte !== 'string' || !fonte.trim()) {
+    throw new Error('Uma foto não contém os dados da imagem.');
+  }
+  const conteudoBase64 = /^[A-Za-z0-9+/]+={0,2}$/.test(fonte) && fonte.length > 100;
+  const base64 = fonte.startsWith('data:image/') || /^https?:\/\//i.test(fonte) ||
+      fonte.startsWith('./') || fonte.startsWith('../') ||
+      (fonte.startsWith('/') && !conteudoBase64)
+    ? fonte
+    : conteudoBase64
+      ? `data:image/jpeg;base64,${fonte}`
+      : '';
+  if (!base64) throw new Error('O formato dos dados de uma imagem não é reconhecido.');
+  return { ...imagem, id: imagem.id || uid(), base64 };
 }
 
 function atualizarTamanhoRelatorio(relatorio) {
@@ -125,12 +144,18 @@ async function abrirRelatorio(id) {
   _abrindoRelatorio = true;
   setTimeout(() => { _abrindoRelatorio = false; }, 1500);
 
-  // 1. Buscar dados SEM fotos primeiro — rápido
+  // Carrega os dados e as fotos na mesma consulta para aplicar a mesma autorização.
   const { data, error: err1 } = await supa.from('relatorios')
-    .select('id,numero,data,data_fim,obra,obra_mapa_id,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em')
+    .select('id,numero,data,data_fim,obra,obra_mapa_id,cliente,cc,localidade,responsavel,cargo,objetivo,observacoes,situacao,parecer,assin_nome,assin_registro,assin_data,pasta_id,user_id,criado_por,atualizado_em,atualizado_por,versao,excluido_em,fotos')
     .eq('id', id).single();
   if (err1) { showAlert('Erro ao abrir: ' + err1.message, 'err'); _abrindoRelatorio = false; return; }
-  data.fotos = []; // fotos virão em segundo plano
+  try {
+    data.fotos = normalizarFotosRelatorio(data.fotos);
+  } catch (error) {
+    console.error('Erro ao interpretar as fotos do relatório:', error);
+    data.fotos = [];
+    showAlert('Não foi possível exibir as fotos deste relatório: ' + error.message, 'err');
+  }
 
   data._tamanho = fmtBytes(new Blob([JSON.stringify(data)]).size);
   currentId = id;
@@ -140,7 +165,7 @@ async function abrirRelatorio(id) {
   _versaoAberta = data.versao || data.atualizado_em || null;
   _relatorioRecemCriado = null;
 
-  // 2. Abrir formulário imediatamente — textos já disponíveis
+  // Exibe o relatório já com as fotos carregadas.
   exibirForm();
   const tf = document.getElementById('tabForm');
   const tc = document.getElementById('tabConfig');
@@ -148,44 +173,7 @@ async function abrirRelatorio(id) {
   if (tc) tc.style.display = 'none';
   carregarFormulario();
   renderizarHistorico();
-  renderizarFotos(); // mostra lista vazia enquanto carrega
-  mostrarLoadingFotos(true);
-
-  // 3. Buscar fotos em segundo plano
-  supa.from('relatorios').select('fotos').eq('id', id).single().then(({ data: fd, error: ferr }) => {
-    if (currentId !== id) { mostrarLoadingFotos(false); return; }
-    if (ferr) {
-      console.error('Falha ao carregar fotos do relatório:', ferr);
-      showAlert('Não foi possível carregar as fotos: ' + ferr.message, 'err');
-      mostrarLoadingFotos(false);
-      return;
-    }
-    if (!fd) {
-      showAlert('O relatório não retornou os dados das fotos.', 'err');
-      mostrarLoadingFotos(false);
-      return;
-    }
-    try {
-      const fotos = normalizarFotosRelatorio(fd.fotos);
-      console.log('fotos raw:', typeof fotos, Array.isArray(fotos), fotos ? JSON.stringify(fotos).slice(0,200) : 'null');
-      console.log('fotos final:', fotos.length, 'grupos');
-      currentRelatorio.fotos = fotos;
-      const idxF = relatorios.findIndex(r => r.id === id);
-      if (idxF >= 0) {
-        relatorios[idxF].fotos = fotos;
-        atualizarTamanhoRelatorio(relatorios[idxF]);
-      }
-      atualizarTamanhoRelatorio(currentRelatorio);
-      renderizarFotos();
-      configurarEdicaoRelatorio();
-      renderizarLista();
-      console.log('renderizarFotos chamado');
-    } catch(e) {
-      console.error('Erro ao interpretar as fotos do relatório:', e);
-      showAlert('Os dados das fotos estão em um formato inválido: ' + e.message, 'err');
-    }
-    mostrarLoadingFotos(false);
-  });
+  renderizarFotos();
 
   ocultarBannerPresenca();
   verificarPresenca(id).then(presenca => {
