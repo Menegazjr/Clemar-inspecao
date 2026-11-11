@@ -21,45 +21,83 @@ function normalizarFotosRelatorio(valor) {
   }
   if (!fotos) return [];
   if (!Array.isArray(fotos)) {
-    if (fotos.grupos) fotos = Array.isArray(fotos.grupos) ? fotos.grupos : Object.values(fotos.grupos);
-    else if (fotos.fotos) fotos = Array.isArray(fotos.fotos) ? fotos.fotos : Object.values(fotos.fotos);
-    else if (fotos.base64) fotos = [fotos];
-    else if (typeof fotos === 'object') fotos = Object.values(fotos);
+    if (obterFonteImagem(fotos)) fotos = [fotos];
+    else {
+      const colecao = fotos.grupos ?? fotos.fotos ?? fotos.photos ?? fotos.images;
+      if (colecao !== undefined) {
+        if (typeof colecao === 'string') {
+          const texto = colecao.trim();
+          fotos = texto.startsWith('[') || texto.startsWith('{')
+            ? JSON.parse(texto)
+            : [{ base64: texto }];
+        } else {
+          fotos = colecao;
+        }
+      } else if (typeof fotos === 'object') {
+        fotos = Object.values(fotos);
+      }
+      if (!Array.isArray(fotos) && fotos && typeof fotos === 'object') fotos = Object.values(fotos);
+    }
   }
   if (!Array.isArray(fotos)) throw new Error('A lista de fotos não é válida.');
 
-  return fotos.filter(f => f && (typeof f === 'object' || typeof f === 'string')).map(f => {
-    if (typeof f === 'string') f = { base64: f };
-    const imagensGrupo = f.fotos ?? f.photos ?? f.images;
+  const grupos = [];
+  let fotosIgnoradas = 0;
+  for (const itemOriginal of fotos) {
+    if (!itemOriginal) continue;
+    const item = typeof itemOriginal === 'string' ? { base64: itemOriginal } : itemOriginal;
+    if (typeof item !== 'object') {
+      fotosIgnoradas++;
+      continue;
+    }
+
+    const imagensGrupo = item.fotos ?? item.photos ?? item.images;
     if (imagensGrupo !== undefined) {
       let imagens = imagensGrupo;
-      if (typeof imagens === 'string') {
-        const texto = imagens.trim();
-        imagens = texto.startsWith('[') || texto.startsWith('{')
-          ? JSON.parse(texto)
-          : [texto];
+      try {
+        if (typeof imagens === 'string') {
+          const texto = imagens.trim();
+          imagens = texto.startsWith('[') || texto.startsWith('{')
+            ? JSON.parse(texto)
+            : [texto];
+        }
+        if (!Array.isArray(imagens)) {
+          if (imagens && typeof imagens === 'object') imagens = Object.values(imagens);
+          else imagens = [];
+        }
+      } catch (error) {
+        console.warn('Não foi possível interpretar as imagens de um grupo:', error);
+        fotosIgnoradas++;
+        continue;
       }
-      if (!Array.isArray(imagens)) {
-        if (imagens && typeof imagens === 'object') imagens = Object.values(imagens);
-        else imagens = [];
+
+      const imagensValidas = [];
+      for (const imagem of imagens) {
+        if (!imagem) continue;
+        try {
+          imagensValidas.push(normalizarImagemRelatorio(imagem));
+        } catch (error) {
+          console.warn('Uma imagem inválida foi ignorada:', error);
+          fotosIgnoradas++;
+        }
       }
-      return {
-        ...f,
-        fotos: imagens.filter(Boolean).map(normalizarImagemRelatorio),
-      };
+      grupos.push({ ...item, id: item.id || uid(), fotos: imagensValidas });
+      continue;
     }
 
-    if (obterFonteImagem(f)) {
-      return {
-        id: f.id || uid(),
-        titulo: f.local || f.titulo || '',
-        descricao: f.descricao || '',
-        fotos: [normalizarImagemRelatorio(f)],
-      };
+    try {
+      grupos.push({
+        id: item.id || uid(),
+        titulo: item.local || item.titulo || '',
+        descricao: item.descricao || '',
+        fotos: [normalizarImagemRelatorio(item)],
+      });
+    } catch (error) {
+      console.warn('Uma entrada de foto inválida foi ignorada:', error);
+      fotosIgnoradas++;
     }
-
-    throw new Error('Foi encontrado um registro de foto em formato não reconhecido.');
-  });
+  }
+  return { grupos, fotosIgnoradas };
 }
 
 function obterFonteImagem(imagem) {
@@ -150,7 +188,14 @@ async function abrirRelatorio(id) {
     .eq('id', id).single();
   if (err1) { showAlert('Erro ao abrir: ' + err1.message, 'err'); _abrindoRelatorio = false; return; }
   try {
-    data.fotos = normalizarFotosRelatorio(data.fotos);
+    const resultadoFotos = normalizarFotosRelatorio(data.fotos);
+    data.fotos = resultadoFotos.grupos;
+    if (resultadoFotos.fotosIgnoradas) {
+      showAlert(
+        `${resultadoFotos.fotosIgnoradas} entrada(s) de foto inválida(s) foram ignoradas; as demais fotos foram carregadas.`,
+        'warn'
+      );
+    }
   } catch (error) {
     console.error('Erro ao interpretar as fotos do relatório:', error);
     data.fotos = [];
@@ -174,6 +219,7 @@ async function abrirRelatorio(id) {
   carregarFormulario();
   renderizarHistorico();
   renderizarFotos();
+  configurarEdicaoRelatorio();
 
   ocultarBannerPresenca();
   verificarPresenca(id).then(presenca => {
