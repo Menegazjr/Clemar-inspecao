@@ -291,7 +291,7 @@ function renderPinos() {
     } else {
       p.className = 'pin'; p.style.setProperty('--c', corObra(o));
       p.innerHTML = '<i></i><b></b><span class="nm"></span>' + (o.manutencao ? '<em class="mt">🔧</em>' : '');
-      p.querySelector('.nm').textContent = o.nome;
+      p.querySelector('.nm').textContent = o.cidade || o.nome;
       p.onclick = e => { e.stopPropagation(); abrir(o.id); };
     }
     marcas[k] = new maplibregl.Marker({ element: p }).setLngLat([o.lng, o.lat]).addTo(map);
