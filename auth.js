@@ -52,13 +52,29 @@ async function fazerCadastro() {
 }
 
 async function aoLogar(user) {
-  // Garante registro na tabela usuarios e busca role
-  const { error: erroPerfil } = await supa.from('usuarios').upsert({
-    id:    user.id,
+  const { data: perfilAtual, error: erroBusca } = await supa.from('usuarios')
+    .select('id, aprovado, role')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (erroBusca) {
+    await supa.auth.signOut();
+    const msg = document.getElementById('authMsg');
+    msg.textContent = 'Não foi possível validar seu cadastro: ' + erroBusca.message;
+    msg.style.display = 'block';
+    return;
+  }
+
+  const perfil = {
     email: user.email,
-    nome:  user.user_metadata?.nome || user.email.split('@')[0],
     ultimo_login: new Date().toISOString(),
-  }, { onConflict: 'id' });
+  };
+  const { error: erroPerfil } = perfilAtual
+    ? await supa.from('usuarios').update(perfil).eq('id', user.id)
+    : await supa.from('usuarios').insert({
+        id: user.id,
+        ...perfil,
+        nome: user.user_metadata?.nome || user.email.split('@')[0],
+      });
   if (erroPerfil) {
     await supa.auth.signOut();
     const msg = document.getElementById('authMsg');
