@@ -79,6 +79,25 @@ $$;
 revoke all on function public.admin_atualizar_usuario(uuid, text, boolean) from public, anon;
 grant execute on function public.admin_atualizar_usuario(uuid, text, boolean) to authenticated;
 
+create or replace function public.db_size()
+returns bigint
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+    when (select public.clemar_e_admin())
+      then pg_catalog.pg_database_size(pg_catalog.current_database())
+    else null
+  end;
+$$;
+
+revoke execute on function public.db_size() from public;
+revoke execute on function public.db_size() from anon;
+revoke execute on function public.db_size() from authenticated;
+grant execute on function public.db_size() to authenticated;
+
 drop policy if exists "admin atualiza tudo" on public.usuarios;
 drop policy if exists "admin deleta tudo" on public.usuarios;
 drop policy if exists "admin le tudo" on public.usuarios;

@@ -2,6 +2,18 @@ let _abrindoRelatorio = false;
 let _pendingGrupoId   = null;
 let _relatorioSomenteLeitura = false;
 
+function atualizarTamanhoRelatorio(relatorio) {
+  const { _tamanho, ...dados } = relatorio;
+  const bytes = new Blob([JSON.stringify(dados)]).size;
+  relatorio._tamanho = fmtBytes(bytes);
+
+  const badge = document.getElementById('badgeTamanho');
+  if (badge && currentId === relatorio.id) {
+    badge.textContent = `💾 ~${relatorio._tamanho}`;
+    badge.title = 'Estimativa do JSON do relatório, incluindo fotos em base64; não representa exatamente o espaço físico usado no banco.';
+  }
+}
+
 function configurarEdicaoRelatorio() {
   const relatorio = getRelatorioAtual();
   if (!relatorio || !currentUser) return;
@@ -98,9 +110,14 @@ async function abrirRelatorio(id) {
       console.log('fotos final:', fotos.length, 'grupos');
       currentRelatorio.fotos = fotos;
       const idxF = relatorios.findIndex(r => r.id === id);
-      if (idxF >= 0) relatorios[idxF].fotos = fotos;
+      if (idxF >= 0) {
+        relatorios[idxF].fotos = fotos;
+        atualizarTamanhoRelatorio(relatorios[idxF]);
+      }
+      atualizarTamanhoRelatorio(currentRelatorio);
       renderizarFotos();
       configurarEdicaoRelatorio();
+      renderizarLista();
       console.log('renderizarFotos chamado');
     } catch(e) { console.error('erro fotos:', e); }
     mostrarLoadingFotos(false);
@@ -220,7 +237,7 @@ async function salvar() {
   // Confirma presença após salvar
   await registrarPresenca(r.id);
 
-  r._tamanho = fmtBytes(new Blob([JSON.stringify(r)]).size);
+  atualizarTamanhoRelatorio(r);
   renderizarHistorico();
   renderizarLista();
   _relatorioRecemCriado = null; // salvo com sucesso — não é mais vazio
@@ -569,34 +586,37 @@ async function salvarPerfil() {
 const LIXEIRA_DIAS = 15;
 
 async function atualizarBadgeUso() {
+  if (currentUser?.role !== 'admin') return;
+
   try {
-    // Executa SQL direto via rpc para pegar tamanho real do banco
     const { data, error } = await supa.rpc('db_size');
-    let bytes = null;
-
-    if (!error && data !== null) {
-      // data é o tamanho em bytes retornado pela função RPC
-      bytes = Number(data);
-    }
-
-    if (bytes === null) {
-      // Fallback: estimativa por JSON (caso a função RPC não exista ainda)
-      const { data: d } = await supa.from('relatorios').select('*').limit(1000);
-      bytes = d ? new Blob([JSON.stringify(d)]).size : 0;
-    }
-
     const txt   = document.getElementById('badgeUsoDbTxt');
     const badge = document.getElementById('badgeUsoDb');
     if (!txt || !badge) return;
 
-    txt.textContent = fmtBytes(bytes);
-    badge.title = `Tamanho real do banco de dados (limite free: 500 MB)`;
+    const bytes = Number(data);
+    if (error || data === null || !Number.isFinite(bytes) || bytes < 0) {
+      txt.textContent = 'N/D';
+      badge.title = error
+        ? `Não foi possível consultar o tamanho do banco: ${error.message}`
+        : 'A função db_size não retornou um tamanho válido.';
+      if (error) console.warn('db_size:', error.message);
+      return;
+    }
 
-    // Cor conforme uso
+    txt.textContent = fmtBytes(bytes);
+    badge.title = 'Tamanho total do banco retornado pela função db_size.';
+
     const pct = bytes / (500 * 1024 * 1024);
     badge.style.borderColor = pct > 0.8 ? 'var(--signal)' : pct > 0.5 ? 'var(--accent)' : 'rgba(255,255,255,0.15)';
     badge.style.color       = pct > 0.8 ? 'var(--signal)' : pct > 0.5 ? 'var(--accent)' : 'rgba(255,255,255,0.75)';
-  } catch(e) { console.warn('badgeUso:', e); }
+  } catch(e) {
+    const txt = document.getElementById('badgeUsoDbTxt');
+    const badge = document.getElementById('badgeUsoDb');
+    if (txt) txt.textContent = 'N/D';
+    if (badge) badge.title = `Não foi possível consultar o tamanho do banco: ${e.message}`;
+    console.warn('badgeUso:', e);
+  }
 }
 
 async function atualizarBadgeLixeira() {
