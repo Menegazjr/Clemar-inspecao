@@ -15,114 +15,59 @@ function escaparHtml(valor) {
 function normalizarFotosRelatorio(valor) {
   let fotos = valor;
   if (typeof fotos === 'string') {
-    const texto = fotos.trim();
-    if (texto.startsWith('[') || texto.startsWith('{')) fotos = JSON.parse(texto);
-    else fotos = [{ base64: texto }];
+    try {
+      fotos = JSON.parse(fotos);
+    } catch {
+      fotos = fotos ? [{ base64: fotos }] : [];
+    }
   }
   if (!fotos) return [];
   if (!Array.isArray(fotos)) {
-    if (obterFonteImagem(fotos)) fotos = [fotos];
-    else {
-      const colecao = fotos.grupos ?? fotos.fotos ?? fotos.photos ?? fotos.images;
-      if (colecao !== undefined) {
-        if (typeof colecao === 'string') {
-          const texto = colecao.trim();
-          fotos = texto.startsWith('[') || texto.startsWith('{')
-            ? JSON.parse(texto)
-            : [{ base64: texto }];
-        } else {
-          fotos = colecao;
-        }
-      } else if (typeof fotos === 'object') {
-        fotos = Object.values(fotos);
-      }
-      if (!Array.isArray(fotos) && fotos && typeof fotos === 'object') fotos = Object.values(fotos);
-    }
+    if (fotos.grupos !== undefined) fotos = fotos.grupos;
+    else if (fotos.fotos !== undefined) fotos = fotos.fotos;
+    else if (fotos.base64) fotos = [fotos];
+    else fotos = Object.values(fotos);
   }
-  if (!Array.isArray(fotos)) throw new Error('A lista de fotos não é válida.');
 
-  const grupos = [];
-  let fotosIgnoradas = 0;
-  for (const itemOriginal of fotos) {
-    if (!itemOriginal) continue;
-    const item = typeof itemOriginal === 'string' ? { base64: itemOriginal } : itemOriginal;
-    if (typeof item !== 'object') {
-      fotosIgnoradas++;
-      continue;
-    }
+  if (!Array.isArray(fotos)) fotos = Object.values(fotos || {});
+  fotos = fotos
+    .filter(foto => foto && (typeof foto === 'object' || typeof foto === 'string'))
+    .map(foto => typeof foto === 'string' ? { base64: foto } : foto);
 
-    const imagensGrupo = item.fotos ?? item.photos ?? item.images;
-    if (imagensGrupo !== undefined) {
-      let imagens = imagensGrupo;
-      try {
-        if (typeof imagens === 'string') {
-          const texto = imagens.trim();
-          imagens = texto.startsWith('[') || texto.startsWith('{')
-            ? JSON.parse(texto)
-            : [texto];
-        }
-        if (!Array.isArray(imagens)) {
-          if (imagens && typeof imagens === 'object') imagens = Object.values(imagens);
-          else imagens = [];
-        }
-      } catch (error) {
-        console.warn('Não foi possível interpretar as imagens de um grupo:', error);
-        fotosIgnoradas++;
-        continue;
-      }
-
-      const imagensValidas = [];
-      for (const imagem of imagens) {
-        if (!imagem) continue;
+  return fotos.map((item, index) => {
+    const imagens = item.fotos ?? item.photos ?? item.images;
+    if (imagens !== undefined) {
+      let lista = imagens;
+      if (typeof lista === 'string') {
         try {
-          imagensValidas.push(normalizarImagemRelatorio(imagem));
-        } catch (error) {
-          console.warn('Uma imagem inválida foi ignorada:', error);
-          fotosIgnoradas++;
+          lista = JSON.parse(lista);
+        } catch {
+          lista = [lista];
         }
       }
-      grupos.push({ ...item, id: item.id || uid(), fotos: imagensValidas });
-      continue;
+      if (!Array.isArray(lista)) lista = Object.values(lista || {});
+      return {
+        ...item,
+        id: item.id || `grupo-${index}-${uid()}`,
+        fotos: lista.filter(Boolean).map((foto, fotoIndex) =>
+          typeof foto === 'string'
+            ? { id: `foto-${index}-${fotoIndex}-${uid()}`, base64: foto }
+            : { ...foto, id: foto.id || `foto-${index}-${fotoIndex}-${uid()}` }
+        ),
+      };
     }
 
-    try {
-      grupos.push({
-        id: item.id || uid(),
-        titulo: item.local || item.titulo || '',
-        descricao: item.descricao || '',
-        fotos: [normalizarImagemRelatorio(item)],
-      });
-    } catch (error) {
-      console.warn('Uma entrada de foto inválida foi ignorada:', error);
-      fotosIgnoradas++;
-    }
-  }
-  return { grupos, fotosIgnoradas };
-}
-
-function obterFonteImagem(imagem) {
-  if (typeof imagem === 'string') return imagem;
-  if (!imagem || typeof imagem !== 'object') return '';
-  return imagem.base64 || imagem.dataUrl || imagem.data_url || imagem.url ||
-    imagem.src || imagem.imagem || imagem.image || imagem.data || '';
-}
-
-function normalizarImagemRelatorio(imagem) {
-  if (typeof imagem === 'string') imagem = { base64: imagem };
-  const fonte = obterFonteImagem(imagem);
-  if (typeof fonte !== 'string' || !fonte.trim()) {
-    throw new Error('Uma foto não contém os dados da imagem.');
-  }
-  const conteudoBase64 = /^[A-Za-z0-9+/]+={0,2}$/.test(fonte) && fonte.length > 100;
-  const base64 = fonte.startsWith('data:image/') || /^https?:\/\//i.test(fonte) ||
-      fonte.startsWith('./') || fonte.startsWith('../') ||
-      (fonte.startsWith('/') && !conteudoBase64)
-    ? fonte
-    : conteudoBase64
-      ? `data:image/jpeg;base64,${fonte}`
-      : '';
-  if (!base64) throw new Error('O formato dos dados de uma imagem não é reconhecido.');
-  return { ...imagem, id: imagem.id || uid(), base64 };
+    return {
+      id: item.id || `grupo-${index}-${uid()}`,
+      titulo: item.local || item.titulo || '',
+      descricao: item.descricao || '',
+      fotos: [{
+        ...item,
+        id: item.id || `foto-${index}-${uid()}`,
+        base64: item.base64 || item.dataUrl || item.data_url || item.url || item.src || '',
+      }],
+    };
+  });
 }
 
 function atualizarTamanhoRelatorio(relatorio) {
@@ -188,14 +133,7 @@ async function abrirRelatorio(id) {
     .eq('id', id).single();
   if (err1) { showAlert('Erro ao abrir: ' + err1.message, 'err'); _abrindoRelatorio = false; return; }
   try {
-    const resultadoFotos = normalizarFotosRelatorio(data.fotos);
-    data.fotos = resultadoFotos.grupos;
-    if (resultadoFotos.fotosIgnoradas) {
-      showAlert(
-        `${resultadoFotos.fotosIgnoradas} entrada(s) de foto inválida(s) foram ignoradas; as demais fotos foram carregadas.`,
-        'warn'
-      );
-    }
+    data.fotos = normalizarFotosRelatorio(data.fotos);
   } catch (error) {
     console.error('Erro ao interpretar as fotos do relatório:', error);
     data.fotos = [];
