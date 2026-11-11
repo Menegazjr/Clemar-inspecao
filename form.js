@@ -1,3 +1,5 @@
+let _obrasMapa = [];
+
 function carregarFormulario() {
   const r = getRelatorioAtual();
   if (!r) return;
@@ -39,51 +41,57 @@ function carregarFormulario() {
 }
 
 async function carregarObrasMapa(relatorio) {
-  const select = document.getElementById('fieldObraMapa');
-  if (!select) return;
-  select.innerHTML = '<option value="">Sem vínculo com o mapa</option>';
+  const opcoes = document.getElementById('obrasMapaOptions');
+  if (!opcoes) return;
+  const status = document.getElementById('obraMapaStatus');
+  opcoes.replaceChildren();
 
   const { data, error } = await supa.from('obras_mapa').select('id, nome').order('nome');
   if (error) {
+    if (status) status.textContent = 'Não foi possível carregar as obras do mapa.';
     showAlert('Não foi possível carregar as obras do mapa: ' + error.message, 'err');
     return;
   }
 
-  const obras = data || [];
-  obras.forEach(obra => {
+  _obrasMapa = data || [];
+  _obrasMapa.forEach(obra => {
     const option = document.createElement('option');
-    option.value = obra.id;
-    option.textContent = obra.nome;
-    select.appendChild(option);
+    option.value = obra.nome;
+    opcoes.appendChild(option);
   });
 
   let obraId = relatorio.obra_mapa_id || '';
-  if (!obraId && relatorio.obra) {
-    const correspondentes = obras.filter(o => o.nome.trim().toLocaleLowerCase() === relatorio.obra.trim().toLocaleLowerCase());
+  const obraPorId = _obrasMapa.find(obra => obra.id === obraId);
+  if (obraPorId) {
+    document.getElementById('fieldObra').value = obraPorId.nome;
+  } else if (relatorio.obra) {
+    const nomeRelatorio = normTxt(relatorio.obra.trim());
+    const correspondentes = _obrasMapa.filter(o => normTxt(o.nome.trim()) === nomeRelatorio);
     if (correspondentes.length === 1) obraId = correspondentes[0].id;
   }
-  select.value = obraId;
-  const obraSelecionada = obras.find(o => o.id === obraId);
-  if (obraSelecionada && !relatorio.obra) {
-    document.getElementById('fieldObra').value = obraSelecionada.nome;
-  }
   if (relatorio.obra_mapa_id !== obraId) relatorio.obra_mapa_id = obraId || null;
+  atualizarStatusObraMapa();
 }
 
-function selecionarObraMapa(id) {
-  const obra = id ? document.getElementById('fieldObraMapa').selectedOptions[0] : null;
-  if (id && obra) document.getElementById('fieldObra').value = obra.textContent;
+function selecionarObraMapa(nome) {
   const relatorio = getRelatorioAtual();
-  if (relatorio) relatorio.obra_mapa_id = id || null;
+  const nomeNormalizado = normTxt(String(nome || '').trim());
+  const correspondentes = _obrasMapa.filter(obra => normTxt(obra.nome.trim()) === nomeNormalizado);
+  if (relatorio) relatorio.obra_mapa_id = correspondentes.length === 1 ? correspondentes[0].id : null;
+  atualizarStatusObraMapa(correspondentes.length > 1);
 }
 
-function limparVinculoObraMapa() {
-  const select = document.getElementById('fieldObraMapa');
-  const obra = select?.selectedOptions[0];
-  if (select && obra && document.getElementById('fieldObra').value !== obra.textContent) {
-    select.value = '';
-    const relatorio = getRelatorioAtual();
-    if (relatorio) relatorio.obra_mapa_id = null;
+function atualizarStatusObraMapa(nomeDuplicado = false) {
+  const status = document.getElementById('obraMapaStatus');
+  if (!status) return;
+  if (_relatorioSomenteLeitura) {
+    status.textContent = 'Somente visualização: apenas o responsável ou um administrador pode alterar o vínculo.';
+  } else if (nomeDuplicado) {
+    status.textContent = 'Há mais de uma obra com esse nome; o relatório ficará sem vínculo ao mapa.';
+  } else if (_obrasMapa.length) {
+    status.textContent = 'Digite livremente ou escolha uma sugestão para vincular ao mapa.';
+  } else {
+    status.textContent = 'Nenhuma obra cadastrada no mapa; você pode informar o nome manualmente.';
   }
 }
 
@@ -270,7 +278,18 @@ function renderizarFotos() {
 
   if (grupos.length === 0) {
     list.innerHTML = '';
-    if (empty) empty.style.display = '';
+    if (empty) {
+      empty.style.display = '';
+      empty.onclick = _relatorioSomenteLeitura ? null : () => prepararNovaFotoBtn(false);
+      const label = document.getElementById('fotoEmptyLabel');
+      const hint = document.getElementById('fotoEmptyHint');
+      if (label) label.textContent = _relatorioSomenteLeitura
+        ? 'Nenhuma foto salva neste relatório'
+        : 'Clique para adicionar a primeira foto';
+      if (hint) hint.textContent = _relatorioSomenteLeitura
+        ? 'As fotos adicionadas pelo responsável ficam visíveis aqui após serem salvas.'
+        : 'Cada foto terá um local e uma descrição';
+    }
     return;
   }
   if (empty) empty.style.display = 'none';
@@ -278,8 +297,10 @@ function renderizarFotos() {
   list.innerHTML = grupos.map((grupo, gi) => {
     const fotosHtml = (grupo.fotos||[]).map((f, fi) => {
       const ts = f.timestamp ? new Date(f.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+      const fotoIdArg = escaparHtml(JSON.stringify(String(f.id ?? '')));
+      const grupoIdArg = escaparHtml(JSON.stringify(String(grupo.id ?? '')));
       const imgArea = f.base64
-        ? `<img src="${f.base64}" alt="Foto do relatório" style="width:100%;height:200px;object-fit:cover;border-radius:6px;cursor:pointer;display:block;transition:opacity 0.2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1" onclick="abrirViewer('${f.id}','${grupo.id}')" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" loading="lazy"><div style="display:none;background:var(--surface-2);border-radius:6px;height:200px;align-items:center;justify-content:center;color:var(--signal);font-size:12px">Falha ao decodificar a imagem</div>`
+        ? `<img src="${escaparHtml(f.base64)}" alt="Foto do relatório" style="width:100%;height:200px;object-fit:cover;border-radius:6px;cursor:pointer;display:block;transition:opacity 0.2s" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1" onclick="abrirViewer(${fotoIdArg},${grupoIdArg})" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" loading="lazy"><div style="display:none;background:var(--surface-2);border-radius:6px;height:200px;align-items:center;justify-content:center;color:var(--signal);font-size:12px">Falha ao decodificar a imagem</div>`
         : `<div style="background:var(--surface-2);border-radius:6px;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink-light);font-size:12px">
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:32px;height:32px;margin-bottom:8px;opacity:0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
              Sem imagem
@@ -288,12 +309,12 @@ function renderizarFotos() {
         ${imgArea}
         ${ts ? `<div style="font-size:10px;color:var(--ink-light);margin-top:3px;text-align:center">🕐 ${ts}</div>` : ''}
         <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
-          <button class="btn btn-sm btn-outline btn-only-mobile" onclick="trocarFotoBtn('${f.id}','${grupo.id}',true)" title="Câmera">📷</button>
-          <button class="btn btn-sm btn-steel" onclick="trocarFotoBtn('${f.id}','${grupo.id}',false)" title="Trocar foto" style="flex:1">
+          <button class="btn btn-sm btn-outline btn-only-mobile" onclick="trocarFotoBtn(${fotoIdArg},${grupoIdArg},true)" title="Câmera">📷</button>
+          <button class="btn btn-sm btn-steel" onclick="trocarFotoBtn(${fotoIdArg},${grupoIdArg},false)" title="Trocar foto" style="flex:1">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             Trocar
           </button>
-          <button class="btn btn-sm btn-danger" onclick="excluirFotoRegistro('${f.id}','${grupo.id}')" title="Remover">
+          <button class="btn btn-sm btn-danger" onclick="excluirFotoRegistro(${fotoIdArg},${grupoIdArg})" title="Remover">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             <span class="btn-hide-mobile">Remover</span>
           </button>
@@ -303,12 +324,14 @@ function renderizarFotos() {
 
     const podeAddFoto = (grupo.fotos||[]).filter(f => f.base64).length < 4;
 
-    return `<div class="foto-registro" id="reg_${grupo.id}">
+    const grupoIdAttr = escaparHtml(grupo.id);
+    const grupoIdArg = escaparHtml(JSON.stringify(String(grupo.id ?? '')));
+    return `<div class="foto-registro" id="reg_${grupoIdAttr}">
       <div class="foto-registro-header">
         <div class="foto-registro-num" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
           <span class="dot"></span>GRUPO ${String(gi+1).padStart(2,'0')} · ${(grupo.fotos||[]).length} foto${(grupo.fotos||[]).length!==1?'s':''}
         </div>
-        <button class="btn btn-sm btn-danger" onclick="excluirGrupoFotos('${grupo.id}')" title="Remover grupo">
+        <button class="btn btn-sm btn-danger" onclick="excluirGrupoFotos(${grupoIdArg})" title="Remover grupo">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px;height:12px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           <span class="btn-hide-mobile">Remover grupo</span>
         </button>
@@ -316,21 +339,21 @@ function renderizarFotos() {
       <div class="foto-registro-content" style="padding:14px">
         <div class="field" style="margin-bottom:8px">
           <label style="font-size:11px">Título</label>
-          <input type="text" id="titulo_${grupo.id}" value="${(grupo.titulo||'').replace(/"/g,'&quot;')}"
+          <input type="text" id="titulo_${grupoIdAttr}" value="${escaparHtml(grupo.titulo || '')}"
             placeholder="Ex: Sala de máquinas, Quadro elétrico..."
-            onchange="salvarCamposFoto('${grupo.id}')" style="font-size:13px">
+            onchange="salvarCamposFoto(${grupoIdArg})" style="font-size:13px">
         </div>
         <div class="field" style="margin-bottom:12px">
           <label style="font-size:11px">Descrição</label>
-          <textarea id="desc_${grupo.id}" rows="5" placeholder="Descreva o que está sendo fotografado..."
-            onchange="salvarCamposFoto('${grupo.id}')" style="font-size:13px">${grupo.descricao||''}</textarea>
+          <textarea id="desc_${grupoIdAttr}" rows="5" placeholder="Descreva o que está sendo fotografado..."
+            onchange="salvarCamposFoto(${grupoIdArg})" style="font-size:13px">${escaparHtml(grupo.descricao || '')}</textarea>
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
           ${fotosHtml}
         </div>
         ${podeAddFoto
-          ? '<button class="btn btn-steel btn-sm btn-only-mobile" onclick="prepararNovaFotoBtn(true,\'' + grupo.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> + Câmera</button>'
-          + '<button class="btn btn-steel btn-sm" onclick="prepararNovaFotoBtn(false,\'' + grupo.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg> + Foto</button>'
+          ? `<button class="btn btn-steel btn-sm btn-only-mobile" onclick="prepararNovaFotoBtn(true,${grupoIdArg})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg> + Câmera</button>`
+          + `<button class="btn btn-steel btn-sm" onclick="prepararNovaFotoBtn(false,${grupoIdArg})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg> + Foto</button>`
           : '<span style="font-size:11px;color:var(--ink-light)">Máximo de 4 fotos por grupo</span>'}
       </div>
     </div>`;

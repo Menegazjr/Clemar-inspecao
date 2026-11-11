@@ -272,12 +272,10 @@
                 <div class="field"><label>Fim da Inspeção</label><input type="date" id="fieldDataFim"></div>
                 <div class="field"><label>Cliente</label><input type="text" id="fieldCliente" placeholder="ex: OI, CLARO, DPRF"></div>
                 <div class="field span-2">
-                  <label>Nome da Obra / Projeto</label>
-                  <input type="text" id="fieldObra" placeholder="ex: Expansão Rede Norte" oninput="limparVinculoObraMapa()">
-                  <label for="fieldObraMapa" style="margin-top:8px">Vincular obra existente no mapa</label>
-                  <select id="fieldObraMapa" onchange="selecionarObraMapa(this.value)">
-                    <option value="">Sem vínculo com o mapa</option>
-                  </select>
+                  <label for="fieldObra">Nome da Obra / Projeto</label>
+                  <input type="text" id="fieldObra" list="obrasMapaOptions" placeholder="Digite ou selecione uma obra do mapa" oninput="selecionarObraMapa(this.value)" aria-describedby="obraMapaStatus">
+                  <datalist id="obrasMapaOptions"></datalist>
+                  <div id="obraMapaStatus" role="status" style="font-size:12px;color:var(--ink-light);margin-top:3px">Carregando obras do mapa...</div>
                 </div>
                 <div class="field"><label>CC — Centro de Custo</label><input type="text" id="fieldCC" placeholder="ex: CC-0599"></div>
                 <div class="field span-2"><label>Localidade / Endereço</label><input type="text" id="fieldLocalidade" placeholder="ex: Rua das Flores, 123 – Foz do Iguaçu/PR"></div>
@@ -317,8 +315,8 @@
               <div id="fotoRegistroList"></div>
               <div id="fotoEmpty" class="add-foto-area" onclick="prepararNovaFotoBtn(false)" style="margin-top:4px">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                <div class="add-label">Clique para adicionar a primeira foto</div>
-                <div class="add-sub">Cada foto terá um local e uma descrição</div>
+                <div class="add-label" id="fotoEmptyLabel">Clique para adicionar a primeira foto</div>
+                <div class="add-sub" id="fotoEmptyHint">Cada foto terá um local e uma descrição</div>
               </div>
             </div>
           </div>

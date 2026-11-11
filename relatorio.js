@@ -2,6 +2,72 @@ let _abrindoRelatorio = false;
 let _pendingGrupoId   = null;
 let _relatorioSomenteLeitura = false;
 
+function escaparHtml(valor) {
+  return String(valor ?? '').replace(/[&<>"']/g, caractere => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[caractere]);
+}
+
+function normalizarFotosRelatorio(valor) {
+  let fotos = valor;
+  if (typeof fotos === 'string') {
+    const texto = fotos.trim();
+    if (texto.startsWith('[') || texto.startsWith('{')) fotos = JSON.parse(texto);
+    else fotos = [{ base64: texto }];
+  }
+  if (!fotos) return [];
+  if (!Array.isArray(fotos)) {
+    if (fotos.grupos) fotos = Array.isArray(fotos.grupos) ? fotos.grupos : Object.values(fotos.grupos);
+    else if (fotos.fotos) fotos = Array.isArray(fotos.fotos) ? fotos.fotos : Object.values(fotos.fotos);
+    else if (fotos.base64) fotos = [fotos];
+    else if (typeof fotos === 'object') fotos = Object.values(fotos);
+  }
+  if (!Array.isArray(fotos)) throw new Error('A lista de fotos não é válida.');
+
+  return fotos.filter(f => f && (typeof f === 'object' || typeof f === 'string')).map(f => {
+    if (typeof f === 'string') f = { base64: f };
+    if (f.fotos !== undefined) {
+      let imagens = f.fotos;
+      if (typeof imagens === 'string') {
+        const texto = imagens.trim();
+        imagens = texto.startsWith('[') || texto.startsWith('{')
+          ? JSON.parse(texto)
+          : [texto];
+      }
+      if (!Array.isArray(imagens)) {
+        if (imagens && typeof imagens === 'object') imagens = Object.values(imagens);
+        else imagens = [];
+      }
+      return {
+        ...f,
+        fotos: imagens.filter(imagem => imagem && (typeof imagem === 'object' || typeof imagem === 'string'))
+          .map(imagem => typeof imagem === 'string' ? { id: uid(), base64: imagem } : imagem),
+      };
+    }
+
+    if (f.base64) {
+      return {
+        id: f.id || uid(),
+        titulo: f.local || f.titulo || '',
+        descricao: f.descricao || '',
+        fotos: [{
+          id: uid(),
+          base64: f.base64,
+          largura: f.largura || 0,
+          altura: f.altura || 0,
+          timestamp: f.timestamp || '',
+        }],
+      };
+    }
+
+    throw new Error('Foi encontrado um registro de foto em formato não reconhecido.');
+  });
+}
+
 function atualizarTamanhoRelatorio(relatorio) {
   const { _tamanho, ...dados } = relatorio;
   const bytes = new Blob([JSON.stringify(dados)]).size;
@@ -100,23 +166,8 @@ async function abrirRelatorio(id) {
       return;
     }
     try {
-      let fotos = fd.fotos;
+      const fotos = normalizarFotosRelatorio(fd.fotos);
       console.log('fotos raw:', typeof fotos, Array.isArray(fotos), fotos ? JSON.stringify(fotos).slice(0,200) : 'null');
-      if (!fotos) fotos = [];
-      else if (typeof fotos === 'string') fotos = JSON.parse(fotos);
-      else if (typeof fotos === 'object' && !Array.isArray(fotos)) fotos = Object.values(fotos);
-      fotos = (fotos || []).filter(f => f && typeof f === 'object');
-      console.log('fotos após normalizar:', fotos.length, fotos[0] ? Object.keys(fotos[0]) : 'vazio');
-      // Migrar formato antigo para grupos
-      if (fotos.length > 0 && !fotos[0].fotos) {
-        console.log('migrando formato antigo...');
-        fotos = fotos.map(f => ({
-          id: f.id || uid(),
-          titulo: f.local || '',
-          descricao: f.descricao || '',
-          fotos: [{ id: uid(), base64: f.base64||'', largura: f.largura||0, altura: f.altura||0, timestamp: f.timestamp||'' }]
-        }));
-      }
       console.log('fotos final:', fotos.length, 'grupos');
       currentRelatorio.fotos = fotos;
       const idxF = relatorios.findIndex(r => r.id === id);
@@ -204,7 +255,7 @@ async function salvar() {
   r.situacao       = document.getElementById('fieldSituacao').value;
   r.parecer        = getEditorHtml(_quillParecer);
   r.assin_nome     = document.getElementById('fieldAssinNome').value;
-  r.obra_mapa_id   = document.getElementById('fieldObraMapa')?.value || null;
+  selecionarObraMapa(r.obra);
 
   r.assin_data     = document.getElementById('fieldAssinData').value;
   r.atualizado_em  = new Date().toISOString();
