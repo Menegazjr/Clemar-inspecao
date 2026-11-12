@@ -61,7 +61,6 @@ button, a, .item, .dot { touch-action:manipulation; }
 .pin .sup-status { position:absolute; left:-10px; top:-10px; width:18px; height:18px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#fff; border:2px solid currentColor; box-shadow:0 1px 4px rgba(0,0,0,.5); }
 .pin .sup-status .ico { width:10px; height:10px; stroke-width:2.4; }
 .pin .sup-on { color:#20a464; }
-.pin .sup-off { color:#e5483a; }
 .chips { display:flex; flex-wrap:wrap; gap:6px; }
 .chip { display:inline-flex; align-items:center; gap:6px; font:600 12px var(--font-cond); padding:3px 10px; border-radius:20px; border:1px solid rgba(255,255,255,.2); background:transparent; color:rgba(255,255,255,.45); cursor:pointer; }
 .chip i { width:9px; height:9px; border-radius:50%; background:var(--c); opacity:.4; }
@@ -84,13 +83,12 @@ button, a, .item, .dot { touch-action:manipulation; }
 .leg-row b { margin-left:auto; padding-left:18px; font:500 13px var(--font-mono); opacity:.8; }
 .leg-row.apagado { opacity:.35; }
 .leg-sep { height:1px; background:rgba(255,255,255,.14); margin:6px 0; }
-.leg-mt, .leg-grupo, .leg-on, .leg-off { width:18px; height:18px; border-radius:50%; font-style:normal; text-align:center; flex-shrink:0; }
+.leg-mt, .leg-grupo, .leg-on { width:18px; height:18px; border-radius:50%; font-style:normal; text-align:center; flex-shrink:0; }
 .leg-mt { background:#fff; font-size:10px; line-height:18px; }
 .leg-grupo { background:#0a8fe0; border:2px solid #fff; color:#fff; font-size:10px; font-weight:700; line-height:14px; }
-.leg-on, .leg-off { display:flex; align-items:center; justify-content:center; background:#fff; }
+.leg-on { display:flex; align-items:center; justify-content:center; background:#fff; }
 .leg-on { border:2px solid #20a464; color:#20a464; }
-.leg-off { border:2px solid #e5483a; color:#e5483a; }
-.leg-on .ico, .leg-off .ico { width:13px; height:13px; stroke-width:2.4; }
+.leg-on .ico { width:13px; height:13px; stroke-width:2.4; }
 .form-aberto .legenda { display:none; }
 @media (min-width:1500px) {
   .leg-corpo { padding:16px 22px 14px; min-width:260px; }
@@ -109,7 +107,6 @@ button, a, .item, .dot { touch-action:manipulation; }
 .pop .meta { display:flex; align-items:flex-start; gap:8px; line-height:1.35; }
 .pop .meta .ico { margin-top:2px; color:var(--ink-light); }
 .pop .meta.obs { margin-top:8px; }
-.pop .meta.sup-falha { color:var(--signal); }
 .pop .meta.sup-ok { color:#16824d; }
 .pop .tags { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
 .pop .tag { display:inline-flex; align-items:center; gap:5px; margin:0; }
@@ -241,7 +238,7 @@ button.leg-row.on { background:rgba(25,180,255,.2); box-shadow:inset 0 0 0 1px r
         <select class="inp" id="fCor"><option value="">Automática (pela cor do status)</option><option value="#19b4ff">Azul</option><option value="#27ae60">Verde</option><option value="#e8a020">Âmbar</option><option value="#ff7a1a">Laranja</option><option value="#c0392b">Vermelho</option><option value="#ff5fa2">Rosa</option><option value="#b57bff">Roxo</option><option value="#ffffff">Branco</option></select></div>
       <div class="fld"><label>Link do supervisório</label><input class="inp" id="fLink" placeholder="https://…" inputmode="url"></div>
       <div class="fld"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)"><input type="checkbox" id="fMonitorarSup"> Monitorar resposta do supervisório</label></div>
-      <div class="hint" id="fSupInfo">O monitor no computador Windows com acesso à VPN verifica a porta do link a cada 30 minutos. Verde indica conexão; vermelho, sem resposta após 8 segundos.</div>
+      <div class="hint" id="fSupInfo">O navegador testa o link quando o mapa está aberto. O ícone verde aparece somente quando recebe uma resposta; falhas ou bloqueios não exibem ícone.</div>
       <div class="fld"><label>Observações</label><textarea class="inp" id="fObs" rows="2"></textarea></div>
       <div class="acts"><button class="btn btn-primary" onclick="salvar()">Salvar</button><button class="btn btn-outline" onclick="fecharForm()">Cancelar</button></div>
     </div></div>
@@ -271,13 +268,16 @@ const ICO = {
   predio: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
   pino: '<path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>',
   monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
-  monitorOff: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4M9 8l6 6M15 8l-6 6"/>',
   lapis: '<path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
   prancheta: '<path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6M9 16h6"/>',
 };
 const ico = (n, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24">${ICO[n]}</svg>`;
 const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-let filtro = new Set(), soManut = false, soSup = false, soSupOnline = false, soSupOff = false, popup = null;
+const INTERVALO_SUPERVISORIO = 30 * 60 * 1000;
+const TIMEOUT_SUPERVISORIO = 8000;
+const supervisoriosOnline = new Set();
+const verificacoesSupervisorio = new Set();
+let filtro = new Set(), soManut = false, soSup = false, soSupOnline = false, popup = null;
 const el = id => document.getElementById(id);
 const formEl = document.getElementById('pForm');
 const corObra = o => o.cor || COR[o.status] || COR['Em andamento'];
@@ -367,7 +367,10 @@ async function carregar() {
   if (sig === _sig) return false;
   _sig = sig;
   obras = (data || []).map(o => o.status === 'Parada' ? { ...o, status: 'Paralisada' } : o);
+  const monitorados = new Set(obras.filter(o => o.supervisorio_monitorar && o.supervisorio_url).map(o => o.id));
+  supervisoriosOnline.forEach(id => { if (!monitorados.has(id)) supervisoriosOnline.delete(id); });
   atualiza();
+  verificarSupervisorios();
   return true;
 }
 let recarregando = false;
@@ -380,8 +383,19 @@ async function atualizarManual() {
 // Atualização automática somente para sessões autorizadas.
 const formFechado = () => el('holder').contains(formEl);
 setInterval(() => { if (podeEditar && !document.hidden && formFechado()) carregar(); }, 120000);
+setInterval(() => { if (podeEditar && !document.hidden && formFechado()) verificarSupervisorios(); }, INTERVALO_SUPERVISORIO);
 document.addEventListener('visibilitychange', () => {
-  if (podeEditar && !document.hidden && formFechado()) carregar();
+  if (document.hidden) {
+    if (supervisoriosOnline.size) {
+      supervisoriosOnline.clear();
+      atualizarIndicadoresSupervisorio();
+    }
+    return;
+  }
+  if (podeEditar && formFechado()) {
+    carregar();
+    verificarSupervisorios();
+  }
 });
 function renderPinos() {
   Object.values(marcas).forEach(m => m.remove()); marcas = {};
@@ -394,13 +408,11 @@ function renderPinos() {
       p.onclick = e => { e.stopPropagation(); listaGrupo(l); };
     } else {
       p.className = 'pin'; p.style.setProperty('--c', corObra(o));
-      const supRespondendo = o.supervisorio_monitorar && o.supervisorio_status === 'respondendo';
-      const supSemResposta = o.supervisorio_monitorar && o.supervisorio_status === 'sem_resposta';
+      const supRespondendo = o.supervisorio_monitorar && supervisoriosOnline.has(o.id);
       p.innerHTML = '<i></i><b></b><span class="nm"></span>' + (o.manutencao ? '<em class="mt">' + ico('chave') + '</em>' : '')
-        + (supRespondendo ? '<em class="sup-status sup-on" title="Supervisório online">' + ico('monitor') + '</em>' : '')
-        + (supSemResposta ? '<em class="sup-status sup-off" title="Supervisório sem resposta">' + ico('monitorOff') + '</em>' : '');
+        + (supRespondendo ? '<em class="sup-status sup-on" title="Supervisório online">' + ico('monitor') + '</em>' : '');
       p.querySelector('.nm').textContent = o.cidade || o.nome;
-      p.setAttribute('aria-label', `${o.nome}${supRespondendo ? ', supervisório online' : supSemResposta ? ', supervisório sem resposta' : ''}`);
+      p.setAttribute('aria-label', `${o.nome}${supRespondendo ? ', supervisório online' : ''}`);
       p.onclick = e => { e.stopPropagation(); abrir(o.id); };
     }
     marcas[k] = new maplibregl.Marker({ element: p }).setLngLat([o.lng, o.lat]).addTo(map);
@@ -414,8 +426,8 @@ function listaGrupo(l) {
 function visiveis() {
   const q = norm(el('busca').value).trim();
   return obras.filter(o => (!filtro.size || filtro.has(o.status)) && (!soManut || o.manutencao)
-    && (!soSup || !!o.supervisorio_url) && (!soSupOff || (o.supervisorio_monitorar && o.supervisorio_status === 'sem_resposta'))
-    && (!soSupOnline || (o.supervisorio_monitorar && o.supervisorio_status === 'respondendo'))
+    && (!soSup || !!o.supervisorio_url)
+    && (!soSupOnline || (o.supervisorio_monitorar && supervisoriosOnline.has(o.id)))
     && norm([o.nome, o.cliente, o.cidade, o.uf, o.pais].join(' ')).includes(q));
 }
 let tBusca;
@@ -426,14 +438,13 @@ function aoBuscar() {
 function alternarLegenda() { el('legenda').classList.toggle('aberta'); }
 function renderLegenda() {
   const n = predicate => obras.filter(predicate).length;
-  const filtrando = filtro.size > 0 || soManut || soSup || soSupOnline || soSupOff;
+  const filtrando = filtro.size > 0 || soManut || soSup || soSupOnline;
   el('legCorpo').innerHTML = '<div class="leg-titulo">Legenda <small>· toque para filtrar</small></div>'
     + STATUS.map(st => `<button class="leg-row${filtro.has(st) ? ' on' : ''}${filtro.size && !filtro.has(st) ? ' apagado' : ''}" style="--c:${COR[st]}" onclick="alternaStatus('${st}')"><i></i>${st}<b>${n(o => o.status === st)}</b></button>`).join('')
     + `<div class="leg-sep"></div>
        <button class="leg-row${soManut ? ' on' : ''}" onclick="alternaManut()"><em class="leg-mt">${ico('chave')}</em>Contrato de manutenção<b>${n(o => o.manutencao)}</b></button>
        <button class="leg-row${soSup ? ' on' : ''}" onclick="alternaSup()"><em class="leg-mt">${ico('monitor')}</em>Com supervisório<b>${n(o => !!o.supervisorio_url)}</b></button>
-       <button class="leg-row${soSupOnline ? ' on' : ''}" onclick="alternaSupOnline()"><em class="leg-on">${ico('monitor')}</em>Supervisório online<b>${n(o => o.supervisorio_monitorar && o.supervisorio_status === 'respondendo')}</b></button>
-       <button class="leg-row${soSupOff ? ' on' : ''}" onclick="alternaSupOff()"><em class="leg-off">${ico('monitorOff')}</em>Supervisório sem resposta<b>${n(o => o.supervisorio_monitorar && o.supervisorio_status === 'sem_resposta')}</b></button>`
+       <button class="leg-row${soSupOnline ? ' on' : ''}" onclick="alternaSupOnline()"><em class="leg-on">${ico('monitor')}</em>Supervisório online<b>${n(o => o.supervisorio_monitorar && supervisoriosOnline.has(o.id))}</b></button>`
     + (filtrando ? '<button class="leg-limpar" onclick="limparFiltrosMapa()">Limpar filtros</button>' : '');
   el('legenda').classList.toggle('filtrando', filtrando);
 }
@@ -442,14 +453,49 @@ function alternaStatus(st) { filtro.has(st) ? filtro.delete(st) : filtro.add(st)
 function alternaManut() { soManut = !soManut; atualiza(); }
 function alternaSup() { soSup = !soSup; atualiza(); }
 function alternaSupOnline() { soSupOnline = !soSupOnline; atualiza(); }
-function alternaSupOff() { soSupOff = !soSupOff; atualiza(); }
-function limparFiltrosMapa() { filtro.clear(); soManut = false; soSup = false; soSupOnline = false; soSupOff = false; atualiza(); }
+function limparFiltrosMapa() { filtro.clear(); soManut = false; soSup = false; soSupOnline = false; atualiza(); }
 function atualiza() { fechaPop(); renderChips(); renderLista(); renderPinos(); }
 function renderLista() {
   const l = visiveis();
   el('cont').textContent = l.length;
   el('lista').innerHTML = l.length ? l.map(o => `<div class="item" style="--c:${esc(corObra(o))}" onclick="abrir('${o.id}', true)"><b>${esc(o.nome)}${o.manutencao ? ` ${ico('chave', 'ico-p')}` : ''}</b><span>${esc(local(o))}${o.cliente ? ' · ' + esc(o.cliente) : ''}</span></div>`).join('')
     : '<div class="vazio">Nenhuma obra encontrada.</div>';
+}
+function atualizarIndicadoresSupervisorio() {
+  renderChips();
+  renderLista();
+  renderPinos();
+}
+function verificarSupervisorios() {
+  if (!podeEditar || document.hidden || !formFechado()) return;
+  obras.filter(o => o.supervisorio_monitorar && o.supervisorio_url)
+    .forEach(o => verificarSupervisorio(o.id, o.supervisorio_url));
+}
+async function verificarSupervisorio(id, link) {
+  if (verificacoesSupervisorio.has(id)) return;
+  verificacoesSupervisorio.add(id);
+  const jaEstavaOnline = supervisoriosOnline.delete(id);
+  if (jaEstavaOnline) atualizarIndicadoresSupervisorio();
+
+  let timeout;
+  try {
+    const url = urlSegura(link);
+    if (!url) {
+      console.warn('Link inválido do supervisório; nenhum ícone será exibido.', id);
+      return;
+    }
+
+    const controller = new AbortController();
+    timeout = setTimeout(() => controller.abort(), TIMEOUT_SUPERVISORIO);
+    await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
+    if (podeEditar && !document.hidden) supervisoriosOnline.add(id);
+  } catch (error) {
+    if (error.name !== 'AbortError') console.debug('Não foi possível confirmar a resposta do supervisório.', id, error);
+  } finally {
+    clearTimeout(timeout);
+    verificacoesSupervisorio.delete(id);
+    if (jaEstavaOnline || supervisoriosOnline.has(id)) atualizarIndicadoresSupervisorio();
+  }
 }
 function verTudo() {
   fechaMenuMobile();
@@ -481,14 +527,7 @@ function abrir(id, centralizar) {
   fecharForm(); fechaPop();
   if (centralizar) fechaMenuMobile();
   const c = COR[o.status] || COR['Em andamento'], link = urlSegura(o.supervisorio_url);
-  const supOnline = o.supervisorio_status === 'respondendo';
-  const supOff = o.supervisorio_status === 'sem_resposta';
-  const supStatus = supOnline ? 'Online'
-    : supOff ? 'Sem resposta em 8 segundos'
-    : '';
-  const supVerificado = o.supervisorio_verificado_em
-    ? new Date(o.supervisorio_verificado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
-    : '';
+  const supOnline = o.supervisorio_monitorar && supervisoriosOnline.has(o.id);
   const acesso = podeEditar
     ? `<div class="grade">${link
       ? `<a class="pb pb-azul largo" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${ico('monitor')} Abrir supervisório</a>`
@@ -502,7 +541,7 @@ function abrir(id, centralizar) {
     ${o.cliente ? `<div class="meta">${ico('predio')}<span>${esc(o.cliente)}</span></div>` : ''}
     <div class="meta">${ico('pino')}<span>${esc(local(o))}</span></div>
     ${o.observacoes ? `<div class="meta obs">${esc(o.observacoes)}</div>` : ''}
-    ${o.supervisorio_monitorar && supStatus ? `<div class="meta${supOnline ? ' sup-ok' : ' sup-falha'}">${ico(supOff ? 'monitorOff' : 'monitor')}<span>Supervisório ${esc(supStatus)}${supVerificado ? ` · verificado em ${esc(supVerificado)}` : ''}</span></div>` : ''}
+    ${supOnline ? `<div class="meta sup-ok">${ico('monitor')}<span>Supervisório online</span></div>` : ''}
     ${acesso}`;
   if (centralizar) map.easeTo({ center: [o.lng, o.lat], bearing: 0, duration: 600 });   // só centraliza, sem zoom
   popup = new maplibregl.Popup({ offset: 22, maxWidth: '310px', className: 'pop' }).setLngLat([o.lng, o.lat]).setHTML(html).addTo(map);
@@ -518,8 +557,8 @@ function abrirForm(o) {
   el('fStatus').value = o.status || 'Em andamento'; el('fCor').value = o.cor || ''; el('fManut').checked = !!o.manutencao;
   el('fLink').value = o.supervisorio_url || ''; el('fMonitorarSup').checked = !!o.supervisorio_monitorar; el('fObs').value = o.observacoes || '';
   el('fSupInfo').textContent = o.supervisorio_monitorar
-    ? `Monitoramento ativo. Último teste: ${o.supervisorio_verificado_em ? new Date(o.supervisorio_verificado_em).toLocaleString('pt-BR') : 'ainda não realizado'}.`
-    : 'O monitor no computador Windows com acesso à VPN verifica a porta do link a cada 30 minutos. Verde indica conexão; vermelho, sem resposta após 8 segundos.';
+    ? 'O navegador testa o link quando o mapa está aberto. O ícone verde aparece somente quando recebe uma resposta; falhas ou bloqueios não exibem ícone.'
+    : 'Ative para o navegador testar este link enquanto o mapa estiver aberto. Endereços da VPN só podem responder se este dispositivo estiver conectado à VPN.';
   draft = { uf: o.uf || '', pais: o.pais || '', lat: o.lat ?? null, lng: o.lng ?? null };
   const c = map.getCenter(), ini = draft.lat !== null ? [draft.lng, draft.lat] : [c.lng, c.lat];   // obra nova: pino provisório no centro
   montaDraft(ini); atualizaCoord();
@@ -584,8 +623,7 @@ async function salvar() {
   salvando = true; const { data, error } = await q; salvando = false;
   if (error) { toast('Erro ao salvar: ' + error.message); return; }
   const id = data ? data.id : editId; fecharForm(); await carregar();
-  if (monitorarSupervisorio && id) toast('Obra salva. O monitor na VPN atualizará o status na próxima verificação.');
-  else toast('Obra salva!');
+  toast('Obra salva!');
   if (id) abrir(id);
 }
 async function excluir(id) {

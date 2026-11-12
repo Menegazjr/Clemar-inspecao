@@ -185,10 +185,16 @@ function atualizaFiltros() {
   if (opcoesLabel) opcoesLabel.classList.toggle('on', _soMeus || _selMode || !_agrupar || _ordem !== 'obra');
   const ativo = !!(_busca.trim() || _sit.size || _soMeus || _obraMapaFiltroId);
   const l = document.getElementById('btnLimparFiltros');
+  const limparMobile = document.getElementById('btnLimparFiltrosMobile');
   if (l) {
     l.style.display = ativo ? '' : 'none';
     l.textContent = _obraMapaFiltroId ? 'Limpar filtro da obra' : 'Limpar';
     l.title = _obraMapaFiltroId ? `Mostrar relatórios de todas as obras (filtro atual: ${_obraMapaFiltroNome || 'obra selecionada'})` : 'Limpar filtros';
+  }
+  if (limparMobile) {
+    limparMobile.classList.toggle('visivel', ativo);
+    limparMobile.textContent = _obraMapaFiltroId ? 'Limpar filtro' : 'Limpar';
+    limparMobile.title = _obraMapaFiltroId ? `Mostrar relatórios de todas as obras (filtro atual: ${_obraMapaFiltroNome || 'obra selecionada'})` : 'Limpar filtros';
   }
   const d = document.getElementById('listaDica'); if (d) d.style.display = _busca.trim() ? '' : 'none';
 }

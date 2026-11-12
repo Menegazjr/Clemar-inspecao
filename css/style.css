@@ -836,6 +836,7 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .fchip i { width: 9px; height: 9px; border-radius: 50%; background: var(--c, var(--ink-light)); flex-shrink: 0; }
 .fchip:hover { border-color: var(--accent); }
 .fchip.on { background: var(--steel); border-color: var(--steel); color: #fff; }
+.flimpar-mobile { display: none; }
 .lista-ordem-wrap { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; color: var(--ink-light); font: 600 12px var(--font-cond); white-space: nowrap; }
 .lista-ordem { padding: 6px 10px; border: 2px solid var(--border); border-radius: 20px; background: var(--white); font: 600 13px var(--font-cond); color: var(--ink-mid); }
 .flimpar { justify-self: start; padding: 6px 4px; background: none; border: none; color: var(--signal); font: 600 13px var(--font-cond); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
@@ -858,6 +859,9 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
   .filtro-situacao-opcoes, .filtro-opcoes-menu { max-width: calc(100vw - 24px); }
   .filtro-opcoes-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: min(280px, calc(100vw - 24px)); }
   .filtro-opcoes-menu .lista-ordem-wrap, .filtro-opcoes-menu .flimpar { grid-column: 1 / -1; }
+  .filtro-opcoes-menu #btnLimparFiltros { display: none !important; }
+  .flimpar-mobile, .flimpar-mobile.visivel { display: inline-flex; align-items: center; padding: 6px 10px; border: 1.5px solid var(--signal); border-radius: 20px; }
+  .flimpar-mobile:not(.visivel) { display: none; }
   .filtro-opcoes-menu .fchip { justify-content: center; padding-inline: 8px; }
   .grupo-obra > summary { gap: 8px; padding: 11px 12px; }
   .grupo-obra > summary strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

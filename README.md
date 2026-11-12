@@ -15,20 +15,8 @@ Aplicação estática de inspeções e mapa de obras da Clemar Engenharia.
 
 Fotos de relatórios ficam no bucket `relatorio-fotos` do Supabase Storage; não são arquivos locais do projeto.
 
-O script `sql/supabase_supervisorio_reclassificar_erros.sql` é uma migração pontual: execute uma única vez para reclassificar resultados antigos de ping como inconclusivos.
+O script `sql/supabase_supervisorio_reclassificar_erros.sql` é uma migração pontual para limpar estados antigos de “sem resposta” gerados pela verificação anterior.
 
-## Monitoramento dos supervisórios
+## Verificação dos supervisórios
 
-O mapa é estático e o navegador não consegue testar de forma confiável endereços da VPN. O script `tools/monitor-supervisorios.ps1` faz a verificação de porta a partir de um PC Windows conectado à VPN; uma conexão TCP aceita marca o supervisório como respondendo, e uma falha após 8 segundos marca sem resposta.
-
-1. No PC monitor, mantenha uma cópia atualizada do projeto e conecte-se à VPN.
-2. No PowerShell, execute uma vez:
-
-   ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File ".\tools\monitor-supervisorios.ps1" -Once
-   ```
-
-3. Informe o e-mail e a senha de uma conta aprovada no mapa. A sessão de renovação é protegida pelo Windows (DPAPI) para o usuário atual; nenhuma senha ou chave de serviço é gravada no projeto.
-4. Para monitorar continuamente, execute o mesmo comando sem `-Once` e deixe a janela aberta, ou configure essa execução no Agendador de Tarefas para iniciar ao entrar na mesma conta do Windows. O PC precisa estar ligado e conectado à VPN.
-
-O agente consulta as obras habilitadas, atualiza os estados no Supabase a cada 30 minutos e grava um log local em `%LOCALAPPDATA%\Clemar\Monitor\monitor.log`. A página apenas exibe esses resultados e atualiza os dados periodicamente.
+Quando habilitado, o navegador tenta acessar o link a cada 30 minutos enquanto o mapa está aberto. O ícone verde aparece somente nesse navegador quando a requisição recebe uma resposta; falhas e bloqueios não exibem ícone. O resultado não é salvo nem compartilhado. Links acessíveis apenas pela VPN só podem ser testados em um dispositivo conectado a ela.
