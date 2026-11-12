@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mapa de Obras — Clemar Engenharia</title>
+<meta name="theme-color" content="#1a2940">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.0/dist/maplibre-gl.css">
+<link rel="stylesheet" href="style.css">
+<style>
+:root { --blue:#0a8fe0; --blue-glow:#19b4ff; }
+body { height:100dvh; overflow:hidden; overscroll-behavior:none; }
+button, a, .item, .dot { touch-action:manipulation; }
+.wrap { display:flex; flex:1; min-height:0; }
+#side { width:310px; min-width:310px; background:var(--steel); color:#fff; display:flex; flex-direction:column; border-right:1px solid rgba(255,255,255,.08); }
+.side-head { padding:14px; display:flex; flex-direction:column; gap:10px; border-bottom:1px solid rgba(255,255,255,.08); }
+.side-head h2 { font-family:var(--font-cond); font-size:18px; letter-spacing:.5px; display:flex; justify-content:space-between; align-items:center; }
+.side-head small { font-family:var(--font-mono); font-size:11px; color:var(--blue-glow); }
+.inp { width:100%; padding:9px 11px; border-radius:var(--radius); border:1px solid var(--border); background:var(--surface); font:16px var(--font); color:var(--ink); outline:none; }
+.inp:focus { border-color:var(--blue); background:#fff; }
+#side .inp { background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.15); color:#fff; }
+#lista { flex:1; overflow:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+.item { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-left:4px solid var(--c); border-radius:8px; padding:10px 12px; cursor:pointer; transition:.15s; }
+.item:hover, .item.on { background:rgba(25,180,255,.14); border-color:var(--blue-glow); border-left-color:var(--c); }
+.item b { font-family:var(--font-cond); font-size:15px; display:block; }
+.item span { font-size:12px; color:rgba(255,255,255,.6); }
+.vazio { color:rgba(255,255,255,.5); font-size:13px; text-align:center; padding:24px 10px; }
+#mapbox { position:relative; flex:1; min-width:0; background:#15233a; }
+#map { position:absolute; inset:0; }
+.btn-blue { background:var(--blue); color:#fff; } .btn-blue:hover { background:#0879c0; }
+.panel { position:absolute; top:12px; right:12px; width:330px; max-height:calc(100% - 24px); overflow:auto; background:rgba(255,255,255,.97); border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.45); padding:16px; display:none; z-index:5; }
+.panel.open { display:block; }
+.panel h3 { font-family:var(--font-cond); font-size:20px; color:var(--steel); padding-right:26px; }
+.panel .x { position:absolute; top:8px; right:10px; background:none; border:none; font-size:22px; color:var(--ink-light); }
+.tag { display:inline-block; font-family:var(--font-cond); font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px; margin:8px 0; }
+.meta { font-size:13px; color:var(--ink-light); margin-bottom:4px; }
+.acts { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+.fld { margin-bottom:11px; position:relative; } .fld label { display:block; font-size:11px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-light); margin-bottom:3px; }
+.sug { position:absolute; left:0; right:0; top:100%; background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--card-shadow); z-index:10; max-height:190px; overflow:auto; }
+.sug div { padding:8px 10px; font-size:13px; cursor:pointer; } .sug div:hover { background:var(--surface-2); }
+.hint { font-size:12px; color:var(--ink-light); background:var(--surface); border-radius:6px; padding:8px; margin-bottom:11px; }
+.pin { width:22px; height:22px; cursor:pointer; }
+.pin:hover { z-index:5; }
+.pin .nm { position:absolute; left:50%; top:28px; transform:translateX(-50%); white-space:nowrap; font:600 12px var(--font-cond); letter-spacing:.3px; color:#fff; background:rgba(15,25,35,.88); border:1px solid var(--c); padding:2px 9px; border-radius:10px; pointer-events:none; opacity:0; transition:opacity .15s; }
+.perto .pin .nm, .pin:hover .nm { opacity:1; }
+.cluster { width:var(--s); height:var(--s); border-radius:50%; background:radial-gradient(circle at 35% 30%, #35b8ff, #0a6fc0); border:3px solid rgba(255,255,255,.92); color:#fff; font:700 14px var(--font-cond); display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 0 0 7px rgba(25,180,255,.25), 0 4px 14px rgba(0,0,0,.55); }
+.cluster:hover { filter:brightness(1.12); }
+.pin .mt { position:absolute; right:-10px; top:-10px; width:18px; height:18px; border-radius:50%; background:#fff; border:2px solid var(--c); font-style:normal; font-size:9px; line-height:14px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.5); }
+.chips { display:flex; flex-wrap:wrap; gap:6px; }
+.chip { display:inline-flex; align-items:center; gap:6px; font:600 12px var(--font-cond); padding:3px 10px; border-radius:20px; border:1px solid rgba(255,255,255,.2); background:transparent; color:rgba(255,255,255,.45); cursor:pointer; }
+.chip i { width:9px; height:9px; border-radius:50%; background:var(--c); opacity:.4; }
+.chip.on { color:#fff; border-color:var(--c); background:rgba(255,255,255,.08); } .chip.on i { opacity:1; }
+.chip small { opacity:.7; font-family:var(--font-mono); }
+.mapbtn { position:absolute; top:10px; left:10px; z-index:6; width:34px; height:34px; border:none; border-radius:6px; background:#fff; box-shadow:0 0 0 2px rgba(0,0,0,.1); font-size:15px; cursor:pointer; color:var(--steel); }
+.wrap.recolhido #side { display:none; }
+.pop .maplibregl-popup-content { border-radius:12px; padding:14px 16px 12px; min-width:230px; box-shadow:0 10px 30px rgba(0,0,0,.45); }
+.pop .maplibregl-popup-close-button { font-size:20px; padding:2px 8px; color:var(--ink-light); }
+@keyframes giraRef { to { transform:rotate(360deg); } }
+.girando { animation:giraRef .8s linear infinite; }
+.hora { font-family:var(--font-mono); font-size:11px; color:rgba(255,255,255,.5); margin-top:-4px; }
+.hora.velho { color:#ffc21a; font-weight:600; }
+.dots { display:flex; align-items:center; gap:9px; padding:2px 0; }
+.dot { width:22px; height:22px; border-radius:50%; border:2px solid #fff; background:var(--c); cursor:pointer; padding:0; box-shadow:0 0 8px var(--c); transition:.15s; }
+.dot.on { transform:scale(1.2); box-shadow:0 0 0 3px rgba(255,255,255,.35), 0 0 10px var(--c); }
+.dot.mnt { background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.5); font-size:11px; line-height:1; box-shadow:none; margin-left:auto; }
+.dot.mnt.on { background:#fff; }
+.dots.filtrando .dot:not(.on) { opacity:.3; }
+.panel .formbox { width:auto; max-height:none; overflow:visible; }
+.panel .formbox .fld { margin-bottom:8px; }
+.panel .formbox .hint { margin-bottom:8px; padding:6px 8px; }
+.formbox { position:relative; width:290px; max-width:100%; max-height:55vh; overflow:auto; padding:2px 4px 0 0; }
+.formbox h3 { font-family:var(--font-cond); font-size:19px; color:var(--steel); padding-right:24px; }
+.formbox .x { position:absolute; top:-4px; right:0; background:none; border:none; font-size:22px; color:var(--ink-light); cursor:pointer; }
+.pop h3 { font-family:var(--font-cond); font-size:19px; color:var(--steel); padding-right:20px; }
+.pin i { position:absolute; inset:5px; border-radius:50%; background:var(--c); border:2px solid #fff; box-shadow:0 0 12px var(--c); }
+.pin b { position:absolute; inset:0; border-radius:50%; border:2px solid var(--c); animation:pulso 2s infinite; }
+@keyframes pulso { 0% { transform:scale(.5); opacity:1; } 100% { transform:scale(2.2); opacity:0; } }
+#toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--steel); color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; display:none; z-index:999; }
+.only-mobile { display:none; }
+.side-acoes { flex-wrap:wrap; gap:8px; }
+#veu { display:none; }
+@media (max-width:700px) {
+  .only-mobile { display:flex; }
+  .topnav-actions { display:none; }
+  .wrap { position:relative; }
+  #side { position:absolute; top:0; bottom:0; left:0; width:min(88vw,340px); min-width:0; z-index:30; transform:translateX(-102%); transition:transform .25s ease; }
+  .wrap.menu-aberto #side { transform:none; box-shadow:8px 0 30px rgba(0,0,0,.5); }
+  .wrap.recolhido #side { display:flex; }
+  .wrap.menu-aberto #veu { display:block; position:absolute; inset:0; background:rgba(0,0,0,.45); z-index:25; }
+  .mapbtn { width:auto; height:42px; padding:0 14px; font:700 15px var(--font-cond); border-radius:8px; }
+  .panel { top:auto; bottom:0; left:0; right:0; width:auto; max-height:56%; border-radius:14px 14px 0 0; padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px)); -webkit-overflow-scrolling:touch; }
+  .pin { width:30px; height:30px; } .pin i { inset:7px; } .pin .nm { top:34px; }
+  .dot { width:28px; height:28px; }
+  .maplibregl-ctrl-group { display:none !important; }
+  .pop .maplibregl-popup-close-button { font-size:26px; padding:4px 12px; }
+  .btn-hide-mobile { display:none; }
+}
+/* ── Legenda das cores ── */
+.legenda { position:absolute; top:12px; right:12px; z-index:4; }
+.leg-toggle { display:none; }
+.leg-corpo { background:rgba(21,35,58,.88); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,.14); border-radius:12px; padding:12px 16px 10px; color:#fff; box-shadow:0 8px 28px rgba(0,0,0,.4); min-width:200px; }
+.leg-titulo { font:700 11px var(--font-cond); letter-spacing:2px; text-transform:uppercase; color:var(--blue-glow); margin-bottom:6px; }
+.leg-row { display:flex; align-items:center; gap:10px; font:600 15px var(--font-cond); padding:3px 0; transition:opacity .2s; }
+.leg-row i { width:14px; height:14px; border-radius:50%; background:var(--c); border:2px solid #fff; box-shadow:0 0 8px var(--c); flex-shrink:0; }
+.leg-row b { margin-left:auto; padding-left:18px; font:500 13px var(--font-mono); opacity:.8; }
+.leg-row.apagado { opacity:.35; }
+.leg-sep { height:1px; background:rgba(255,255,255,.14); margin:6px 0; }
+.leg-mt, .leg-grupo { width:18px; height:18px; border-radius:50%; font-style:normal; text-align:center; flex-shrink:0; }
+.leg-mt { background:#fff; font-size:10px; line-height:18px; }
+.leg-grupo { background:#0a8fe0; border:2px solid #fff; color:#fff; font-size:10px; font-weight:700; line-height:14px; }
+.form-aberto .legenda { display:none; }
+@media (min-width:1500px) { .leg-corpo { padding:16px 22px 14px; min-width:260px; } .leg-row { font-size:19px; padding:5px 0; } .leg-row i { width:18px; height:18px; } .leg-row b { font-size:16px; } .leg-titulo { font-size:13px; } }
+@media (max-width:700px) {
+  .leg-toggle { display:block; margin-left:auto; padding:9px 14px; border:none; border-radius:8px; background:rgba(21,35,58,.92); color:#fff; font:700 14px var(--font-cond); box-shadow:0 2px 10px rgba(0,0,0,.4); }
+  .leg-corpo { display:none; margin-top:8px; }
+  .legenda.aberta .leg-corpo { display:block; }
+}
+/* ── Ícones alinhados + legenda que filtra ── */
+.ico { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; vertical-align:middle; }
+.ico-p { width:13px; height:13px; vertical-align:-2px; opacity:.85; }
+.btn .ico { width:16px; height:16px; }
+.pop .meta { display:flex; align-items:flex-start; gap:8px; line-height:1.35; }
+.pop .meta .ico { margin-top:2px; color:var(--ink-light); }
+.pop .meta.obs { margin-top:8px; }
+.pop .meta.bloqueado { margin-top:10px; padding:8px 10px; background:var(--surface); border-radius:8px; }
+.pop .tags { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+.pop .tag { display:inline-flex; align-items:center; gap:5px; margin:0; }
+.tag-mt { background:#e8a02022; color:#9a6200; border:1px solid #e8a02066; }
+.pin .mt { display:flex; align-items:center; justify-content:center; color:#1a2940; }
+.pin .mt .ico { width:10px; height:10px; stroke-width:2.4; }
+.leg-titulo small { text-transform:none; letter-spacing:0; font-weight:500; opacity:.6; margin-left:4px; }
+button.leg-row { background:none; border:none; color:inherit; width:calc(100% + 12px); margin:0 -6px; padding:4px 6px; text-align:left; border-radius:8px; cursor:pointer; }
+button.leg-row:hover { background:rgba(255,255,255,.08); }
+button.leg-row.on { background:rgba(25,180,255,.2); box-shadow:inset 0 0 0 1px rgba(25,180,255,.55); }
+.leg-info { opacity:.75; font-weight:500; }
+.leg-mt, .leg-grupo { display:flex; align-items:center; justify-content:center; }
+.leg-mt { color:#1a2940; } .leg-mt .ico { width:11px; height:11px; stroke-width:2.4; }
+.leg-limpar { display:block; width:100%; margin-top:8px; padding:7px; border:1px solid rgba(255,255,255,.25); border-radius:8px; background:transparent; color:#fff; font:600 13px var(--font-cond); cursor:pointer; }
+.legenda.filtrando .leg-toggle::after { content:' ●'; color:#ffc21a; }
+/* ── Botões da caixinha da obra: grade alinhada ── */
+.pop .grade { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+.pop .pb { display:flex; align-items:center; justify-content:center; gap:7px; height:38px; padding:0 12px; border-radius:8px; border:1.5px solid transparent; font:600 14px var(--font-cond); letter-spacing:.3px; text-decoration:none; cursor:pointer; white-space:nowrap; transition:.15s; }
+.pop .pb.largo { grid-column:1 / -1; }
+.pop .pb-azul { background:var(--blue); color:#fff; } .pop .pb-azul:hover { background:#0879c0; }
+.pop .pb-claro { background:#fff; color:var(--steel); border-color:var(--border); } .pop .pb-claro:hover { border-color:var(--blue); color:var(--blue); }
+.pop .pb-off { background:var(--surface); color:var(--ink-light); cursor:default; }
+.pop .pb .ico { width:16px; height:16px; }
+.pop .excluir { display:block; margin:10px auto 0; background:none; border:none; color:var(--signal); font:600 12px var(--font-cond); cursor:pointer; }
+/* ── Formulário de obra: botões sempre visíveis ── */
+.panel { overscroll-behavior:contain; }
+.panel .formbox .acts { position:sticky; bottom:0; z-index:3; background:#fff; margin-top:8px; padding:10px 0; border-top:1px solid var(--border); }
+.panel .formbox .acts .btn { flex:1; height:42px; justify-content:center; }
+@media (max-width:700px) {
+  .panel { padding-bottom:0; max-height:60%; }
+  #painelNova .formbox .acts { padding-bottom:calc(12px + env(safe-area-inset-bottom, 0px)); }
+}
+</style>
+</head>
+<body>
+<div id="bannerUpdate" style="display:none;position:fixed;top:0;left:0;right:0;z-index:10000;background:#ffc21a;color:#1a2940;padding:14px 20px;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 22px rgba(0,0,0,.5);font-family:var(--font-cond);border-bottom:3px solid #1a2940">
+  <div style="display:flex;align-items:center;gap:10px">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+    <span style="font-size:16px;font-weight:700">Nova versão disponível — atualize para continuar usando</span>
+  </div>
+  <button onclick="aplicarAtualizacao()" style="background:#1a2940;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-family:var(--font-cond);font-size:15px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap">🔄 Atualizar agora</button>
+</div>
+<nav class="topnav">
+  <div class="topnav-brand">
+    <div class="topnav-logo"><img src="logo-clemar.png" alt="Clemar Engenharia"></div>
+    <div><div class="topnav-title">MAPA DE OBRAS</div><div class="topnav-subtitle btn-hide-mobile">Supervisórios</div></div>
+  </div>
+  <div class="topnav-actions">
+    <button class="btn btn-blue js-nova" id="btnNova" style="display:none" onclick="novaObra()">+ <span class="btn-hide-mobile">Nova obra</span></button>
+    <a class="btn btn-steel" href="index.html">Inspeções</a>
+    <button class="btn btn-steel js-auth" id="btnAuth" onclick="authClick()">Entrar</button>
+  </div>
+</nav>
+
+<div class="wrap">
+  <aside id="side">
+    <div class="side-head">
+      <div class="side-acoes only-mobile">
+        <button class="btn btn-blue js-nova" style="display:none" onclick="novaObra()">+ Nova obra</button>
+        <a class="btn btn-steel" href="index.html">Inspeções</a>
+        <button class="btn btn-steel js-auth" onclick="authClick()">Entrar</button>
+        <button class="btn btn-steel" onclick="alternarMenu()" aria-label="Fechar menu" style="margin-left:auto">✕</button>
+      </div>
+      <h2><span>Obras <small id="cont">0</small></span><button class="btn btn-steel btn-sm" onclick="atualizarManual()" title="Atualizar obras" style="padding:2px 10px"><span id="icoRef" style="display:inline-block">↻</span></button></h2>
+      <div id="hora" class="hora"></div>
+      <input class="inp" id="busca" type="search" name="filtro-obras" placeholder="Buscar obra, cliente ou cidade…" oninput="aoBuscar()" autocomplete="off" autocapitalize="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')">
+      <div style="display:flex;gap:8px"><button class="btn btn-steel" onclick="verBrasil()" style="flex:1;justify-content:center">Ver Brasil</button><button class="btn btn-steel" onclick="verTudo()" style="flex:1;justify-content:center">Ver todas</button></div>
+    </div>
+    <div id="lista"></div>
+  </aside>
+  <div id="veu" onclick="alternarMenu()"></div>
+  <div id="mapbox">
+    <div id="map"></div>
+    <div id="legenda" class="legenda">
+      <button class="leg-toggle" onclick="alternarLegenda()">Legenda</button>
+      <div class="leg-corpo" id="legCorpo"></div>
+    </div>
+    <button class="mapbtn" id="btnSide" onclick="alternarMenu()" title="Recolher menu">◀</button>
+
+
+    <div class="panel" id="painelNova"></div>
+    <div id="holder" style="display:none"><div class="formbox" id="pForm">
+      <button class="x" onclick="fecharForm()">×</button>
+      <h3 id="fTitulo">Nova obra</h3>
+      <div class="hint">Escolha a cidade na lista. Para ajustar o local, arraste o pino laranja.</div>
+      <div class="fld"><label>Nome da obra *</label><input class="inp" id="fNome"></div>
+      <div class="fld"><label>Cliente</label><input class="inp" id="fCliente"></div>
+      <div class="fld"><label>Cidade *</label><input class="inp" id="fCidade" autocomplete="off" oninput="buscarCidade()"><div class="sug" id="sug" style="display:none"></div></div>
+      <div class="meta" id="fCoord" style="margin-bottom:11px;font-family:var(--font-mono);font-size:11px">Sem localização</div>
+      <div class="fld"><label>Status</label>
+        <select class="inp" id="fStatus"><option>Em andamento</option><option>Concluída</option><option>Planejada</option><option>Paralisada</option><option>Cliente histórico</option></select></div>
+      <div class="fld"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)"><input type="checkbox" id="fManut"> 🔧 Possui contrato de manutenção</label></div>
+      <div class="fld"><label>Link do supervisório</label><input class="inp" id="fLink" placeholder="https://…" inputmode="url"></div>
+      <div class="fld"><label>Observações</label><textarea class="inp" id="fObs" rows="2"></textarea></div>
+      <div class="acts"><button class="btn btn-primary" onclick="salvar()">Salvar</button><button class="btn btn-outline" onclick="fecharForm()">Cancelar</button></div>
+    </div></div>
+  </div>
+</div>
+
+<div class="auth-card panel" id="pLogin" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);right:auto;width:min(380px,92vw);z-index:50;bottom:auto;border-radius:12px">
+  <button class="x" onclick="el('pLogin').classList.remove('open')">×</button>
+  <div class="auth-title">Entrar para cadastrar obras</div>
+  <div class="auth-sub">Para apenas visualizar o mapa não é preciso login.</div>
+  <div id="loginErr" class="auth-error"></div>
+  <div class="auth-field"><label>E-mail</label><input type="email" id="lEmail" autocomplete="email"></div>
+  <div class="auth-field"><label>Senha</label><input type="password" id="lSenha" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
+  <button class="auth-btn auth-btn-primary" onclick="fazerLogin()">Entrar</button>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+<script>
+// Mesmo projeto Supabase do sistema de inspeção
+const supa = supabase.createClient('https://vsxoeqyqhmrljfahqcsb.supabase.co', 'sb_publishable_kBVUT2phcWigWcQNY7PkAQ_xOg72_kt');
+const COR = { 'Em andamento':'#2ecc71', 'Concluída':'#19b4ff', 'Planejada':'#e8a020', 'Paralisada':'#e5483a', 'Cliente histórico':'#8a96a3' };
+const STATUS = Object.keys(COR);
+const ICO = {
+  chave: '<path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>',
+  predio: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
+  pino: '<path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>',
+  monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  lapis: '<path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
+  prancheta: '<path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6M9 16h6"/>',
+  cadeado: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>',
+};
+const ico = (n, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24">${ICO[n]}</svg>`;
+const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+let filtro = new Set(), soManut = false, soSup = false, popup = null;
+const el = id => document.getElementById(id);
+const formEl = document.getElementById('pForm');
+const corObra = o => COR[o.status] || COR['Em andamento'];
+const local = o => o.uf ? `${o.cidade} – ${o.uf}` : (o.pais ? `${o.cidade}, ${o.pais}` : o.cidade);
+const fechaPop = () => { if (popup) { popup.remove(); popup = null; } };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let map, obras = [], marcas = {}, user = null, podeEditar = false, editId = null, draft = null, draftMarca = null, popForm = null, tGeo;
+
+function toast(t) { const e = el('toast'); e.textContent = t; e.style.display = 'block'; setTimeout(() => e.style.display = 'none', 3000); }
+
+// ── MAPA ──
+const COR_TERRA = '#2f4561', COR_AGUA = '#15233a';
+const BRASIL = [[-74, -34], [-34, 5.5]];
+const UF_URLS = ['https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application%2Fvnd.geo%2Bjson&intrarregiao=UF&qualidade=minima',
+                 'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson'];
+let ufData = null;
+map = new maplibregl.Map({
+  container: 'map', style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  bounds: BRASIL, fitBoundsOptions: { padding: 20 }, pitch: 0, maxPitch: 0, bearing: 0,
+  dragRotate: false, attributionControl: { compact: true }
+});
+map.touchZoomRotate.disableRotation(); map.keyboard.disableRotation();   // norte sempre para cima, sem inclinação
+map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'bottom-right');
+map.addControl(new maplibregl.FullscreenControl({ container: el('mapbox') }), 'bottom-right');
+// Rótulos em português (países da região) e cores do mapa
+const _nome = ['to-string', ['coalesce', ['get', 'name:pt'], ['get', 'name_pt'], ['get', 'name_en'], ['get', 'name']]];
+const NOME_PT = ['match', _nome, 'Brazil', 'Brasil', 'Paraguay', 'Paraguai', 'Mexico', 'México', 'Colombia', 'Colômbia', 'Bolivia', 'Bolívia',
+  'Ecuador', 'Equador', 'Uruguay', 'Uruguai', 'Guyana', 'Guiana', 'French Guiana', 'Guiana Francesa', 'United States of America', 'Estados Unidos',
+  'United States', 'Estados Unidos', 'Panama', 'Panamá', 'Dominican Republic', 'República Dominicana', 'Atlantic Ocean', 'Oceano Atlântico',
+  'Pacific Ocean', 'Oceano Pacífico', 'Caribbean Sea', 'Mar do Caribe', 'Gulf of Mexico', 'Golfo do México', _nome];
+function colorir() {
+  map.getStyle().layers.forEach(l => {
+    try {
+      if (l.type === 'background') map.setPaintProperty(l.id, 'background-color', COR_TERRA);
+      else if (l.type === 'fill') map.setPaintProperty(l.id, 'fill-color', /water|ocean|sea/i.test(l.id) ? COR_AGUA : COR_TERRA);
+      else if (l.type === 'symbol' && l.layout && l.layout['text-field'] && !/ref|housenumber|height|ele/i.test(JSON.stringify(l.layout['text-field'])))
+        map.setLayoutProperty(l.id, 'text-field', NOME_PT);
+    } catch (e) {}
+  });
+}
+// Divisas dos estados (IBGE; se falhar, usa uma cópia no GitHub)
+async function carregaUFs() {
+  for (const u of UF_URLS) { try { const r = await fetch(u); if (r.ok) { ufData = await r.json(); break; } } catch (e) {} }
+  try { desenhaUFs(); } catch (e) {}
+}
+function desenhaUFs() {
+  if (!ufData || map.getSource('ufs')) return;
+  const rot = map.getStyle().layers.find(l => l.type === 'symbol'), antes = rot && rot.id;
+  map.addSource('ufs', { type: 'geojson', data: ufData });
+  map.addLayer({ id: 'ufs-fundo', type: 'fill', source: 'ufs', paint: { 'fill-color': '#5aa9e6', 'fill-opacity': 0.10 } }, antes);
+  map.addLayer({ id: 'ufs-linha', type: 'line', source: 'ufs', paint: { 'line-color': '#8fc3f0', 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.8, 9, 2], 'line-opacity': 0.9 } }, antes);
+}
+map.on('style.load', () => { colorir(); try { desenhaUFs(); } catch (e) {} });
+function atualizaNomes() {
+  const c = map.cameraForBounds(BRASIL, { padding: 20 });   // zoom que enquadra o Brasil inteiro nesta tela
+  el('mapbox').classList.toggle('perto', !!c && map.getZoom() >= c.zoom + 0.7);
+}
+map.on('zoom', atualizaNomes); map.on('resize', atualizaNomes);
+function verBrasil() {
+  fechaMenuMobile(); map.fitBounds(BRASIL, { padding: 20, duration: 900 }); }
+
+// ── DADOS ──
+let _sig = '', ultimaOk = null;
+// "Atualizado às HH:MM"; vira alerta amarelo se passar de 6 min sem conseguir atualizar
+function mostraHora() {
+  if (!ultimaOk) return;
+  const h = ultimaOk.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), velho = Date.now() - ultimaOk > 6 * 60000;
+  el('hora').textContent = (velho ? '⚠ Sem atualizar desde ' : 'Atualizado às ') + h;
+  el('hora').classList.toggle('velho', velho);
+}
+setInterval(mostraHora, 30000);
+// Busca as obras; só redesenha o mapa se algo mudou. Devolve true (mudou), false (igual) ou null (erro)
+let _seqCarga = 0;
+const COLS_PUB = 'id,nome,cliente,cidade,uf,pais,lat,lng,status,manutencao,observacoes,tem_supervisorio';
+async function carregar() {
+  const seq = ++_seqCarga;
+  let r = await supa.from('obras_mapa').select(COLS_PUB + (podeEditar ? ',supervisorio_url' : '')).order('nome');
+  if (r.error && /tem_supervisorio/.test(r.error.message)) r = await supa.from('obras_mapa').select('*').order('nome');   // SQL ainda não rodou
+  const { data, error } = r;
+  if (seq !== _seqCarga) return null;   // chegou uma resposta mais nova: ignora esta
+  if (error) { toast('Erro ao carregar obras: ' + error.message); return null; }
+  ultimaOk = new Date(); mostraHora();
+  const sig = JSON.stringify(data || []);
+  if (sig === _sig) return false;
+  _sig = sig;
+  obras = (data || []).map(o => ({ ...o, status: o.status === 'Parada' ? 'Paralisada' : o.status, tem_supervisorio: o.tem_supervisorio ?? !!o.supervisorio_url }));
+  atualiza();
+  return true;
+}
+let recarregando = false;
+async function atualizarManual() {
+  if (recarregando) return; recarregando = true; el('icoRef').classList.add('girando');
+  const [mudou] = await Promise.all([carregar(), new Promise(r => setTimeout(r, 700))]);   // seta gira pelo menos um instante
+  el('icoRef').classList.remove('girando'); recarregando = false;
+  if (mudou !== null) toast(mudou ? `Atualizado: ${obras.length} obras` : 'Nenhuma novidade — já está atualizado');
+}
+// Atualização automática (telão): a cada 2 minutos e ao voltar para a aba; não mexe na tela se o formulário estiver aberto
+const formFechado = () => el('holder').contains(formEl);
+setInterval(() => { if (!document.hidden && formFechado()) carregar(); }, 120000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && formFechado()) carregar(); });
+function renderPinos() {
+  Object.values(marcas).forEach(m => m.remove()); marcas = {};
+  const grupos = {};
+  visiveis().forEach(o => { const k = o.lat.toFixed(4) + ',' + o.lng.toFixed(4); (grupos[k] = grupos[k] || []).push(o); });
+  Object.keys(grupos).forEach(k => {
+    const l = grupos[k], o = l[0], p = document.createElement('div');
+    if (l.length > 1) {   // várias obras exatamente no mesmo ponto: bolha com o número
+      p.className = 'cluster'; p.style.setProperty('--s', Math.min(48, 28 + l.length * 4) + 'px'); p.textContent = l.length;
+      p.onclick = e => { e.stopPropagation(); listaGrupo(l); };
+    } else {
+      p.className = 'pin'; p.style.setProperty('--c', corObra(o));
+      p.innerHTML = '<i></i><b></b><span class="nm"></span>' + (o.manutencao ? '<em class="mt">' + ico('chave') + '</em>' : '');
+      p.querySelector('.nm').textContent = o.nome;
+      p.onclick = e => { e.stopPropagation(); abrir(o.id); };
+    }
+    marcas[k] = new maplibregl.Marker({ element: p }).setLngLat([o.lng, o.lat]).addTo(map);
+  });
+}
+function listaGrupo(l) {
+  fechaPop();
+  const li = l.map(o => `<div class="meta"><a href="#" onclick="abrir('${o.id}');return false">${esc(o.nome)}</a></div>`).join('');
+  popup = new maplibregl.Popup({ offset: 26, className: 'pop' }).setLngLat([l[0].lng, l[0].lat]).setHTML(`<h3>${l.length} obras aqui</h3>${li}`).addTo(map);
+}
+function visiveis() {
+  const q = norm(el('busca').value).trim();
+  return obras.filter(o => (!filtro.size || filtro.has(o.status)) && (!soManut || o.manutencao) && (!soSup || o.tem_supervisorio)
+    && norm([o.nome, o.cliente, o.cidade, o.uf, o.pais].join(' ')).includes(q));
+}
+// Digitar na busca atualiza a lista E os pinos (apagar o texto traz tudo de volta)
+let tBusca, buscaDigitada = false;
+function aoBuscar() { clearTimeout(tBusca); tBusca = setTimeout(() => { fechaPop(); renderLista(); renderPinos(); }, 150); }
+el('busca').addEventListener('keydown', () => { buscaDigitada = true; });
+// o navegador às vezes preenche a busca com o e-mail salvo do login: se a pessoa não digitou, limpa
+[300, 1200, 3000].forEach(t => setTimeout(() => { if (!buscaDigitada && el('busca').value) { el('busca').value = ''; aoBuscar(); } }, t));
+function alternarLegenda() { el('legenda').classList.toggle('aberta'); }
+function renderLegenda() {
+  const n = f => obras.filter(f).length, filtrando = filtro.size > 0 || soManut || soSup;
+  el('legCorpo').innerHTML = '<div class="leg-titulo">Legenda <small>· toque para filtrar</small></div>'
+    + STATUS.map(st => `<button class="leg-row${filtro.has(st) ? ' on' : ''}${filtro.size && !filtro.has(st) ? ' apagado' : ''}" style="--c:${COR[st]}" onclick="alternaStatus('${st}')"><i></i>${st}<b>${n(o => o.status === st)}</b></button>`).join('')
+    + `<div class="leg-sep"></div>
+       <button class="leg-row${soManut ? ' on' : ''}" onclick="alternaManut()"><em class="leg-mt">${ico('chave')}</em>Contrato de manutenção<b>${n(o => o.manutencao)}</b></button>
+       <button class="leg-row${soSup ? ' on' : ''}" onclick="alternaSup()"><em class="leg-mt">${ico('monitor')}</em>Com supervisório<b>${n(o => o.tem_supervisorio)}</b></button>`
+    + (filtrando ? '<button class="leg-limpar" onclick="limparFiltrosMapa()">Limpar filtros</button>' : '');
+  el('legenda').classList.toggle('filtrando', filtrando);
+}
+function renderChips() { renderLegenda(); }
+function alternaStatus(st) { filtro.has(st) ? filtro.delete(st) : filtro.add(st); atualiza(); }
+function alternaManut() { soManut = !soManut; atualiza(); }
+function alternaSup() { soSup = !soSup; atualiza(); }
+function limparFiltrosMapa() { filtro.clear(); soManut = false; soSup = false; atualiza(); }
+function atualiza() { fechaPop(); renderChips(); renderLista(); renderPinos(); }
+function renderLista() {
+  const l = visiveis();
+  el('cont').textContent = l.length;
+  el('lista').innerHTML = l.length ? l.map(o => `<div class="item" style="--c:${esc(corObra(o))}" onclick="abrir('${o.id}', true)"><b>${esc(o.nome)}${o.manutencao ? ' ' + ico('chave', 'ico-p') : ''}</b><span>${esc(local(o))}${o.cliente ? ' · ' + esc(o.cliente) : ''}</span></div>`).join('')
+    : '<div class="vazio">Nenhuma obra encontrada.</div>';
+}
+function verTudo() {
+  fechaMenuMobile();
+  const l = visiveis(); if (!l.length) return;
+  const b = new maplibregl.LngLatBounds(); l.forEach(o => b.extend([o.lng, o.lat]));
+  map.fitBounds(b, { padding: 90, maxZoom: 8, duration: 900 });
+}
+const movel = () => innerWidth <= 700;
+function fechaMenuMobile() { document.querySelector('.wrap').classList.remove('menu-aberto'); }
+function rotuloMenu() {
+  const r = document.querySelector('.wrap').classList.contains('recolhido');
+  el('btnSide').textContent = movel() ? '☰ Menu' : (r ? '☰' : '◀');
+  el('btnSide').title = r ? 'Mostrar menu' : 'Recolher menu';
+}
+function alternarMenu() {
+  document.querySelector('.wrap').classList.toggle(movel() ? 'menu-aberto' : 'recolhido');   // celular: gaveta; computador: recolhe
+  rotuloMenu(); setTimeout(() => map.resize(), 60);
+}
+addEventListener('resize', rotuloMenu);
+function urlSegura(u) {
+  if (!u) return '';
+  u = u.trim(); if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(u)) u = 'https://' + u;
+  try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch (e) { return ''; }
+}
+
+// ── DETALHE ──
+function abrir(id, centralizar) {
+  const o = obras.find(x => x.id === id); if (!o) return;
+  fecharForm(); fechaPop();
+  if (centralizar) fechaMenuMobile();
+  const c = COR[o.status] || COR['Em andamento'];
+  const link = podeEditar ? urlSegura(o.supervisorio_url) : '';   // supervisório e relatórios: só logado e aprovado
+  const lnkRel = `index.html#obra=${encodeURIComponent(o.id)}&nome=${encodeURIComponent(o.nome)}`;
+  const acesso = podeEditar
+    ? `<div class="grade">${link ? `<a class="pb pb-azul largo" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${ico('monitor')} Abrir supervisório</a>` : `<span class="pb pb-off largo">${ico('monitor')} ${o.tem_supervisorio ? 'Link indisponível — atualize a página' : 'Sem supervisório cadastrado'}</span>`}<a class="pb pb-claro" href="${lnkRel}">${ico('prancheta')} Relatórios</a><button class="pb pb-claro" onclick="editar('${o.id}')">${ico('lapis')} Editar</button></div><button class="excluir" onclick="excluir('${o.id}')">Excluir obra</button>`
+    : `<div class="meta bloqueado">${ico('cadeado')}<span>Entre para acessar o supervisório e os relatórios desta obra.</span></div><div class="grade"><button class="pb pb-azul largo" onclick="authClick()">Entrar</button></div>`;
+  const html = `<h3>${esc(o.nome)}</h3>
+    <div class="tags"><span class="tag" style="background:${c}22;color:${c};border:1px solid ${c}66">${esc(o.status)}</span>${o.manutencao ? `<span class="tag tag-mt">${ico('chave')} Manutenção</span>` : ''}</div>
+    ${o.cliente ? `<div class="meta">${ico('predio')}<span>${esc(o.cliente)}</span></div>` : ''}
+    <div class="meta">${ico('pino')}<span>${esc(local(o))}</span></div>
+    ${o.observacoes ? `<div class="meta obs">${esc(o.observacoes)}</div>` : ''}
+    ${acesso}`;
+  if (centralizar) map.easeTo({ center: [o.lng, o.lat], bearing: 0, duration: 600 });   // só centraliza, sem zoom
+  popup = new maplibregl.Popup({ offset: 22, maxWidth: '310px', className: 'pop' }).setLngLat([o.lng, o.lat]).setHTML(html).addTo(map);
+}
+
+// ── FORMULÁRIO ──
+function novaObra() { fechaMenuMobile(); editId = null; abrirForm({}); }
+async function editar(id) {
+  editId = id;
+  let o = obras.find(x => x.id === id) || {};
+  const { data } = await supa.from('obras_mapa').select('*').eq('id', id).single();   // sempre edita com a linha completa do banco (inclui o link)
+  if (data) o = { ...o, ...data };
+  abrirForm(o);
+}
+function abrirForm(o) {
+  fechaPop();
+  el('fTitulo').textContent = editId ? 'Editar obra' : 'Nova obra';
+  el('fNome').value = o.nome || ''; el('fCliente').value = o.cliente || ''; el('fCidade').value = o.cidade || '';
+  el('fStatus').value = o.status || 'Em andamento'; el('fManut').checked = !!o.manutencao;
+  el('fLink').value = o.supervisorio_url || ''; el('fObs').value = o.observacoes || '';
+  draft = { uf: o.uf || '', pais: o.pais || '', lat: o.lat ?? null, lng: o.lng ?? null, orig: o };
+  const c = map.getCenter(), ini = draft.lat !== null ? [draft.lng, draft.lat] : [c.lng, c.lat];   // obra nova: pino provisório no centro
+  montaDraft(ini); atualizaCoord();
+  if (editId || innerWidth <= 700) map.easeTo({ center: ini, offset: deslocPainel(), duration: 400 });   // pino fica fora de trás do painel
+}
+// Pino laranja arrastável + caixinha do formulário presa a ele
+const deslocPainel = () => innerWidth > 700 ? [-170, 0] : [0, -Math.round(map.getContainer().clientHeight * 0.28)];
+function montaDraft(ll) {
+  if (draftMarca) draftMarca.remove();
+  draftMarca = new maplibregl.Marker({ color: '#e8a020', draggable: true }).setLngLat(ll).addTo(map);
+  draftMarca.on('dragend', () => { const q = draftMarca.getLngLat(); draft.lat = q.lat; draft.lng = q.lng; atualizaCoord(); });
+  el('painelNova').appendChild(formEl); el('painelNova').classList.add('open'); el('mapbox').classList.add('form-aberto');
+}
+function fecharForm() {
+  el('holder').appendChild(formEl); el('painelNova').classList.remove('open'); el('mapbox').classList.remove('form-aberto');
+  el('sug').style.display = 'none';
+  if (draftMarca) { draftMarca.remove(); draftMarca = null; }
+}
+function atualizaCoord() { el('fCoord').textContent = draft && draft.lat !== null ? `📌 ${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}` : 'Sem localização'; }
+function setPonto(lat, lng, voar) {
+  draft.lat = lat; draft.lng = lng; atualizaCoord();
+  if (draftMarca) draftMarca.setLngLat([lng, lat]);
+  if (voar) map.flyTo({ center: [lng, lat], zoom: 9, offset: deslocPainel(), speed: .9 });
+}
+function buscarCidade() {
+  clearTimeout(tGeo); const q = el('fCidade').value.trim();
+  if (q.length < 3) { el('sug').style.display = 'none'; return; }
+  tGeo = setTimeout(async () => {
+    try {
+      const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=br,py,ve,cu,mx&accept-language=pt-BR&q=' + encodeURIComponent(q));
+      const l = await r.json();
+      el('sug').innerHTML = l.map((x, i) => `<div data-i="${i}">${esc(x.display_name)}</div>`).join('') || '<div>Nada encontrado</div>';
+      el('sug').style.display = 'block';
+      el('sug').onclick = e => {
+        const i = e.target.dataset.i; if (i === undefined) return;
+        const x = l[i], a = x.address || {};
+        el('fCidade').value = a.city || a.town || a.village || a.municipality || x.name;
+        const br = (a.country_code || '') === 'br';
+        draft.uf = br ? (a['ISO3166-2-lvl4'] || '').replace('BR-', '') : ''; draft.pais = br ? '' : (a.country || '');
+        el('sug').style.display = 'none';
+        setPonto(parseFloat(x.lat), parseFloat(x.lon), true);
+      };
+    } catch (e) { toast('Falha ao buscar cidade.'); }
+  }, 600);
+}
+let salvando = false;
+async function salvar() {
+  if (salvando) return;
+  const nome = el('fNome').value.trim(), cidade = el('fCidade').value.trim();
+  if (!nome || !cidade) { toast('Preencha o nome e a cidade.'); return; }
+  if (draft.lat === null) { toast('Escolha a cidade na lista ou arraste o pino laranja.'); return; }
+  const linkTxt = el('fLink').value.trim(), link = urlSegura(linkTxt);
+  if (linkTxt && !link) { toast('Link do supervisório inválido.'); return; }
+  const row = { nome, cliente: el('fCliente').value.trim(), cidade, uf: draft.uf, pais: draft.pais || '', manutencao: el('fManut').checked, lat: draft.lat, lng: draft.lng,
+    status: el('fStatus').value, supervisorio_url: link, observacoes: el('fObs').value.trim(), atualizado_em: new Date().toISOString() };
+  if (editId) {   // ao editar, grava só o que realmente mudou: um campo que não foi carregado nunca é apagado
+    const orig = draft.orig || {};
+    Object.keys(row).forEach(k => { if (k !== 'atualizado_em' && (orig[k] === undefined ? !row[k] : row[k] === orig[k])) delete row[k]; });
+  }
+  const q = editId ? supa.from('obras_mapa').update(row).eq('id', editId) : supa.from('obras_mapa').insert([{ ...row, criado_por: user.email }]);
+  salvando = true; const { error } = await q; salvando = false;
+  if (error) { toast('Erro ao salvar: ' + error.message); return; }
+  const id = editId; fecharForm(); await carregar(); toast('Obra salva!'); if (id) abrir(id);
+}
+async function excluir(id) {
+  if (!confirm('Excluir esta obra do mapa?')) return;
+  const { error } = await supa.from('obras_mapa').delete().eq('id', id);
+  if (error) { toast('Erro: ' + error.message); return; }
+  fechaPop(); carregar(); toast('Obra excluída.');
+}
+
+// ── LOGIN (opcional: só para cadastrar/editar) ──
+async function checarSessao() {
+  const antes = podeEditar;
+  const { data: { session } } = await supa.auth.getSession();
+  user = session?.user || null; podeEditar = false;
+  if (user) {
+    const { data: r } = await supa.from('usuarios').select('aprovado, role').eq('id', user.id).single();
+    podeEditar = !!(r && (r.aprovado || r.role === 'admin'));
+  }
+  document.querySelectorAll('.js-nova').forEach(b => b.style.display = podeEditar ? '' : 'none');
+  document.querySelectorAll('.js-auth').forEach(b => b.textContent = user ? 'Sair' : 'Entrar');
+  if (antes !== podeEditar) { _sig = ''; await carregar(); }
+}
+function authClick() {
+  fechaMenuMobile();
+  if (user) { supa.auth.signOut().then(() => { fecharForm(); fechaPop(); checarSessao(); }); }
+  else el('pLogin').classList.add('open');
+}
+async function fazerLogin() {
+  const err = el('loginErr'); err.style.display = 'none';
+  const { error } = await supa.auth.signInWithPassword({ email: el('lEmail').value.trim(), password: el('lSenha').value });
+  if (error) { err.textContent = error.message; err.style.display = 'block'; return; }
+  await checarSessao();
+  if (!podeEditar) { err.textContent = 'Seu acesso ainda não foi aprovado pelo administrador.'; err.style.display = 'block'; return; }
+  el('pLogin').classList.remove('open');
+}
+
+
+// ── ATUALIZAÇÃO DO APP (mesmo service worker da inspeção) ──
+let _reg = null;
+function aplicarAtualizacao() {
+  el('bannerUpdate').style.display = 'none';
+  if (_reg && _reg.waiting) _reg.waiting.postMessage({ type: 'SKIP_WAITING' }); else location.reload();
+}
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/Clemar-inspecao/sw.js').then(reg => {
+      _reg = reg;
+      const mostrar = () => el('bannerUpdate').style.display = 'flex';
+      if (reg.waiting) mostrar();
+      reg.addEventListener('updatefound', () => {
+        const n = reg.installing;
+        n.addEventListener('statechange', () => { if (n.state === 'installed' && navigator.serviceWorker.controller) mostrar(); });
+      });
+      reg.update(); setInterval(() => reg.update(), 60000);
+    }).catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+  });
+}
+
+rotuloMenu(); renderChips(); checarSessao().catch(() => {}).then(() => carregar()); carregaUFs();
+</script>
+</body>
+</html>

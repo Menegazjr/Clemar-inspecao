@@ -471,7 +471,7 @@ function renderizarPastasBar() {
       if (i < caminho.length - 1) {
         crumbs.push(`<button class="pasta-breadcrumb-item" onclick="navegarPasta('${p.id}')">${escH(p.nome)}</button>`);
       } else {
-        crumbs.push(`<span class="pasta-breadcrumb-item atual">${escH(p.nome)}</span>`);
+        crumbs.push(`<span class="pasta-breadcrumb-item atual">${escH(p.nome)}</span><button class="pasta-ren" onclick="renomearPasta('${p.id}')" title="Renomear pasta">✎</button>`);
       }
     });
     breadcrumb = `<div class="pasta-breadcrumb">${crumbs.join('')}</div>`;
@@ -581,38 +581,23 @@ async function confirmarExcluirPasta(id, nome) {
 }
 
 // Mover relatório para pasta
-let _moverRelatorioIds = [];
+let _moverIds = [];
 
 async function menuMoverPasta() {
   fecharMenuCard();
-  abrirSeletorPasta([_menuCardId]);
+  _moverIds = [_menuCardId];
+  await abrirSeletorPasta();
 }
 
-async function abrirSeletorPasta(ids) {
-  _moverRelatorioIds = [...new Set(ids.filter(Boolean))];
-  if (!_moverRelatorioIds.length) return;
-  const selecionados = relatorios.filter(r => _moverRelatorioIds.includes(r.id));
-  if (selecionados.length !== _moverRelatorioIds.length) {
-    showAlert('Não foi possível localizar todos os relatórios selecionados.', 'err');
-    return;
-  }
-  const relatorio = selecionados[0];
-  if (currentUser?.role !== 'admin' && relatorio?.user_id !== currentUser?.id) {
-    showAlert('Você só pode mover relatórios próprios.', 'err');
-    return;
-  }
-  if (currentUser?.role !== 'admin' && selecionados.some(r => r.user_id !== currentUser?.id)) {
-    showAlert('Você só pode mover relatórios próprios.', 'err');
-    return;
-  }
+async function abrirSeletorPasta() {
   // Recarregar pastas do banco para garantir dados atualizados
   await carregarPastas();
-  const pastaAtual = selecionados.length === 1 ? selecionados[0].pasta_id : null;
+  const r = _moverIds.length === 1 ? relatorios.find(x => x.id === _moverIds[0]) : null;
   const list = document.getElementById('pastaSelectList');
   list.innerHTML = `
-    <button class="pasta-select-item ${selecionados.length === 1 && !pastaAtual ? 'selecionada' : ''}" onclick="moverParaPasta(null)">
+    <button class="pasta-select-item ${!r?.pasta_id ? 'selecionada' : ''}" onclick="moverParaPasta(null)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-      ${_moverRelatorioIds.length > 1 ? 'Mover para sem pasta' : 'Sem pasta'}
+      Sem pasta
     </button>
     ${[...pastas].sort((a,b) => {
       const labelA = (a.pasta_pai_id ? (pastas.find(x=>x.id===a.pasta_pai_id)?.nome||'') + ' › ' : '') + a.nome;
@@ -623,9 +608,9 @@ async function abrirSeletorPasta(ids) {
       const label = pai ? `${pai.nome} › ${p.nome}` : p.nome;
       const indent = pai ? 'padding-left:24px;' : '';
       return `
-      <button class="pasta-select-item ${selecionados.length === 1 && pastaAtual === p.id ? 'selecionada' : ''}" onclick="moverParaPasta('${p.id}')" style="${indent}">
+      <button class="pasta-select-item ${r?.pasta_id === p.id ? 'selecionada' : ''}" onclick="moverParaPasta('${p.id}')" style="${indent}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-        ${_moverRelatorioIds.length > 1 ? `Mover para ${label}` : label}
+        ${label}
       </button>`;
     }).join('')}`;
   document.getElementById('pastaSelectOverlay').classList.add('open');
@@ -639,26 +624,25 @@ function fecharPastaSelect() {
 
 async function moverParaPasta(pastaId) {
   fecharPastaSelect();
-  if (!_moverRelatorioIds.length) return;
-  const ids = [..._moverRelatorioIds];
-  const { data: atualizados, error } = await supa.from('relatorios')
-    .update({ pasta_id: pastaId })
-    .in('id', ids)
-    .select('id');
+  if (!_moverIds.length) return;
+  const { error } = await supa.from('relatorios').update({ pasta_id: pastaId }).in('id', _moverIds);
   if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
-  if ((atualizados || []).length !== ids.length) {
-    showAlert('Nem todos os relatórios foram movidos. Verifique as permissões e tente novamente.', 'err');
-    await carregarLista();
-    return;
-  }
-  relatorios.filter(r => ids.includes(r.id)).forEach(r => { r.pasta_id = pastaId; });
-  const pastaAlvo = pastaId ? pastas.find(p => p.id === pastaId) : null;
-  const paiAlvo = pastaAlvo ? pastas.find(p => p.id === pastaAlvo.pasta_pai_id) : null;
-  const nomePasta = pastaAlvo ? (paiAlvo ? `${paiAlvo.nome} › ${pastaAlvo.nome}` : pastaAlvo.nome) : 'sem pasta';
-  showAlert(`${ids.length === 1 ? 'Movido' : `${ids.length} relatórios movidos`} para: ${nomePasta}`, 'ok');
-  if (typeof sairSelecao === 'function') sairSelecao();
-  _moverRelatorioIds = [];
-  renderizarLista();
+  relatorios.forEach(r => { if (_moverIds.includes(r.id)) r.pasta_id = pastaId; });
+  const nomePasta = pastaId ? caminhoAte(pastaId).map(x => x.nome).join(' › ') : 'sem pasta';
+  showAlert(`${_moverIds.length > 1 ? _moverIds.length + ' relatórios movidos' : 'Movido'} para: ${nomePasta}`, 'ok');
+  _moverIds = [];
+  if (_selMode) sairSelecao(); else renderizarLista();
+}
+
+// Renomear a pasta em que você está
+async function renomearPasta(id) {
+  const p = pastas.find(x => x.id === id); if (!p) return;
+  const nome = (prompt('Novo nome da pasta:', p.nome) || '').trim();
+  if (!nome || nome === p.nome) return;
+  const { error } = await supa.from('pastas').update({ nome }).eq('id', id);
+  if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
+  p.nome = nome; renderizarPastasBar(); renderizarLista();
+  showAlert('Pasta renomeada.', 'ok');
 }
 
 
@@ -670,20 +654,9 @@ document.addEventListener('keydown', e => { if(e.key==='Escape') fecharViewerBtn
 //  INIT — VERIFICA SESSÃO
 // ═══════════════════════════════════════════════
 (async function() {
-  try {
-    const { data: { session }, error } = await supa.auth.getSession();
-    if (error) throw error;
-    if (session?.user) {
-      await aoLogar(session.user);
-    } else {
-      finalizarValidacaoSessaoInicial();
-    }
-  } catch (error) {
-    console.error('Falha ao restaurar a sessão:', error);
-    const msg = document.getElementById('authMsg');
-    msg.textContent = 'Não foi possível verificar sua sessão: ' + error.message;
-    msg.style.display = 'block';
-    finalizarValidacaoSessaoInicial();
+  const { data: { session } } = await supa.auth.getSession();
+  if (session && session.user) {
+    aoLogar(session.user);
   }
 })();
 

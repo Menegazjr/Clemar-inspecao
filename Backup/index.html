@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1a2940">
+  <title>Relatório de Visita de Obra – Clemar Engenharia</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+  <!-- CDN libs -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <!-- docx bundled lib -->
+  <script src="libs.js"></script>
+  <!-- Quill rich text editor -->
+  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="style.css">
+  <style>
+    @keyframes girar { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div id="bannerUpdate" style="display:none;position:fixed;top:0;left:0;right:0;z-index:10000;background:var(--steel);color:#fff;padding:14px 20px;display:none;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-family:var(--font-cond)">
+  <div style="display:flex;align-items:center;gap:10px">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;flex-shrink:0"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+    <span style="font-size:14px;font-weight:600">Nova versão disponível — atualize para continuar usando</span>
+  </div>
+  <button onclick="aplicarAtualizacao()" style="background:var(--accent);color:var(--steel);border:none;border-radius:8px;padding:8px 18px;font-family:var(--font-cond);font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap">
+    🔄 Atualizar agora
+  </button>
+</div>
+<div id="bannerProgresso" style="display:none;position:fixed;top:0;left:0;right:0;z-index:10001;background:var(--steel);color:#fff;padding:14px 20px;align-items:center;justify-content:center;gap:12px;font-family:var(--font-cond)">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;animation:girar 1s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+  <span style="font-size:14px;font-weight:600">Atualizando...</span>
+  <div style="flex:1;max-width:200px;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;overflow:hidden">
+    <div id="barraProgresso" style="height:100%;width:0%;background:var(--accent);border-radius:2px;transition:width 0.8s ease"></div>
+  </div>
+</div>
+
+<div id="bannerOffline" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9998;background:#c0392b;color:#fff;text-align:center;padding:10px 16px;font-family:sans-serif;font-size:14px;font-weight:600">
+  📵 Sem conexão com a internet — não é possível salvar ou carregar relatórios
+</div>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo"><img src="logo-clemar-cores.png" alt="Clemar">
+    </div>
+    <div class="auth-title">Relatório de Visita de Obra</div>
+    <div class="auth-sub">Clemar Engenharia — Sistema Online</div>
+    <div id="authMsg" class="auth-error"></div>
+    <div id="authOk" class="auth-ok"></div>
+    <div id="formLogin">
+      <div class="auth-field">
+        <label>E-mail</label>
+        <input type="email" id="authEmail" placeholder="seu@email.com" autocomplete="email">
+      </div>
+      <div class="auth-field">
+        <label>Senha</label>
+        <input type="password" id="authPassword" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <input type="checkbox" id="lembrarMe" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
+        <label for="lembrarMe" style="font-size:13px;color:var(--ink-light);cursor:pointer;user-select:none">Lembrar de mim</label>
+      </div>
+      <button class="auth-btn auth-btn-primary" onclick="fazerLogin()">Entrar</button>
+      <div class="auth-divider">Não tem conta? <a onclick="toggleForm(true)">Criar conta</a></div>
+      <div class="auth-divider"><a href="mapa.html">🗺️ Ver mapa de obras (sem login)</a></div>
+    </div>
+    <div id="formCadastro" style="display:none">
+      <div class="auth-field">
+        <label>Nome</label>
+        <input type="text" id="authNome" placeholder="Seu nome completo">
+      </div>
+      <div class="auth-field">
+        <label>E-mail</label>
+        <input type="email" id="authEmailCad" placeholder="seu@email.com">
+      </div>
+      <div class="auth-field">
+        <label>Senha</label>
+        <input type="password" id="authPasswordCad" placeholder="Mínimo 6 caracteres">
+      </div>
+      <button class="auth-btn auth-btn-primary" onclick="fazerCadastro()">Criar conta</button>
+      <button class="auth-btn auth-btn-link" onclick="toggleForm(false)">← Voltar para login</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF hidden area -->
+<div id="pdfArea"></div>
+
+<!-- TOPNAV -->
+<nav class="topnav" id="mainNav" style="display:none">
+  <div class="topnav-brand">
+    <div class="topnav-logo"><img src="logo-clemar.png" alt="Clemar Engenharia"></div>
+    <div class="topnav-logo-mobile"><img src="logo-clemar-pequeno.png" alt="Clemar" style="height:32px;width:32px"></div>
+    <div>
+
+    </div>
+  </div>
+  <div class="topnav-actions">
+    <!-- Botões do form -->
+    <div id="navForm" style="display:none;gap:8px;align-items:center;display:none">
+      <div id="navFormLixeira" style="position:relative;display:none">
+        <button class="btn btn-steel" onclick="abrirLixeira()" title="Lixeira" style="padding:4px 8px;font-size:12px;height:28px;min-height:unset">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+        <span id="badgeLixeiraForm" style="display:none;position:absolute;top:-6px;right:-6px;background:var(--signal);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 5px;font-family:var(--font-mono);z-index:10;pointer-events:none"></span>
+      </div>
+      <button class="btn btn-outline btn-hide-mobile" onclick="voltarLista()" style="color:#fff;border-color:rgba(255,255,255,0.3)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15,18 9,12 15,6"/></svg>
+        <span>Lista</span>
+      </button>
+      <button class="btn btn-primary nav-form-action" onclick="salvar()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/></svg>
+        <span>Salvar</span>
+      </button>
+      <button class="btn btn-purple nav-form-action" onclick="exportarPDF()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+        <span>PDF</span>
+      </button>
+      <button class="btn btn-ok nav-form-action" onclick="exportarWord()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+        <span>Word</span>
+      </button>
+      <button class="btn btn-danger nav-form-action" onclick="confirmarExcluir()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        <span>Excluir</span>
+      </button>
+    </div>
+    <div id="navLista" style="display:none">
+      <div style="display:flex;align-items:center;gap:6px">
+      <a class="btn btn-steel" href="mapa.html" title="Mapa de obras" style="padding:4px 8px;font-size:12px;height:28px;min-height:unset;text-decoration:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          <span class="btn-hide-mobile">Mapa</span>
+        </a>
+      <div style="position:relative;display:inline-flex">
+        <button class="btn btn-steel" onclick="abrirLixeira()" title="Lixeira" style="padding:4px 8px;font-size:12px;height:28px;min-height:unset">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          <span class="btn-hide-mobile">Lixeira</span>
+        </button>
+        <span id="badgeLixeira" style="display:none;position:absolute;top:-6px;right:-6px;background:var(--signal);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 5px;font-family:var(--font-mono);z-index:10;pointer-events:none"></span>
+      </div>
+    </div>
+    </div>
+    <div class="user-bar" id="userBar" style="display:none">
+      <button onclick="abrirPerfil()" title="Meu perfil" style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.85);-webkit-tap-highlight-color:transparent;border-radius:6px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      </button>
+      <span id="userEmail" style="display:none"></span>
+      <button id="btnAdmin" style="display:none" onclick="abrirAdmin()" class="btn-admin" title="Usuários">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        <span class="btn-hide-mobile">Usuários</span>
+      </button>
+      <button id="btnSair" onclick="fazerLogout()">Sair</button>
+    </div>
+  </div>
+</nav>
+
+
+<!-- PAINEL ADMIN (Gestão) -->
+<div id="adminPanel">
+  <div class="gestao-modal">
+    <div class="gestao-head">
+      <div><div class="gestao-titulo">Gestão</div><div class="gestao-sub">Usuários e espaço do Supabase</div></div>
+      <button class="gestao-x" onclick="fecharAdmin()" aria-label="Fechar">×</button>
+    </div>
+    <div class="gestao-body">
+      <div class="g-cards" id="gCards"></div>
+      <h4 class="g-sec">Espaço no Supabase <button class="g-link" onclick="carregarEspaco()">↻ atualizar</button></h4>
+      <div class="g-espaco" id="gEspaco"><div class="admin-empty" style="grid-column:1/-1">Carregando…</div></div>
+      <h4 class="g-sec">Usuários</h4>
+      <div class="g-toolbar">
+        <input id="gBusca" type="search" name="busca-usuarios" placeholder="Buscar por nome ou e-mail…" oninput="gBuscar(this.value)" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')">
+        <div class="g-chips" id="gChips"></div>
+      </div>
+      <div id="gUsuarios"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BARRA MOBILE -->
+<div class="mobile-bottom-bar" id="mobileBarForm" style="display:none">
+  <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,0.3)" onclick="voltarLista()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15,18 9,12 15,6"/></svg> Lista
+  </button>
+  <button class="btn btn-primary" onclick="salvar()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/></svg> Salvar
+  </button>
+  <button class="btn btn-purple" onclick="exportarPDF()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg> PDF
+  </button>
+  <button class="btn btn-ok" onclick="exportarWord()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg> Word
+  </button>
+  <button class="btn btn-danger" onclick="confirmarExcluir()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg> Excluir
+  </button>
+</div>
+
+<!-- APP -->
+<div id="appBody" style="display:none; flex:1; flex-direction:column">
+
+  <!-- VIEW: LISTA -->
+  <div id="viewLista" class="ativo" style="display:none">
+    <div class="lista-container">
+      <div class="lista-header">
+        <div>
+          <div class="lista-titulo">Relatórios de Visita</div>
+          <div class="lista-subtitulo" id="listSubtitle">Carregando...</div>
+          <div style="display:none"><span id="badgeUsoDb" class="badge-uso-db" style="display:none;align-items:center;gap:6px;width:fit-content;margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:11px;font-family:var(--font-mono);color:var(--ink-light)" title="Tamanho real do banco de dados (limite free: 500 MB)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            <span>Banco:</span> <span id="badgeUsoDbTxt">—</span>
+            <span style="opacity:0.55">/ 500 MB</span>
+          </span></div>
+        </div>
+        <button class="btn btn-primary btn-novo" onclick="novoRelatorio()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:15px;height:15px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span class="txt-longo">Novo Relatório</span><span class="txt-curto">Novo</span>
+        </button>
+      </div>
+      <div class="lista-tools">
+        <div class="lista-busca">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" id="listaBusca" name="busca-relatorios" readonly onfocus="this.removeAttribute('readonly')" placeholder="Buscar obra, cliente, cidade ou nº…" oninput="aoBuscar(this.value)" autocomplete="off">
+        </div>
+        <div class="lista-filtros" id="listaFiltros">
+          <button class="flimpar" id="btnLimparFiltros" style="display:none" onclick="limparFiltros()">Limpar</button>
+          <button class="fchip" data-sit="Liberado" style="--c:var(--ok)" onclick="alternarSit('Liberado')"><i></i>Liberado</button>
+          <button class="fchip" data-sit="Em elaboração" style="--c:var(--accent)" onclick="alternarSit('Em elaboração')"><i></i>Em elaboração</button>
+          <button class="fchip" data-sit="Concluído" style="--c:#0a8fe0" onclick="alternarSit('Concluído')"><i></i>Concluído</button>
+          <button class="fchip" data-sit="Em avaliação" style="--c:#8a96a3" onclick="alternarSit('Em avaliação')"><i></i>Em avaliação</button>
+          <button class="fchip" id="fMeus" onclick="alternarMeus()">👤 Só meus</button>
+          <button class="fchip" id="fAgrupar" onclick="alternarAgrupar()" title="Agrupar as visitas por obra">🗂 Por obra</button>
+          <button class="fchip" id="fSel" onclick="alternarSelecao()" title="Selecionar vários para mover de pasta">☑ Selecionar</button>
+          
+          <select class="lista-ordem" id="listaOrdem" onchange="aoOrdenar(this.value)" title="Ordenar por">
+            <option value="numero_desc">Nº (maior primeiro)</option>
+            <option value="editado">Última edição</option>
+            <option value="data">Data da visita</option>
+            <option value="obra">Obra (A–Z)</option>
+            <option value="numero_asc">Nº (menor primeiro)</option>
+          </select>
+        </div>
+        <div class="lista-dica" id="listaDica" style="display:none">Buscando em todas as pastas</div>
+      </div>
+      <div id="pastasBar" class="pastas-bar"></div>
+      <div id="listaRelatorios">
+        <div style="text-align:center;padding:40px;color:var(--ink-light)">Carregando relatórios...</div>
+      </div>
+    </div>
+    <!-- Mobile FAB -->
+  </div>
+
+  <!-- VIEW: FORMULÁRIO -->
+  <div id="viewForm" style="display:none; flex:1">
+    <div class="form-container">
+      <!-- Sidebar histórico -->
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-label">Relatórios</div>
+          <div class="sidebar-search">
+            <input type="text" id="searchInput" placeholder="Buscar..." oninput="filtrarHistorico()">
+          </div>
+        </div>
+        <div class="history-list" id="historyList"></div>
+        <div class="sidebar-section" style="padding-bottom:14px">
+          <button class="btn btn-danger btn-sm" style="width:100%" onclick="confirmarExcluir()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+            Excluir Atual
+          </button>
+        </div>
+      </aside>
+
+      <!-- Main form -->
+      <main class="main" id="mainContent">
+        <div class="tabs">
+          <div class="tab active" style="cursor:default">📸 Registro de Visita</div>
+        </div>
+
+        <div id="tabForm">
+          <div class="status-row">
+            <span class="badge badge-steel" id="badgeNum">VISITA #—</span>
+            <span class="badge badge-accent" id="badgeDate">—</span>
+            <span class="badge badge-ok-sm" id="badgeFotos">0 fotos</span>
+            <span class="badge" style="background:var(--surface-2);color:var(--ink-light);font-family:var(--font-mono);font-size:10px" id="badgeTamanho"></span>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-header-title">01 — Identificação da Visita</span>
+              <span class="card-header-badge" id="headerNum">#1</span>
+            </div>
+            <div class="card-body">
+              <div class="form-grid form-grid-4">
+                <div class="field"><label>Nº do Relatório</label><div class="auto-value big" id="displayNum">001</div></div>
+                <div class="field"><label>Início da Inspeção</label><input type="date" id="fieldData"></div>
+                <div class="field"><label>Fim da Inspeção</label><input type="date" id="fieldDataFim"></div>
+                <div class="field"><label>Cliente</label><input type="text" id="fieldCliente" placeholder="ex: OI, CLARO, DPRF"></div>
+                <div class="field span-2"><label>Obra cadastrada no mapa</label><select id="fieldObraMapa" onchange="aoEscolherObraMapa(this.value)"><option value="">— sem vínculo com o mapa —</option></select></div>
+                <div class="field span-2"><label>Nome da Obra / Projeto</label><input type="text" id="fieldObra" placeholder="ex: Expansão Rede Norte"></div>
+                <div class="field"><label>CC — Centro de Custo</label><input type="text" id="fieldCC" placeholder="ex: CC-0599"></div>
+                <div class="field span-2"><label>Localidade / Endereço</label><input type="text" id="fieldLocalidade" placeholder="ex: Rua das Flores, 123 – Foz do Iguaçu/PR"></div>
+                <div class="field"><label>Responsável pela Visita</label><input type="text" id="fieldResponsavel" placeholder="Nome do visitante"></div>
+                <div class="field"><label>Cargo / Função</label><input type="text" id="fieldCargo" placeholder="ex: Fiscal de Obra"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-header-title">02 — Objetivo da Visita</span></div>
+            <div class="card-body">
+              <div class="field">
+                <div class="quill-editor-wrap">
+                  <div id="fieldObjetivo"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-header-title">03 — Registro Fotográfico</span>
+              <span class="card-header-badge" id="fotoBadgeCard">0 fotos</span>
+            </div>
+            <div class="card-body">
+              <div class="nova-foto-actions" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:center">
+                <button type="button" class="btn btn-primary btn-only-mobile" onclick="prepararNovaFotoBtn(true)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  Nova Foto (câmera)
+                </button>
+                <button type="button" class="btn btn-steel" onclick="prepararNovaFotoBtn(false)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+                  Nova Foto (galeria)
+                </button>
+              </div>
+              <div id="fotoRegistroList"></div>
+              <div id="fotoEmpty" class="add-foto-area" onclick="prepararNovaFotoBtn(false)" style="margin-top:4px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <div class="add-label">Clique para adicionar a primeira foto</div>
+                <div class="add-sub">Cada foto terá um local e uma descrição</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-header-title">04 — Observações Gerais</span></div>
+            <div class="card-body">
+              <div class="field">
+                <div class="quill-editor-wrap">
+                  <div id="fieldObservacoes"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-header-title">05 — Conclusão / Parecer Técnico</span></div>
+            <div class="card-body">
+              <div class="form-grid form-grid-3">
+                <div class="field">
+                  <label>Situação Geral da Obra</label>
+                  <select id="fieldSituacao">
+                    <option value="">— Selecionar —</option>
+                    <option value="Liberado">✅ Liberado</option>
+                    <option value="Em elaboração">✏️ Em elaboração</option>
+                    <option value="Concluído">🏁 Concluído</option>
+                    <option value="Em avaliação">🔍 Em avaliação</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field" style="margin-top:12px">
+                <label>Parecer Técnico</label>
+                <div class="quill-editor-wrap">
+                  <div id="fieldParecer"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-header-title">06 — Responsável pelo Relatório</span></div>
+            <div class="card-body">
+              <div class="form-grid form-grid-2">
+                <div class="field"><label>Nome Completo</label><input type="text" id="fieldAssinNome" placeholder="Nome do responsável"></div>
+                <div class="field"><label>Data de Emissão</label><input type="date" id="fieldAssinData"></div>
+
+              </div>
+            </div>
+          </div>
+        </div><!-- end tabForm -->
+
+<!-- tabConfig removido -->
+
+      </main>
+    </div><!-- end form-container -->
+  </div><!-- end viewForm -->
+
+</div><!-- end appBody -->
+
+<!-- FOTO VIEWER -->
+<div class="foto-viewer" id="fotoViewer" onclick="fecharViewer(event)">
+  <img class="foto-viewer-img" id="viewerImg" src="" alt="">
+  <div class="foto-viewer-info" id="viewerInfo"></div>
+  <button class="btn btn-steel" onclick="fecharViewerBtn()" style="margin-top:4px">Fechar</button>
+</div>
+
+
+<!-- MENU CARD (bottom sheet) -->
+<div class="card-menu-overlay" id="cardMenuOverlay" onclick="fecharMenuCard()">
+  <div class="card-menu-sheet" onclick="event.stopPropagation()">
+    <div class="card-menu-handle"></div>
+    <div class="card-menu-title" id="cardMenuTitle">Relatório #—</div>
+    <button class="card-menu-item" onclick="menuMoverPasta()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+      Mover para pasta
+    </button>
+    <button class="card-menu-item" onclick="menuDuplicar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+      Duplicar relatório
+    </button>
+    <button class="card-menu-item danger" onclick="menuExcluir()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+      Excluir relatório
+    </button>
+    <button class="card-menu-cancel" onclick="fecharMenuCard()">Cancelar</button>
+  </div>
+</div>
+
+
+<!-- PASTAS BAR (dentro da lista-container, antes dos cards) -->
+<!-- Inserido via JS -->
+
+<!-- MODAL NOVA PASTA -->
+<div class="modal-overlay" id="modalNovaPasta">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalNovaPastaTitulo">📁 Nova Pasta</span>
+      <button onclick="fecharModal('modalNovaPasta')" style="background:none;border:none;color:#fff;cursor:pointer;font-size:22px">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="novaPastaLocalInfo" style="display:none;margin-bottom:10px;padding:6px 10px;background:var(--surface-2);border-radius:6px;font-size:12px;color:var(--ink-light)"></div>
+      <div class="field">
+        <label>Nome da Pasta</label>
+        <input type="text" id="inputNovaPasta" placeholder="ex: Obra Norte, Cliente XYZ..."
+          onkeydown="if(event.key==='Enter') criarPasta()">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="fecharModal('modalNovaPasta')">Cancelar</button>
+      <button class="btn btn-primary" onclick="criarPasta()">Criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MOVER PARA PASTA (bottom sheet) -->
+<div class="pasta-select-overlay" id="pastaSelectOverlay" onclick="fecharPastaSelect()">
+  <div class="pasta-select-sheet" onclick="event.stopPropagation()">
+    <div class="pasta-select-title">📁 Mover para pasta</div>
+    <div id="pastaSelectList"></div>
+    <button class="pasta-cancel" onclick="fecharPastaSelect()">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL EXCLUIR -->
+<!-- MODAL PERFIL -->
+<div class="modal-overlay" id="modalPerfil">
+  <div class="modal" style="max-width:420px;width:95vw">
+    <div class="modal-header">
+      <span class="modal-title">👤 Meu Perfil</span>
+      <button onclick="fecharModal('modalPerfil')" style="background:none;border:none;color:#fff;cursor:pointer;font-size:22px;line-height:1">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field" style="margin-bottom:14px">
+        <label>Nome</label>
+        <input type="text" id="perfilNome" placeholder="Seu nome completo">
+      </div>
+      <div class="field" style="margin-bottom:14px">
+        <label>E-mail</label>
+        <input type="email" id="perfilEmail" placeholder="seu@email.com">
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+        <div style="font-family:var(--font-cond);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink-light);margin-bottom:10px">Alterar Senha</div>
+        <div class="field" style="margin-bottom:10px">
+          <label>Nova senha</label>
+          <input type="password" id="perfilSenha" placeholder="Deixe em branco para não alterar" autocomplete="new-password">
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Confirmar nova senha</label>
+          <input type="password" id="perfilSenhaConf" placeholder="Repita a nova senha" autocomplete="new-password">
+        </div>
+      </div>
+      <div id="perfilMsg" style="display:none;margin-top:12px;padding:8px 12px;border-radius:6px;font-size:13px"></div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-outline" onclick="fecharModal('modalPerfil')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarPerfil()">Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LIXEIRA -->
+<div class="modal-overlay" id="modalLixeira">
+  <div class="modal" style="max-width:700px;width:95vw">
+    <div class="modal-header" style="background:var(--signal)">
+      <span class="modal-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;vertical-align:middle;margin-right:6px"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M9 6V4h6v2"/></svg>
+        Lixeira · 15 dias para recuperar
+      </span>
+      <button onclick="fecharModal('modalLixeira')" style="background:none;border:none;color:#fff;cursor:pointer;font-size:22px;line-height:1">×</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div id="lixeiraConteudo" style="max-height:60vh;overflow-y:auto;padding:16px"></div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button id="btnLimparLixeira" class="btn btn-danger" style="display:none" onclick="confirmarLimparLixeira()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        Limpar lixeira
+      </button>
+      <button class="btn btn-steel" onclick="fecharModal('modalLixeira')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalExcluir">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Excluir Relatório</span>
+      <button onclick="fecharModal('modalExcluir')" style="background:none;border:none;color:#fff;cursor:pointer;font-size:20px">×</button>
+    </div>
+    <div class="modal-body"><p style="font-size:14px;line-height:1.6" id="modalExcluirMsg">Tem certeza que deseja excluir este relatório? Esta ação não pode ser desfeita.</p></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="fecharModal('modalExcluir')">Cancelar</button>
+      <button class="btn btn-danger" onclick="excluirRelatorio()">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPORT OVERLAY -->
+<div class="export-overlay" id="exportOverlay">
+  <div class="export-spinner"></div>
+  <div class="export-msg" id="exportMsg">Gerando...</div>
+  <div class="export-sub">Aguarde...</div>
+</div>
+
+<!-- ALERT -->
+<div class="alert" id="alertBox"></div>
+
+<!-- FILE INPUTS -->
+<input type="file" id="inputFotoCamera"  accept="image/*" capture="environment" style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0">
+<input type="file" id="inputFotoGaleria" accept="image/*"                        style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0">
+
+
+  <!-- App -->
+  <div id="barraSel" class="barra-sel" style="display:none">
+    <span id="selCont">0 selecionados</span>
+    <button class="btn btn-primary btn-sm" id="btnMoverSel" onclick="moverSelecionados()">📁 Mover para pasta…</button>
+    <button class="btn btn-outline btn-sm" onclick="sairSelecao()" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.4)">Cancelar</button>
+  </div>
+  <script src="utils.js"></script>
+  <script src="fotos-storage.js"></script>
+  <script src="auth.js"></script>
+  <script src="nav.js"></script>
+  <script src="relatorio.js"></script>
+  <script src="form.js"></script>
+  <script src="exports.js"></script>
+  <script src="pastas.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    // Detectar online/offline
+    function atualizarOffline() {
+      const banner = document.getElementById('bannerOffline');
+      if (!banner) return;
+      if (!navigator.onLine) {
+        banner.style.display = 'block';
+        document.body.style.paddingTop = '42px';
+      } else {
+        banner.style.display = 'none';
+        document.body.style.paddingTop = '';
+      }
+    }
+    window.addEventListener('online',  atualizarOffline);
+    window.addEventListener('offline', atualizarOffline);
+    atualizarOffline();
+
+    let _swRegistration = null;
+
+    function aplicarAtualizacao() {
+      const progresso = document.getElementById('bannerProgresso');
+      const barra = document.getElementById('barraProgresso');
+      const update = document.getElementById('bannerUpdate');
+      update.style.display = 'none';
+      progresso.style.display = 'flex';
+      // Animar barra
+      setTimeout(() => { barra.style.width = '60%'; }, 50);
+      setTimeout(() => { barra.style.width = '90%'; }, 600);
+      // Ativar novo SW e recarregar
+      if (_swRegistration && _swRegistration.waiting) {
+        _swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+      setTimeout(() => {
+        barra.style.width = '100%';
+        setTimeout(() => window.location.reload(), 300);
+      }, 1200);
+    }
+
+    function mostrarBannerUpdate() {
+      const b = document.getElementById('bannerUpdate');
+      if (b) {
+        b.style.display = 'flex';
+        document.body.style.paddingTop = '56px';
+      }
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/Clemar-inspecao/sw.js')
+          .then(reg => {
+            _swRegistration = reg;
+
+            // Já tem SW waiting ao abrir? Mostra banner imediatamente
+            if (reg.waiting) {
+              mostrarBannerUpdate();
+            }
+
+            // Nova versão sendo instalada durante a sessão
+            reg.addEventListener('updatefound', () => {
+              const newSW = reg.installing;
+              newSW.addEventListener('statechange', () => {
+                if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+                  mostrarBannerUpdate();
+                }
+              });
+            });
+
+            // Verifica atualização imediatamente ao abrir e depois a cada 60s
+            reg.update();
+            setInterval(() => reg.update(), 60000);
+          })
+          .catch(e => console.warn('SW erro:', e));
+
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          window.location.reload();
+        });
+      });
+    }
+  </script>
+</body>
+</html>

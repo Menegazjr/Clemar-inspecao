@@ -143,7 +143,7 @@ async function exportarPDF() {
     const _logoB64 = //Link logo retirado
     area.innerHTML = `
       <div class="pdf-section-block"><div class="pdf-header">
-        <img src="logo-clemar-cores.png" style="height:48px;width:auto;display:block;margin:0 auto 12px" alt="Clemar Engenharia" crossorigin="anonymous">
+        <img src="assets/brand/logo-clemar-cores.png" style="height:48px;width:auto;display:block;margin:0 auto 12px" alt="Clemar Engenharia" crossorigin="anonymous">
         <h1>RELATÓRIO DE VISITA DE OBRA</h1>
         <div class="pdf-sub">Clemar Engenharia</div>
         <div class="pdf-num">Visita Nº ${String(r.numero).padStart(3,'0')} · ${r.data?fmtData(r.data):'—'}</div>
