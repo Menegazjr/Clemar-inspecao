@@ -58,9 +58,10 @@ button, a, .item, .dot { touch-action:manipulation; }
 .cluster { width:var(--s); height:var(--s); border-radius:50%; background:radial-gradient(circle at 35% 30%, #35b8ff, #0a6fc0); border:3px solid rgba(255,255,255,.92); color:#fff; font:700 14px var(--font-cond); display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 0 0 7px rgba(25,180,255,.25), 0 4px 14px rgba(0,0,0,.55); }
 .cluster:hover { filter:brightness(1.12); }
 .pin .mt { position:absolute; right:-10px; top:-10px; width:18px; height:18px; border-radius:50%; background:#fff; border:2px solid var(--c); font-style:normal; font-size:9px; line-height:14px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.5); }
-.pin .sup-off { position:absolute; left:-12px; top:-12px; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#fff; border:2px solid #e5483a; color:#e5483a; box-shadow:0 1px 4px rgba(0,0,0,.5); }
-.pin .sup-off .ico { width:16px; height:16px; stroke-width:2.4; }
-.pin .sup-unknown { position:absolute; left:-10px; top:-10px; width:18px; height:18px; border-radius:50%; background:#e8a020; border:2px solid #fff; color:#1a2940; font-style:normal; font-size:12px; font-weight:700; line-height:14px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.5); }
+.pin .sup-status { position:absolute; left:-12px; top:-12px; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#fff; border:2px solid currentColor; box-shadow:0 1px 4px rgba(0,0,0,.5); }
+.pin .sup-status .ico { width:16px; height:16px; stroke-width:2.4; }
+.pin .sup-on { color:#20a464; }
+.pin .sup-off { color:#e5483a; }
 .chips { display:flex; flex-wrap:wrap; gap:6px; }
 .chip { display:inline-flex; align-items:center; gap:6px; font:600 12px var(--font-cond); padding:3px 10px; border-radius:20px; border:1px solid rgba(255,255,255,.2); background:transparent; color:rgba(255,255,255,.45); cursor:pointer; }
 .chip i { width:9px; height:9px; border-radius:50%; background:var(--c); opacity:.4; }
@@ -83,12 +84,13 @@ button, a, .item, .dot { touch-action:manipulation; }
 .leg-row b { margin-left:auto; padding-left:18px; font:500 13px var(--font-mono); opacity:.8; }
 .leg-row.apagado { opacity:.35; }
 .leg-sep { height:1px; background:rgba(255,255,255,.14); margin:6px 0; }
-.leg-mt, .leg-grupo, .leg-off, .leg-unknown { width:18px; height:18px; border-radius:50%; font-style:normal; text-align:center; flex-shrink:0; }
+.leg-mt, .leg-grupo, .leg-on, .leg-off { width:18px; height:18px; border-radius:50%; font-style:normal; text-align:center; flex-shrink:0; }
 .leg-mt { background:#fff; font-size:10px; line-height:18px; }
 .leg-grupo { background:#0a8fe0; border:2px solid #fff; color:#fff; font-size:10px; font-weight:700; line-height:14px; }
-.leg-off { display:flex; align-items:center; justify-content:center; background:#fff; border:2px solid #e5483a; color:#e5483a; }
-.leg-off .ico { width:13px; height:13px; stroke-width:2.4; }
-.leg-unknown { display:flex; align-items:center; justify-content:center; background:#e8a020; border:2px solid #fff; color:#1a2940; font-size:12px; font-weight:700; line-height:14px; }
+.leg-on, .leg-off { display:flex; align-items:center; justify-content:center; background:#fff; }
+.leg-on { border:2px solid #20a464; color:#20a464; }
+.leg-off { border:2px solid #e5483a; color:#e5483a; }
+.leg-on .ico, .leg-off .ico { width:13px; height:13px; stroke-width:2.4; }
 .form-aberto .legenda { display:none; }
 @media (min-width:1500px) {
   .leg-corpo { padding:16px 22px 14px; min-width:260px; }
@@ -108,7 +110,7 @@ button, a, .item, .dot { touch-action:manipulation; }
 .pop .meta .ico { margin-top:2px; color:var(--ink-light); }
 .pop .meta.obs { margin-top:8px; }
 .pop .meta.sup-falha { color:var(--signal); }
-.pop .meta.sup-inconclusivo { color:#9a6200; }
+.pop .meta.sup-ok { color:#16824d; }
 .pop .tags { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
 .pop .tag { display:inline-flex; align-items:center; gap:5px; margin:0; }
 .tag-mt { background:#e8a02022; color:#9a6200; border:1px solid #e8a02066; }
@@ -239,7 +241,7 @@ button.leg-row.on { background:rgba(25,180,255,.2); box-shadow:inset 0 0 0 1px r
         <select class="inp" id="fCor"><option value="">Automática (pela cor do status)</option><option value="#19b4ff">Azul</option><option value="#27ae60">Verde</option><option value="#e8a020">Âmbar</option><option value="#ff7a1a">Laranja</option><option value="#c0392b">Vermelho</option><option value="#ff5fa2">Rosa</option><option value="#b57bff">Roxo</option><option value="#ffffff">Branco</option></select></div>
       <div class="fld"><label>Link do supervisório</label><input class="inp" id="fLink" placeholder="https://…" inputmode="url"></div>
       <div class="fld"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)"><input type="checkbox" id="fMonitorarSup"> Monitorar resposta do supervisório</label></div>
-      <div class="hint" id="fSupInfo">Testa ao salvar e a cada 30 minutos enquanto o mapa estiver aberto em um computador com acesso à VPN. A falha do navegador é inconclusiva; só marca sem resposta quando o teste excede 8 segundos.</div>
+      <div class="hint" id="fSupInfo">Testa ao salvar e a cada 30 minutos enquanto o mapa estiver aberto em um computador com acesso à VPN. Verde indica resposta; vermelho aparece quando o teste excede 8 segundos sem resposta.</div>
       <div class="fld"><label>Observações</label><textarea class="inp" id="fObs" rows="2"></textarea></div>
       <div class="acts"><button class="btn btn-primary" onclick="salvar()">Salvar</button><button class="btn btn-outline" onclick="fecharForm()">Cancelar</button></div>
     </div></div>
@@ -277,7 +279,7 @@ const ico = (n, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24">${ICO[
 const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const INTERVALO_SUPERVISORIO = 30 * 60 * 1000;
 const TIMEOUT_SUPERVISORIO = 8000;
-let filtro = new Set(), soManut = false, soSup = false, soSupOff = false, soSupErro = false, popup = null;
+let filtro = new Set(), soManut = false, soSup = false, soSupOnline = false, soSupOff = false, popup = null;
 const el = id => document.getElementById(id);
 const formEl = document.getElementById('pForm');
 const corObra = o => o.cor || COR[o.status] || COR['Em andamento'];
@@ -339,6 +341,14 @@ function atualizaNomes() {
 map.on('zoom', atualizaNomes); map.on('resize', atualizaNomes);
 function verBrasil() {
   fechaMenuMobile(); map.fitBounds(BRASIL, { padding: 20, duration: 900 }); }
+function enquadrarBrasilInicial() {
+  const ajustar = () => requestAnimationFrame(() => {
+    map.resize();
+    map.fitBounds(BRASIL, { padding: 20, duration: 0 });
+  });
+  if (map.loaded()) ajustar();
+  else map.once('load', ajustar);
+}
 
 // ── DADOS ──
 let _sig = '', ultimaOk = null;
@@ -392,13 +402,13 @@ function renderPinos() {
       p.onclick = e => { e.stopPropagation(); listaGrupo(l); };
     } else {
       p.className = 'pin'; p.style.setProperty('--c', corObra(o));
+      const supRespondendo = o.supervisorio_monitorar && o.supervisorio_status === 'respondendo';
       const supSemResposta = o.supervisorio_monitorar && o.supervisorio_status === 'sem_resposta';
-      const supInconclusivo = o.supervisorio_monitorar && o.supervisorio_status === 'falha_teste';
       p.innerHTML = '<i></i><b></b><span class="nm"></span>' + (o.manutencao ? '<em class="mt">' + ico('chave') + '</em>' : '')
-        + (supSemResposta ? '<em class="sup-off" title="Supervisório sem resposta">' + ico('monitorOff') + '</em>' : '')
-        + (supInconclusivo ? '<em class="sup-unknown" title="Não foi possível concluir o teste">?</em>' : '');
+        + (supRespondendo ? '<em class="sup-status sup-on" title="Supervisório online">' + ico('monitor') + '</em>' : '')
+        + (supSemResposta ? '<em class="sup-status sup-off" title="Supervisório sem resposta">' + ico('monitorOff') + '</em>' : '');
       p.querySelector('.nm').textContent = o.cidade || o.nome;
-      p.setAttribute('aria-label', `${o.nome}${supSemResposta ? ', supervisório sem resposta em 8 segundos' : supInconclusivo ? ', teste do supervisório inconclusivo' : ''}`);
+      p.setAttribute('aria-label', `${o.nome}${supRespondendo ? ', supervisório online' : supSemResposta ? ', supervisório sem resposta' : ''}`);
       p.onclick = e => { e.stopPropagation(); abrir(o.id); };
     }
     marcas[k] = new maplibregl.Marker({ element: p }).setLngLat([o.lng, o.lat]).addTo(map);
@@ -413,7 +423,7 @@ function visiveis() {
   const q = norm(el('busca').value).trim();
   return obras.filter(o => (!filtro.size || filtro.has(o.status)) && (!soManut || o.manutencao)
     && (!soSup || !!o.supervisorio_url) && (!soSupOff || (o.supervisorio_monitorar && o.supervisorio_status === 'sem_resposta'))
-    && (!soSupErro || (o.supervisorio_monitorar && o.supervisorio_status === 'falha_teste'))
+    && (!soSupOnline || (o.supervisorio_monitorar && o.supervisorio_status === 'respondendo'))
     && norm([o.nome, o.cliente, o.cidade, o.uf, o.pais].join(' ')).includes(q));
 }
 let tBusca;
@@ -424,14 +434,14 @@ function aoBuscar() {
 function alternarLegenda() { el('legenda').classList.toggle('aberta'); }
 function renderLegenda() {
   const n = predicate => obras.filter(predicate).length;
-  const filtrando = filtro.size > 0 || soManut || soSup || soSupOff || soSupErro;
+  const filtrando = filtro.size > 0 || soManut || soSup || soSupOnline || soSupOff;
   el('legCorpo').innerHTML = '<div class="leg-titulo">Legenda <small>· toque para filtrar</small></div>'
     + STATUS.map(st => `<button class="leg-row${filtro.has(st) ? ' on' : ''}${filtro.size && !filtro.has(st) ? ' apagado' : ''}" style="--c:${COR[st]}" onclick="alternaStatus('${st}')"><i></i>${st}<b>${n(o => o.status === st)}</b></button>`).join('')
     + `<div class="leg-sep"></div>
        <button class="leg-row${soManut ? ' on' : ''}" onclick="alternaManut()"><em class="leg-mt">${ico('chave')}</em>Contrato de manutenção<b>${n(o => o.manutencao)}</b></button>
        <button class="leg-row${soSup ? ' on' : ''}" onclick="alternaSup()"><em class="leg-mt">${ico('monitor')}</em>Com supervisório<b>${n(o => !!o.supervisorio_url)}</b></button>
-       <button class="leg-row${soSupOff ? ' on' : ''}" onclick="alternaSupOff()"><em class="leg-off">${ico('monitorOff')}</em>Supervisório sem resposta<b>${n(o => o.supervisorio_monitorar && o.supervisorio_status === 'sem_resposta')}</b></button>
-       <button class="leg-row${soSupErro ? ' on' : ''}" onclick="alternaSupErro()"><em class="leg-unknown">?</em>Teste inconclusivo<b>${n(o => o.supervisorio_monitorar && o.supervisorio_status === 'falha_teste')}</b></button>`
+       <button class="leg-row${soSupOnline ? ' on' : ''}" onclick="alternaSupOnline()"><em class="leg-on">${ico('monitor')}</em>Supervisório online<b>${n(o => o.supervisorio_monitorar && o.supervisorio_status === 'respondendo')}</b></button>
+       <button class="leg-row${soSupOff ? ' on' : ''}" onclick="alternaSupOff()"><em class="leg-off">${ico('monitorOff')}</em>Supervisório sem resposta<b>${n(o => o.supervisorio_monitorar && o.supervisorio_status === 'sem_resposta')}</b></button>`
     + (filtrando ? '<button class="leg-limpar" onclick="limparFiltrosMapa()">Limpar filtros</button>' : '');
   el('legenda').classList.toggle('filtrando', filtrando);
 }
@@ -439,9 +449,9 @@ function renderChips() { renderLegenda(); }
 function alternaStatus(st) { filtro.has(st) ? filtro.delete(st) : filtro.add(st); atualiza(); }
 function alternaManut() { soManut = !soManut; atualiza(); }
 function alternaSup() { soSup = !soSup; atualiza(); }
+function alternaSupOnline() { soSupOnline = !soSupOnline; atualiza(); }
 function alternaSupOff() { soSupOff = !soSupOff; atualiza(); }
-function alternaSupErro() { soSupErro = !soSupErro; atualiza(); }
-function limparFiltrosMapa() { filtro.clear(); soManut = false; soSup = false; soSupOff = false; soSupErro = false; atualiza(); }
+function limparFiltrosMapa() { filtro.clear(); soManut = false; soSup = false; soSupOnline = false; soSupOff = false; atualiza(); }
 function atualiza() { fechaPop(); renderChips(); renderLista(); renderPinos(); }
 function renderLista() {
   const l = visiveis();
@@ -479,11 +489,11 @@ function abrir(id, centralizar) {
   fecharForm(); fechaPop();
   if (centralizar) fechaMenuMobile();
   const c = COR[o.status] || COR['Em andamento'], link = urlSegura(o.supervisorio_url);
-  const supStatus = o.supervisorio_status === 'respondendo' ? 'Respondendo'
-    : o.supervisorio_status === 'sem_resposta' ? 'Sem resposta em 8 segundos'
-    : o.supervisorio_status === 'falha_teste' ? 'Teste inconclusivo: falha de rede, certificado ou bloqueio do navegador'
-    : o.supervisorio_status === 'nao_verificado' ? 'Não testado: o navegador bloqueia links HTTP nesta página segura'
-    : 'Aguardando teste';
+  const supOnline = o.supervisorio_status === 'respondendo';
+  const supOff = o.supervisorio_status === 'sem_resposta';
+  const supStatus = supOnline ? 'Online'
+    : supOff ? 'Sem resposta em 8 segundos'
+    : '';
   const supVerificado = o.supervisorio_verificado_em
     ? new Date(o.supervisorio_verificado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
     : '';
@@ -500,7 +510,7 @@ function abrir(id, centralizar) {
     ${o.cliente ? `<div class="meta">${ico('predio')}<span>${esc(o.cliente)}</span></div>` : ''}
     <div class="meta">${ico('pino')}<span>${esc(local(o))}</span></div>
     ${o.observacoes ? `<div class="meta obs">${esc(o.observacoes)}</div>` : ''}
-    ${o.supervisorio_monitorar ? `<div class="meta${o.supervisorio_status === 'sem_resposta' ? ' sup-falha' : o.supervisorio_status === 'falha_teste' ? ' sup-inconclusivo' : ''}">${ico(o.supervisorio_status === 'sem_resposta' ? 'monitorOff' : 'monitor')}<span>Supervisório: ${esc(supStatus)}${supVerificado ? ` · verificado em ${esc(supVerificado)}` : ''}</span></div>` : ''}
+    ${o.supervisorio_monitorar && supStatus ? `<div class="meta${supOnline ? ' sup-ok' : ' sup-falha'}">${ico(supOff ? 'monitorOff' : 'monitor')}<span>Supervisório ${esc(supStatus)}${supVerificado ? ` · verificado em ${esc(supVerificado)}` : ''}</span></div>` : ''}
     ${acesso}`;
   if (centralizar) map.easeTo({ center: [o.lng, o.lat], bearing: 0, duration: 600 });   // só centraliza, sem zoom
   popup = new maplibregl.Popup({ offset: 22, maxWidth: '310px', className: 'pop' }).setLngLat([o.lng, o.lat]).setHTML(html).addTo(map);
@@ -517,7 +527,7 @@ function abrirForm(o) {
   el('fLink').value = o.supervisorio_url || ''; el('fMonitorarSup').checked = !!o.supervisorio_monitorar; el('fObs').value = o.observacoes || '';
   el('fSupInfo').textContent = o.supervisorio_monitorar
     ? `Monitoramento ativo. Último teste: ${o.supervisorio_verificado_em ? new Date(o.supervisorio_verificado_em).toLocaleString('pt-BR') : 'ainda não realizado'}.`
-    : 'Testa ao salvar e a cada 30 minutos enquanto o mapa estiver aberto em um computador com acesso à VPN. A falha do navegador é inconclusiva; só marca sem resposta quando o teste excede 8 segundos.';
+    : 'Testa ao salvar e a cada 30 minutos enquanto o mapa estiver aberto em um computador com acesso à VPN. Verde indica resposta; vermelho aparece quando o teste excede 8 segundos sem resposta.';
   draft = { uf: o.uf || '', pais: o.pais || '', lat: o.lat ?? null, lng: o.lng ?? null };
   const c = map.getCenter(), ini = draft.lat !== null ? [draft.lng, draft.lat] : [c.lng, c.lat];   // obra nova: pino provisório no centro
   montaDraft(ini); atualizaCoord();
@@ -633,7 +643,7 @@ async function verificarSupervisorio(id, notificar, urlConfigurada) {
     if (!notificar) return;
     if (status === 'respondendo') toast('Supervisório respondeu.');
     else if (status === 'sem_resposta') toast('Sem resposta em 8 segundos. Verifique a VPN e o link.');
-    else if (status === 'falha_teste') toast('Falha ao testar no navegador; isso não confirma que o supervisório está desconectado.');
+    else if (status === 'falha_teste') toast('Não foi possível testar a resposta do supervisório neste navegador.');
     else toast('Não foi possível testar: a página é HTTPS e o link do supervisório é HTTP.');
   } catch (error) {
     toast('Falha ao verificar o supervisório: ' + error.message);
@@ -693,7 +703,10 @@ async function checarSessao() {
     if (!podeEditar) { bloquearMapa('Seu acesso ainda não foi aprovado pelo administrador.'); return; }
     document.querySelector('.wrap').classList.remove('bloqueado');
     el('pLogin').classList.remove('open');
-    if (!estavaLiberado) carregar();
+    if (!estavaLiberado) {
+      enquadrarBrasilInicial();
+      carregar();
+    }
   } catch (error) {
     if (tentativa === verificacaoSessao) {
       user = null;
