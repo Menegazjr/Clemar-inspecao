@@ -704,9 +704,26 @@ supa.auth.onAuthStateChange((_event, session) => {
 
 // ── ATUALIZAÇÃO DO APP (mesmo service worker da inspeção) ──
 let _reg = null;
+let aguardandoAtualizacaoSW = false, timeoutAtualizacaoSW;
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!aguardandoAtualizacaoSW) return;
+    aguardandoAtualizacaoSW = false;
+    clearTimeout(timeoutAtualizacaoSW);
+    location.reload();
+  });
+}
 function aplicarAtualizacao() {
   el('bannerUpdate').style.display = 'none';
-  if (_reg && _reg.waiting) _reg.waiting.postMessage({ type: 'SKIP_WAITING' }); else location.reload();
+  if (_reg && _reg.waiting) {
+    aguardandoAtualizacaoSW = true;
+    timeoutAtualizacaoSW = setTimeout(() => {
+      if (!aguardandoAtualizacaoSW) return;
+      aguardandoAtualizacaoSW = false;
+      location.reload();
+    }, 10000);
+    _reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+  } else location.reload();
 }
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
