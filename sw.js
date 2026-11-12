@@ -1,27 +1,28 @@
 // Versão do cache — altere este número a cada deploy para forçar atualização
-const VERSION = '1.9.39';
+const VERSION = '1.9.41';
 const CACHE = `clemar-${VERSION}`;
 
 const ASSETS = [
   '/Clemar-inspecao/',
   '/Clemar-inspecao/index.html',
   '/Clemar-inspecao/mapa.html',
-  '/Clemar-inspecao/style.css',
-  '/Clemar-inspecao/utils.js',
-  '/Clemar-inspecao/fotos-storage.js',
-  '/Clemar-inspecao/auth.js',
-  '/Clemar-inspecao/nav.js',
-  '/Clemar-inspecao/relatorio.js',
-  '/Clemar-inspecao/form.js',
-  '/Clemar-inspecao/exports.js',
-  '/Clemar-inspecao/pastas.js',
-  '/Clemar-inspecao/libs.js',
-  '/Clemar-inspecao/logo-clemar.png',
-  '/Clemar-inspecao/icon-192.png',
-  '/Clemar-inspecao/icon-512.png',
-  '/Clemar-inspecao/apple-touch-icon.png',
-  '/Clemar-inspecao/logo-clemar-pequeno.png',
-  '/Clemar-inspecao/logo-clemar-cores.png',
+  '/Clemar-inspecao/css/style.css',
+  '/Clemar-inspecao/js/utils.js',
+  '/Clemar-inspecao/js/fotos-storage.js',
+  '/Clemar-inspecao/js/auth.js',
+  '/Clemar-inspecao/js/nav.js',
+  '/Clemar-inspecao/js/relatorio.js',
+  '/Clemar-inspecao/js/form.js',
+  '/Clemar-inspecao/js/exports.js',
+  '/Clemar-inspecao/js/pastas.js',
+  '/Clemar-inspecao/js/vendor/libs.js',
+  '/Clemar-inspecao/assets/brand/logo-clemar.png',
+  '/Clemar-inspecao/assets/brand/logo-clemar-pequeno.png',
+  '/Clemar-inspecao/assets/brand/logo-clemar-cores.png',
+  '/Clemar-inspecao/assets/icons/favicon.ico',
+  '/Clemar-inspecao/assets/icons/icon-192.png',
+  '/Clemar-inspecao/assets/icons/icon-512.png',
+  '/Clemar-inspecao/assets/icons/apple-touch-icon.png',
   '/Clemar-inspecao/manifest.json',
 ];
 

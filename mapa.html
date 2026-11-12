@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mapa de Obras — Clemar Engenharia</title>
 <meta name="theme-color" content="#1a2940">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="css/style.css">
 <style>
 :root { --blue:#0a8fe0; --blue-glow:#19b4ff; }
 body { height:100dvh; overflow:hidden; overscroll-behavior:none; }
@@ -58,7 +58,9 @@ button, a, .item, .dot { touch-action:manipulation; }
 .cluster { width:var(--s); height:var(--s); border-radius:50%; background:radial-gradient(circle at 35% 30%, #35b8ff, #0a6fc0); border:3px solid rgba(255,255,255,.92); color:#fff; font:700 14px var(--font-cond); display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 0 0 7px rgba(25,180,255,.25), 0 4px 14px rgba(0,0,0,.55); }
 .cluster:hover { filter:brightness(1.12); }
 .pin .mt { position:absolute; right:-10px; top:-10px; width:18px; height:18px; border-radius:50%; background:#fff; border:2px solid var(--c); font-style:normal; font-size:9px; line-height:14px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.5); }
-.pin .sup-off { position:absolute; left:-10px; top:-10px; width:18px; height:18px; border-radius:50%; background:#e5483a; border:2px solid #fff; color:#fff; font-style:normal; font-size:13px; font-weight:700; line-height:14px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.5); }
+.pin .sup-off { position:absolute; left:-12px; top:-12px; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#fff; border:2px solid #e5483a; color:#e5483a; box-shadow:0 1px 4px rgba(0,0,0,.5); }
+.pin .sup-off .ico { width:16px; height:16px; stroke-width:2.4; }
+.pin .sup-unknown { position:absolute; left:-10px; top:-10px; width:18px; height:18px; border-radius:50%; background:#e8a020; border:2px solid #fff; color:#1a2940; font-style:normal; font-size:12px; font-weight:700; line-height:14px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.5); }
 .chips { display:flex; flex-wrap:wrap; gap:6px; }
 .chip { display:inline-flex; align-items:center; gap:6px; font:600 12px var(--font-cond); padding:3px 10px; border-radius:20px; border:1px solid rgba(255,255,255,.2); background:transparent; color:rgba(255,255,255,.45); cursor:pointer; }
 .chip i { width:9px; height:9px; border-radius:50%; background:var(--c); opacity:.4; }
@@ -81,10 +83,12 @@ button, a, .item, .dot { touch-action:manipulation; }
 .leg-row b { margin-left:auto; padding-left:18px; font:500 13px var(--font-mono); opacity:.8; }
 .leg-row.apagado { opacity:.35; }
 .leg-sep { height:1px; background:rgba(255,255,255,.14); margin:6px 0; }
-.leg-mt, .leg-grupo, .leg-off { width:18px; height:18px; border-radius:50%; font-style:normal; text-align:center; flex-shrink:0; }
+.leg-mt, .leg-grupo, .leg-off, .leg-unknown { width:18px; height:18px; border-radius:50%; font-style:normal; text-align:center; flex-shrink:0; }
 .leg-mt { background:#fff; font-size:10px; line-height:18px; }
 .leg-grupo { background:#0a8fe0; border:2px solid #fff; color:#fff; font-size:10px; font-weight:700; line-height:14px; }
-.leg-off { display:flex; align-items:center; justify-content:center; background:#e5483a; border:2px solid #fff; color:#fff; font-size:13px; font-weight:700; line-height:14px; }
+.leg-off { display:flex; align-items:center; justify-content:center; background:#fff; border:2px solid #e5483a; color:#e5483a; }
+.leg-off .ico { width:13px; height:13px; stroke-width:2.4; }
+.leg-unknown { display:flex; align-items:center; justify-content:center; background:#e8a020; border:2px solid #fff; color:#1a2940; font-size:12px; font-weight:700; line-height:14px; }
 .form-aberto .legenda { display:none; }
 @media (min-width:1500px) {
   .leg-corpo { padding:16px 22px 14px; min-width:260px; }
@@ -104,6 +108,7 @@ button, a, .item, .dot { touch-action:manipulation; }
 .pop .meta .ico { margin-top:2px; color:var(--ink-light); }
 .pop .meta.obs { margin-top:8px; }
 .pop .meta.sup-falha { color:var(--signal); }
+.pop .meta.sup-inconclusivo { color:#9a6200; }
 .pop .tags { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
 .pop .tag { display:inline-flex; align-items:center; gap:5px; margin:0; }
 .tag-mt { background:#e8a02022; color:#9a6200; border:1px solid #e8a02066; }
@@ -182,7 +187,7 @@ button.leg-row.on { background:rgba(25,180,255,.2); box-shadow:inset 0 0 0 1px r
 </div>
 <nav class="topnav">
   <div class="topnav-brand">
-    <div class="topnav-logo"><img src="logo-clemar.png" alt="Clemar Engenharia"></div>
+    <div class="topnav-logo"><img src="assets/brand/logo-clemar.png" alt="Clemar Engenharia"></div>
     <div><div class="topnav-title">MAPA DE OBRAS</div><div class="topnav-subtitle btn-hide-mobile">Supervisórios</div></div>
   </div>
   <div class="topnav-actions">
@@ -234,7 +239,7 @@ button.leg-row.on { background:rgba(25,180,255,.2); box-shadow:inset 0 0 0 1px r
         <select class="inp" id="fCor"><option value="">Automática (pela cor do status)</option><option value="#19b4ff">Azul</option><option value="#27ae60">Verde</option><option value="#e8a020">Âmbar</option><option value="#ff7a1a">Laranja</option><option value="#c0392b">Vermelho</option><option value="#ff5fa2">Rosa</option><option value="#b57bff">Roxo</option><option value="#ffffff">Branco</option></select></div>
       <div class="fld"><label>Link do supervisório</label><input class="inp" id="fLink" placeholder="https://…" inputmode="url"></div>
       <div class="fld"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)"><input type="checkbox" id="fMonitorarSup"> Monitorar resposta do supervisório</label></div>
-      <div class="hint" id="fSupInfo">Testa ao salvar e a cada 30 minutos enquanto o mapa estiver aberto em um computador com acesso à VPN. O resultado é compartilhado e indica se o servidor respondeu; não valida login nem conteúdo da página.</div>
+      <div class="hint" id="fSupInfo">Testa ao salvar e a cada 30 minutos enquanto o mapa estiver aberto em um computador com acesso à VPN. A falha do navegador é inconclusiva; só marca sem resposta quando o teste excede 8 segundos.</div>
       <div class="fld"><label>Observações</label><textarea class="inp" id="fObs" rows="2"></textarea></div>
       <div class="acts"><button class="btn btn-primary" onclick="salvar()">Salvar</button><button class="btn btn-outline" onclick="fecharForm()">Cancelar</button></div>
     </div></div>
@@ -264,6 +269,7 @@ const ICO = {
   predio: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
   pino: '<path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>',
   monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  monitorOff: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4M9 8l6 6M15 8l-6 6"/>',
   lapis: '<path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
   prancheta: '<path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6M9 16h6"/>',
 };
@@ -271,7 +277,7 @@ const ico = (n, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24">${ICO[
 const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const INTERVALO_SUPERVISORIO = 30 * 60 * 1000;
 const TIMEOUT_SUPERVISORIO = 8000;
-let filtro = new Set(), soManut = false, soSup = false, soSupOff = false, popup = null;
+let filtro = new Set(), soManut = false, soSup = false, soSupOff = false, soSupErro = false, popup = null;
 const el = id => document.getElementById(id);
 const formEl = document.getElementById('pForm');
 const corObra = o => o.cor || COR[o.status] || COR['Em andamento'];
@@ -387,10 +393,12 @@ function renderPinos() {
     } else {
       p.className = 'pin'; p.style.setProperty('--c', corObra(o));
       const supSemResposta = o.supervisorio_monitorar && o.supervisorio_status === 'sem_resposta';
+      const supInconclusivo = o.supervisorio_monitorar && o.supervisorio_status === 'falha_teste';
       p.innerHTML = '<i></i><b></b><span class="nm"></span>' + (o.manutencao ? '<em class="mt">' + ico('chave') + '</em>' : '')
-        + (supSemResposta ? '<em class="sup-off" title="Supervisório sem resposta">×</em>' : '');
+        + (supSemResposta ? '<em class="sup-off" title="Supervisório sem resposta">' + ico('monitorOff') + '</em>' : '')
+        + (supInconclusivo ? '<em class="sup-unknown" title="Não foi possível concluir o teste">?</em>' : '');
       p.querySelector('.nm').textContent = o.cidade || o.nome;
-      p.setAttribute('aria-label', `${o.nome}${supSemResposta ? ', supervisório sem resposta' : ''}`);
+      p.setAttribute('aria-label', `${o.nome}${supSemResposta ? ', supervisório sem resposta em 8 segundos' : supInconclusivo ? ', teste do supervisório inconclusivo' : ''}`);
       p.onclick = e => { e.stopPropagation(); abrir(o.id); };
     }
     marcas[k] = new maplibregl.Marker({ element: p }).setLngLat([o.lng, o.lat]).addTo(map);
@@ -405,6 +413,7 @@ function visiveis() {
   const q = norm(el('busca').value).trim();
   return obras.filter(o => (!filtro.size || filtro.has(o.status)) && (!soManut || o.manutencao)
     && (!soSup || !!o.supervisorio_url) && (!soSupOff || (o.supervisorio_monitorar && o.supervisorio_status === 'sem_resposta'))
+    && (!soSupErro || (o.supervisorio_monitorar && o.supervisorio_status === 'falha_teste'))
     && norm([o.nome, o.cliente, o.cidade, o.uf, o.pais].join(' ')).includes(q));
 }
 let tBusca;
@@ -415,13 +424,14 @@ function aoBuscar() {
 function alternarLegenda() { el('legenda').classList.toggle('aberta'); }
 function renderLegenda() {
   const n = predicate => obras.filter(predicate).length;
-  const filtrando = filtro.size > 0 || soManut || soSup || soSupOff;
+  const filtrando = filtro.size > 0 || soManut || soSup || soSupOff || soSupErro;
   el('legCorpo').innerHTML = '<div class="leg-titulo">Legenda <small>· toque para filtrar</small></div>'
     + STATUS.map(st => `<button class="leg-row${filtro.has(st) ? ' on' : ''}${filtro.size && !filtro.has(st) ? ' apagado' : ''}" style="--c:${COR[st]}" onclick="alternaStatus('${st}')"><i></i>${st}<b>${n(o => o.status === st)}</b></button>`).join('')
     + `<div class="leg-sep"></div>
        <button class="leg-row${soManut ? ' on' : ''}" onclick="alternaManut()"><em class="leg-mt">${ico('chave')}</em>Contrato de manutenção<b>${n(o => o.manutencao)}</b></button>
        <button class="leg-row${soSup ? ' on' : ''}" onclick="alternaSup()"><em class="leg-mt">${ico('monitor')}</em>Com supervisório<b>${n(o => !!o.supervisorio_url)}</b></button>
-       <button class="leg-row${soSupOff ? ' on' : ''}" onclick="alternaSupOff()"><em class="leg-off">×</em>Supervisório sem resposta<b>${n(o => o.supervisorio_monitorar && o.supervisorio_status === 'sem_resposta')}</b></button>`
+       <button class="leg-row${soSupOff ? ' on' : ''}" onclick="alternaSupOff()"><em class="leg-off">${ico('monitorOff')}</em>Supervisório sem resposta<b>${n(o => o.supervisorio_monitorar && o.supervisorio_status === 'sem_resposta')}</b></button>
+       <button class="leg-row${soSupErro ? ' on' : ''}" onclick="alternaSupErro()"><em class="leg-unknown">?</em>Teste inconclusivo<b>${n(o => o.supervisorio_monitorar && o.supervisorio_status === 'falha_teste')}</b></button>`
     + (filtrando ? '<button class="leg-limpar" onclick="limparFiltrosMapa()">Limpar filtros</button>' : '');
   el('legenda').classList.toggle('filtrando', filtrando);
 }
@@ -430,7 +440,8 @@ function alternaStatus(st) { filtro.has(st) ? filtro.delete(st) : filtro.add(st)
 function alternaManut() { soManut = !soManut; atualiza(); }
 function alternaSup() { soSup = !soSup; atualiza(); }
 function alternaSupOff() { soSupOff = !soSupOff; atualiza(); }
-function limparFiltrosMapa() { filtro.clear(); soManut = false; soSup = false; soSupOff = false; atualiza(); }
+function alternaSupErro() { soSupErro = !soSupErro; atualiza(); }
+function limparFiltrosMapa() { filtro.clear(); soManut = false; soSup = false; soSupOff = false; soSupErro = false; atualiza(); }
 function atualiza() { fechaPop(); renderChips(); renderLista(); renderPinos(); }
 function renderLista() {
   const l = visiveis();
@@ -469,7 +480,8 @@ function abrir(id, centralizar) {
   if (centralizar) fechaMenuMobile();
   const c = COR[o.status] || COR['Em andamento'], link = urlSegura(o.supervisorio_url);
   const supStatus = o.supervisorio_status === 'respondendo' ? 'Respondendo'
-    : o.supervisorio_status === 'sem_resposta' ? 'Sem resposta'
+    : o.supervisorio_status === 'sem_resposta' ? 'Sem resposta em 8 segundos'
+    : o.supervisorio_status === 'falha_teste' ? 'Teste inconclusivo: falha de rede, certificado ou bloqueio do navegador'
     : o.supervisorio_status === 'nao_verificado' ? 'Não testado: o navegador bloqueia links HTTP nesta página segura'
     : 'Aguardando teste';
   const supVerificado = o.supervisorio_verificado_em
@@ -488,7 +500,7 @@ function abrir(id, centralizar) {
     ${o.cliente ? `<div class="meta">${ico('predio')}<span>${esc(o.cliente)}</span></div>` : ''}
     <div class="meta">${ico('pino')}<span>${esc(local(o))}</span></div>
     ${o.observacoes ? `<div class="meta obs">${esc(o.observacoes)}</div>` : ''}
-    ${o.supervisorio_monitorar ? `<div class="meta${o.supervisorio_status === 'sem_resposta' ? ' sup-falha' : ''}">${ico('monitor')}<span>Supervisório: ${esc(supStatus)}${supVerificado ? ` · verificado em ${esc(supVerificado)}` : ''}</span></div>` : ''}
+    ${o.supervisorio_monitorar ? `<div class="meta${o.supervisorio_status === 'sem_resposta' ? ' sup-falha' : o.supervisorio_status === 'falha_teste' ? ' sup-inconclusivo' : ''}">${ico(o.supervisorio_status === 'sem_resposta' ? 'monitorOff' : 'monitor')}<span>Supervisório: ${esc(supStatus)}${supVerificado ? ` · verificado em ${esc(supVerificado)}` : ''}</span></div>` : ''}
     ${acesso}`;
   if (centralizar) map.easeTo({ center: [o.lng, o.lat], bearing: 0, duration: 600 });   // só centraliza, sem zoom
   popup = new maplibregl.Popup({ offset: 22, maxWidth: '310px', className: 'pop' }).setLngLat([o.lng, o.lat]).setHTML(html).addTo(map);
@@ -505,7 +517,7 @@ function abrirForm(o) {
   el('fLink').value = o.supervisorio_url || ''; el('fMonitorarSup').checked = !!o.supervisorio_monitorar; el('fObs').value = o.observacoes || '';
   el('fSupInfo').textContent = o.supervisorio_monitorar
     ? `Monitoramento ativo. Último teste: ${o.supervisorio_verificado_em ? new Date(o.supervisorio_verificado_em).toLocaleString('pt-BR') : 'ainda não realizado'}.`
-    : 'Testa ao salvar e a cada 30 minutos enquanto o mapa estiver aberto em um computador com acesso à VPN. O resultado é compartilhado e indica se o servidor respondeu; não valida login nem conteúdo da página.';
+    : 'Testa ao salvar e a cada 30 minutos enquanto o mapa estiver aberto em um computador com acesso à VPN. A falha do navegador é inconclusiva; só marca sem resposta quando o teste excede 8 segundos.';
   draft = { uf: o.uf || '', pais: o.pais || '', lat: o.lat ?? null, lng: o.lng ?? null };
   const c = map.getCenter(), ini = draft.lat !== null ? [draft.lng, draft.lat] : [c.lng, c.lat];   // obra nova: pino provisório no centro
   montaDraft(ini); atualizaCoord();
@@ -598,7 +610,7 @@ async function verificarSupervisorio(id, notificar, urlConfigurada) {
         await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
         status = 'respondendo';
       } catch (error) {
-        status = 'sem_resposta';
+        status = error && error.name === 'AbortError' ? 'sem_resposta' : 'falha_teste';
       } finally {
         clearTimeout(timeout);
       }
@@ -620,7 +632,8 @@ async function verificarSupervisorio(id, notificar, urlConfigurada) {
     }
     if (!notificar) return;
     if (status === 'respondendo') toast('Supervisório respondeu.');
-    else if (status === 'sem_resposta') toast('Supervisório sem resposta. Verifique a VPN e o link.');
+    else if (status === 'sem_resposta') toast('Sem resposta em 8 segundos. Verifique a VPN e o link.');
+    else if (status === 'falha_teste') toast('Falha ao testar no navegador; isso não confirma que o supervisório está desconectado.');
     else toast('Não foi possível testar: a página é HTTPS e o link do supervisório é HTTP.');
   } catch (error) {
     toast('Falha ao verificar o supervisório: ' + error.message);

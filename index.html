@@ -9,10 +9,10 @@
   <meta name="theme-color" content="#1a2940">
   <title>Relatório de Visita de Obra – Clemar Engenharia</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+  <link rel="icon" href="assets/icons/favicon.ico" type="image/x-icon">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/icons/icon-512.png">
 
   <!-- CDN libs -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -20,13 +20,13 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <!-- docx bundled lib -->
-  <script src="libs.js"></script>
+  <script src="js/vendor/libs.js"></script>
   <!-- Quill rich text editor -->
   <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
 
   <!-- Estilos -->
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/style.css">
   <style>
     @keyframes girar { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   </style>
@@ -60,7 +60,7 @@
 <!-- AUTH SCREEN -->
 <div id="authScreen">
   <div class="auth-card">
-    <div class="auth-logo"><img src="logo-clemar-cores.png" alt="Clemar">
+    <div class="auth-logo"><img src="assets/brand/logo-clemar-cores.png" alt="Clemar">
     </div>
     <div class="auth-title">Relatório de Visita de Obra</div>
     <div class="auth-sub">Clemar Engenharia — Sistema Online</div>
@@ -108,8 +108,8 @@
 <!-- TOPNAV -->
 <nav class="topnav" id="mainNav" style="display:none">
   <div class="topnav-brand">
-    <div class="topnav-logo"><img src="logo-clemar.png" alt="Clemar Engenharia"></div>
-    <div class="topnav-logo-mobile"><img src="logo-clemar-pequeno.png" alt="Clemar" style="height:32px;width:32px"></div>
+    <div class="topnav-logo"><img src="assets/brand/logo-clemar.png" alt="Clemar Engenharia"></div>
+    <div class="topnav-logo-mobile"><img src="assets/brand/logo-clemar-pequeno.png" alt="Clemar" style="height:32px;width:32px"></div>
     <div>
 
     </div>
@@ -587,14 +587,14 @@
 
 
   <!-- App -->
-  <script src="utils.js"></script>
-  <script src="fotos-storage.js"></script>
-  <script src="auth.js"></script>
-  <script src="nav.js"></script>
-  <script src="relatorio.js"></script>
-  <script src="form.js"></script>
-  <script src="exports.js"></script>
-  <script src="pastas.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/fotos-storage.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/relatorio.js"></script>
+  <script src="js/form.js"></script>
+  <script src="js/exports.js"></script>
+  <script src="js/pastas.js"></script>
   <script>
     // Detectar online/offline
     function atualizarOffline() {
