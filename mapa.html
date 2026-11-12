@@ -58,8 +58,8 @@ button, a, .item, .dot { touch-action:manipulation; }
 .cluster { width:var(--s); height:var(--s); border-radius:50%; background:radial-gradient(circle at 35% 30%, #35b8ff, #0a6fc0); border:3px solid rgba(255,255,255,.92); color:#fff; font:700 14px var(--font-cond); display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 0 0 7px rgba(25,180,255,.25), 0 4px 14px rgba(0,0,0,.55); }
 .cluster:hover { filter:brightness(1.12); }
 .pin .mt { position:absolute; right:-10px; top:-10px; width:18px; height:18px; border-radius:50%; background:#fff; border:2px solid var(--c); font-style:normal; font-size:9px; line-height:14px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.5); }
-.pin .sup-status { position:absolute; left:-12px; top:-12px; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#fff; border:2px solid currentColor; box-shadow:0 1px 4px rgba(0,0,0,.5); }
-.pin .sup-status .ico { width:16px; height:16px; stroke-width:2.4; }
+.pin .sup-status { position:absolute; left:-10px; top:-10px; width:18px; height:18px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#fff; border:2px solid currentColor; box-shadow:0 1px 4px rgba(0,0,0,.5); }
+.pin .sup-status .ico { width:10px; height:10px; stroke-width:2.4; }
 .pin .sup-on { color:#20a464; }
 .pin .sup-off { color:#e5483a; }
 .chips { display:flex; flex-wrap:wrap; gap:6px; }
@@ -241,7 +241,7 @@ button.leg-row.on { background:rgba(25,180,255,.2); box-shadow:inset 0 0 0 1px r
         <select class="inp" id="fCor"><option value="">Automática (pela cor do status)</option><option value="#19b4ff">Azul</option><option value="#27ae60">Verde</option><option value="#e8a020">Âmbar</option><option value="#ff7a1a">Laranja</option><option value="#c0392b">Vermelho</option><option value="#ff5fa2">Rosa</option><option value="#b57bff">Roxo</option><option value="#ffffff">Branco</option></select></div>
       <div class="fld"><label>Link do supervisório</label><input class="inp" id="fLink" placeholder="https://…" inputmode="url"></div>
       <div class="fld"><label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)"><input type="checkbox" id="fMonitorarSup"> Monitorar resposta do supervisório</label></div>
-      <div class="hint" id="fSupInfo">Testa ao salvar e a cada 30 minutos enquanto o mapa estiver aberto em um computador com acesso à VPN. Verde indica resposta; vermelho aparece quando o teste excede 8 segundos sem resposta.</div>
+      <div class="hint" id="fSupInfo">O monitor no computador Windows com acesso à VPN verifica a porta do link a cada 30 minutos. Verde indica conexão; vermelho, sem resposta após 8 segundos.</div>
       <div class="fld"><label>Observações</label><textarea class="inp" id="fObs" rows="2"></textarea></div>
       <div class="acts"><button class="btn btn-primary" onclick="salvar()">Salvar</button><button class="btn btn-outline" onclick="fecharForm()">Cancelar</button></div>
     </div></div>
@@ -277,8 +277,6 @@ const ICO = {
 };
 const ico = (n, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24">${ICO[n]}</svg>`;
 const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-const INTERVALO_SUPERVISORIO = 30 * 60 * 1000;
-const TIMEOUT_SUPERVISORIO = 8000;
 let filtro = new Set(), soManut = false, soSup = false, soSupOnline = false, soSupOff = false, popup = null;
 const el = id => document.getElementById(id);
 const formEl = document.getElementById('pForm');
@@ -287,7 +285,6 @@ const local = o => o.uf ? `${o.cidade} – ${o.uf}` : (o.pais ? `${o.cidade}, ${
 const fechaPop = () => { if (popup) { popup.remove(); popup = null; } };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let map, obras = [], marcas = {}, user = null, podeEditar = false, editId = null, draft = null, draftMarca = null, popForm = null, tGeo;
-const verificacoesSupervisorio = new Set();
 
 function toast(t) { const e = el('toast'); e.textContent = t; e.style.display = 'block'; setTimeout(() => e.style.display = 'none', 3000); }
 
@@ -361,17 +358,16 @@ function mostraHora() {
 }
 setInterval(mostraHora, 30000);
 // Busca as obras; só redesenha o mapa se algo mudou. Devolve true (mudou), false (igual) ou null (erro)
-async function carregar(pularVerificacaoSupervisorios) {
+async function carregar() {
   if (!podeEditar) return null;
   const { data, error } = await supa.from('obras_mapa').select('*').order('nome');
   if (error) { toast('Erro ao carregar obras: ' + error.message); return null; }
   ultimaOk = new Date(); mostraHora();
   const sig = JSON.stringify(data || []);
-  if (sig === _sig) { if (!pularVerificacaoSupervisorios) verificarSupervisoriosVencidos(); return false; }
+  if (sig === _sig) return false;
   _sig = sig;
   obras = (data || []).map(o => o.status === 'Parada' ? { ...o, status: 'Paralisada' } : o);
   atualiza();
-  if (!pularVerificacaoSupervisorios) verificarSupervisoriosVencidos();
   return true;
 }
 let recarregando = false;
@@ -384,12 +380,8 @@ async function atualizarManual() {
 // Atualização automática somente para sessões autorizadas.
 const formFechado = () => el('holder').contains(formEl);
 setInterval(() => { if (podeEditar && !document.hidden && formFechado()) carregar(); }, 120000);
-setInterval(() => { if (podeEditar && !document.hidden && formFechado()) verificarSupervisoriosVencidos(); }, INTERVALO_SUPERVISORIO);
 document.addEventListener('visibilitychange', () => {
-  if (podeEditar && !document.hidden) {
-    if (formFechado()) carregar();
-    else verificarSupervisoriosVencidos();
-  }
+  if (podeEditar && !document.hidden && formFechado()) carregar();
 });
 function renderPinos() {
   Object.values(marcas).forEach(m => m.remove()); marcas = {};
@@ -527,7 +519,7 @@ function abrirForm(o) {
   el('fLink').value = o.supervisorio_url || ''; el('fMonitorarSup').checked = !!o.supervisorio_monitorar; el('fObs').value = o.observacoes || '';
   el('fSupInfo').textContent = o.supervisorio_monitorar
     ? `Monitoramento ativo. Último teste: ${o.supervisorio_verificado_em ? new Date(o.supervisorio_verificado_em).toLocaleString('pt-BR') : 'ainda não realizado'}.`
-    : 'Testa ao salvar e a cada 30 minutos enquanto o mapa estiver aberto em um computador com acesso à VPN. Verde indica resposta; vermelho aparece quando o teste excede 8 segundos sem resposta.';
+    : 'O monitor no computador Windows com acesso à VPN verifica a porta do link a cada 30 minutos. Verde indica conexão; vermelho, sem resposta após 8 segundos.';
   draft = { uf: o.uf || '', pais: o.pais || '', lat: o.lat ?? null, lng: o.lng ?? null };
   const c = map.getCenter(), ini = draft.lat !== null ? [draft.lng, draft.lat] : [c.lng, c.lat];   // obra nova: pino provisório no centro
   montaDraft(ini); atualizaCoord();
@@ -591,76 +583,10 @@ async function salvar() {
     : supa.from('obras_mapa').insert([{ ...row, criado_por: user.email }]).select('id').single();
   salvando = true; const { data, error } = await q; salvando = false;
   if (error) { toast('Erro ao salvar: ' + error.message); return; }
-  const id = data ? data.id : editId; fecharForm(); await carregar(true);
-  if (monitorarSupervisorio && id) {
-    await verificarSupervisorio(id, true, link);
-  } else toast('Obra salva!');
+  const id = data ? data.id : editId; fecharForm(); await carregar();
+  if (monitorarSupervisorio && id) toast('Obra salva. O monitor na VPN atualizará o status na próxima verificação.');
+  else toast('Obra salva!');
   if (id) abrir(id);
-}
-async function verificarSupervisorio(id, notificar, urlConfigurada) {
-  if (!podeEditar || verificacoesSupervisorio.has(id)) return;
-  const obra = obras.find(o => o.id === id);
-  const urlTexto = urlConfigurada || (obra && obra.supervisorio_monitorar ? obra.supervisorio_url : '');
-  if (!urlTexto) return;
-  verificacoesSupervisorio.add(id);
-  try {
-    let status = 'sem_resposta';
-    const url = urlSegura(urlTexto);
-    if (!url) {
-      toast('Não foi possível testar: o link do supervisório é inválido.');
-      return;
-    }
-    const destino = new URL(url);
-    if (location.protocol === 'https:' && destino.protocol === 'http:') {
-      status = 'nao_verificado';
-    } else {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), TIMEOUT_SUPERVISORIO);
-      try {
-        await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
-        status = 'respondendo';
-      } catch (error) {
-        status = error && error.name === 'AbortError' ? 'sem_resposta' : 'falha_teste';
-      } finally {
-        clearTimeout(timeout);
-      }
-    }
-    const verificadoEm = new Date().toISOString();
-    const { error } = await supa.from('obras_mapa').update({
-      supervisorio_status: status,
-      supervisorio_verificado_em: verificadoEm
-    }).eq('id', id);
-    if (error) {
-      toast('Erro ao registrar o teste do supervisório: ' + error.message);
-      return;
-    }
-    if (obra) {
-      obra.supervisorio_status = status;
-      obra.supervisorio_verificado_em = verificadoEm;
-      _sig = '';
-      atualiza();
-    }
-    if (!notificar) return;
-    if (status === 'respondendo') toast('Supervisório respondeu.');
-    else if (status === 'sem_resposta') toast('Sem resposta em 8 segundos. Verifique a VPN e o link.');
-    else if (status === 'falha_teste') toast('Não foi possível testar a resposta do supervisório neste navegador.');
-    else toast('Não foi possível testar: a página é HTTPS e o link do supervisório é HTTP.');
-  } catch (error) {
-    toast('Falha ao verificar o supervisório: ' + error.message);
-  } finally {
-    verificacoesSupervisorio.delete(id);
-  }
-}
-async function verificarSupervisoriosVencidos() {
-  if (!podeEditar || document.hidden || !formFechado()) return;
-  const agora = Date.now();
-  const vencidos = obras.filter(o => {
-    if (!o.supervisorio_monitorar || !o.supervisorio_url) return false;
-    if (!o.supervisorio_verificado_em) return true;
-    const verificadoEm = new Date(o.supervisorio_verificado_em).getTime();
-    return !Number.isFinite(verificadoEm) || agora - verificadoEm >= INTERVALO_SUPERVISORIO;
-  });
-  for (const obra of vencidos) await verificarSupervisorio(obra.id, false);
 }
 async function excluir(id) {
   if (!confirm('Excluir esta obra do mapa?')) return;
