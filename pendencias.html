@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1a2940"><title>Pendências — Clemar Engenharia</title>
+<link rel="icon" href="assets/icons/favicon.ico"><link rel="stylesheet" href="css/pendencias.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+<div id="loginScreen" class="login-screen"><div class="login-card"><img src="assets/brand/logo-clemar-cores.png" alt="Clemar"><h1>Pendências das Obras</h1><p>Acesse com seu usuário do sistema Clemar.</p><div id="loginError" class="error"></div><label>E-mail<input id="loginEmail" type="email" autocomplete="username"></label><label>Senha<input id="loginPassword" type="password" autocomplete="current-password"></label><button class="primary" onclick="login()">Entrar</button></div></div>
+<header class="topbar"><div class="brand"><img src="assets/brand/logo-clemar.png" alt="Clemar"><div><b>GESTÃO DE OBRAS</b><small>Módulo de pendências</small></div></div><nav><a href="mapa.html">Mapa</a><a href="index.html">Relatórios</a><a class="active" href="pendencias.html">Pendências</a><span id="userName"></span><button class="ghost" onclick="logout()">Sair</button></nav></header>
+<main class="page">
+  <section class="page-head"><div><div class="eyebrow">ACOMPANHAMENTO TÉCNICO</div><h1>Pendências</h1><p>Centralize as correções identificadas nas obras e acompanhe a validação.</p></div><button class="primary add-btn" onclick="openCreate()">＋ Nova pendência</button></section>
+  <section class="kpis" id="kpis"><div class="kpi"><small>Total</small><strong>—</strong></div></section>
+  <section class="dashboard-grid"><div class="panel"><div class="panel-head"><div><h2>Situação geral</h2><p>Distribuição das pendências registradas</p></div></div><div id="statusChart" class="status-chart"></div></div><div class="panel"><div class="panel-head"><div><h2>Obras com mais pendências</h2><p>Prioridade de acompanhamento</p></div></div><div id="obraRanking" class="ranking"></div></div></section>
+  <section class="panel list-panel"><div class="panel-head list-head"><div><h2>Lista de pendências</h2><p id="listCount">Carregando registros...</p></div><button class="ghost" onclick="loadData()">↻ Atualizar</button></div>
+    <div class="filters"><input id="search" type="search" placeholder="Buscar pendência ou obra..." oninput="renderList()"><select id="filterStatus" onchange="renderList()"><option value="todos">Todas as situações</option><option value="pendente">Pendentes</option><option value="aguardando_validacao">Aguardando validação</option><option value="concluida">Concluídas</option><option value="atrasada">Atrasadas</option></select><select id="filterObra" onchange="renderList()"><option value="todas">Todas as obras</option></select></div>
+    <div id="pendingList" class="pending-list"><div class="empty">Carregando...</div></div>
+  </section>
+</main>
+<div class="modal-backdrop" id="createModal"><section class="modal"><div class="modal-title"><div><small>NOVO REGISTRO</small><h2>Cadastrar pendência</h2></div><button class="close" onclick="closeModal('createModal')">×</button></div><label>Obra <em>*</em><select id="createObra"></select></label><label>Descrição da pendência <em>*</em><textarea id="createDescription" rows="4" placeholder="Descreva claramente o que precisa ser corrigido..."></textarea></label><div class="form-row"><label>Prioridade<select id="createPriority"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option><option value="critica">Crítica</option></select></label><label>Prazo para correção<input id="createDeadline" type="date"></label></div><div class="modal-actions"><button class="ghost" onclick="closeModal('createModal')">Cancelar</button><button class="primary" onclick="createPending()">Cadastrar pendência</button></div></section></div>
+<div class="modal-backdrop" id="detailModal"><section class="modal detail-modal"><div class="modal-title"><div><small id="detailMeta">PENDÊNCIA</small><h2 id="detailTitle">Detalhes</h2></div><button class="close" onclick="closeModal('detailModal')">×</button></div><div id="detailBody"></div></section></div>
+<div class="toast" id="toast"></div>
+<script>
+const supa = supabase.createClient('https://vsxoeqyqhmrljfahqcsb.supabase.co','sb_publishable_kBVUT2phcWigWcQNY7PkAQ_xOg72_kt');
+</script><script src="js/pendencias.js"></script>
+</body></html>

@@ -25,6 +25,7 @@ function carregarFormulario() {
   document.getElementById('fieldCliente').value     = r.cliente || '';
   document.getElementById('fieldObra').value        = r.obra || '';
   carregarObrasMapa(r);
+  carregarPendenciasRelatorio(r);
   document.getElementById('fieldCC').value          = r.cc || '';
   document.getElementById('fieldLocalidade').value  = r.localidade || '';
   document.getElementById('fieldResponsavel').value = r.responsavel || '';
@@ -403,3 +404,52 @@ function fecharViewerBtn() {
 
 // ═══════════════════════════════════════════════
 //  EXPORTAR PDF
+
+
+// Pendências vinculadas ao relatório: uma descrição por linha vira um registro individual.
+async function carregarPendenciasRelatorio(relatorio) {
+  const box = document.getElementById('pendenciasRelatorioExistentes');
+  const input = document.getElementById('fieldPendencias');
+  if (!box || !relatorio) return;
+  if (input) input.value = '';
+  if (!relatorio.id || !relatorio.obra_mapa_id) { box.innerHTML = ''; return; }
+  const { data, error } = await supa.from('pendencias')
+    .select('id,descricao,status,prazo,prioridade')
+    .eq('relatorio_id', relatorio.id).order('criado_em', { ascending: true });
+  if (error) {
+    box.innerHTML = `<small style="color:var(--signal)">Não foi possível carregar as pendências vinculadas: ${escHtml(error.message)}</small>`;
+    return;
+  }
+  if (!data?.length) { box.innerHTML = ''; return; }
+  const labels = { pendente: 'Pendente', aguardando_validacao: 'Aguardando validação', concluida: 'Concluída' };
+  box.innerHTML = `<div style="font-size:12px;font-weight:700;margin-bottom:7px">Pendências já cadastradas neste relatório</div>` + data.map(p =>
+    `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 10px;background:var(--surface-2);border-radius:7px;margin-top:5px;font-size:12px"><span>${escHtml(p.descricao)}</span><strong style="white-space:nowrap">${labels[p.status] || p.status}</strong></div>`
+  ).join('');
+}
+
+function obterPendenciasRascunho() {
+  return String(document.getElementById('fieldPendencias')?.value || '')
+    .split(/\r?\n/).map(texto => texto.trim()).filter(Boolean);
+}
+
+async function salvarPendenciasDoRelatorio(relatorio) {
+  const descricoes = obterPendenciasRascunho();
+  if (!descricoes.length) return true;
+  if (!relatorio.obra_mapa_id) {
+    showAlert('Selecione uma obra cadastrada no mapa para vincular as pendências.', 'err');
+    return false;
+  }
+  const payload = descricoes.map(descricao => ({
+    obra_mapa_id: relatorio.obra_mapa_id,
+    relatorio_id: relatorio.id,
+    descricao,
+    prioridade: document.getElementById('fieldPendenciasPrioridade')?.value || 'media',
+    prazo: document.getElementById('fieldPendenciasPrazo')?.value || null,
+  }));
+  const { error } = await supa.from('pendencias').insert(payload);
+  if (error) { showAlert('Relatório salvo, mas não foi possível cadastrar as pendências: ' + error.message, 'err'); return false; }
+  document.getElementById('fieldPendencias').value = '';
+  document.getElementById('fieldPendenciasPrazo').value = '';
+  await carregarPendenciasRelatorio(relatorio);
+  return true;
+}

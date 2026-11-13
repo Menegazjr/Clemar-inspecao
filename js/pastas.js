@@ -253,8 +253,17 @@ async function exportarWord() {
       }
     }
 
-    // ── 04 Observações ──
-    children.push(secTitle('04 — OBSERVAÇÕES GERAIS'));
+    // ── 04 Pendências identificadas ──
+    const pendenciasWord = await obterPendenciasParaExportacao(r);
+    children.push(secTitle('04 — PENDÊNCIAS IDENTIFICADAS'));
+    if (pendenciasWord.length) {
+      pendenciasWord.forEach(p => pushBloco(children, `${p.prioridade_label} — ${p.descricao}${p.prazo ? ` (Prazo: ${fmtData(p.prazo)})` : ''}`));
+    } else {
+      pushBloco(children, 'Nenhuma pendência registrada nesta visita.');
+    }
+
+    // ── 05 Observações ──
+    children.push(secTitle('05 — OBSERVAÇÕES GERAIS'));
     const divObs = document.createElement('div');
     divObs.innerHTML = r.observacoes || '—';
     const pObss = divObs.querySelectorAll('p');
@@ -264,8 +273,8 @@ async function exportarWord() {
       children.push(new Paragraph({ spacing:{before:60,after:60}, children: htmlParaRuns(r.observacoes) }));
     }
 
-    // ── 05 Conclusão ──
-    children.push(secTitle('05 — CONCLUSÃO / PARECER TÉCNICO'));
+    // ── 06 Conclusão ──
+    children.push(secTitle('06 — CONCLUSÃO / PARECER TÉCNICO'));
     children.push(new Table({
       width: { size: 9360, type: WidthType.DXA },
       columnWidths: [2800, 6560],
@@ -283,8 +292,8 @@ async function exportarWord() {
       children.push(new Paragraph({ spacing:{before:60,after:60}, children: htmlParaRuns(r.parecer) }));
     }
 
-    // ── 06 Assinatura ──
-    children.push(secTitle('06 — RESPONSÁVEL PELO RELATÓRIO'));
+    // ── 07 Assinatura ──
+    children.push(secTitle('07 — RESPONSÁVEL PELO RELATÓRIO'));
     children.push(new Paragraph({ spacing: { before: 400, after: 0 }, children: [] }));
     children.push(new Paragraph({
       spacing: { before: 0, after: 0 },

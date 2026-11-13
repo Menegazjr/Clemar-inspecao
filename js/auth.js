@@ -57,7 +57,7 @@ async function fazerCadastro() {
 
 async function aoLogar(user) {
   const { data: perfilAtual, error: erroBusca } = await supa.from('usuarios')
-    .select('id, aprovado, role')
+    .select('id, nome, aprovado, role')
     .eq('id', user.id)
     .maybeSingle();
   if (erroBusca) {
@@ -90,7 +90,7 @@ async function aoLogar(user) {
   }
 
   const { data: reg, error } = await supa.from('usuarios')
-    .select('aprovado, role')
+    .select('nome, aprovado, role')
     .eq('id', user.id)
     .single();
   if (error) {
@@ -103,11 +103,12 @@ async function aoLogar(user) {
   }
 
   // Anexa role ao currentUser para uso global
-  currentUser = { ...user, role: reg?.role || 'user' };
+  currentUser = { ...user, nome: reg?.nome || user.user_metadata?.nome || user.email.split('@')[0], role: reg?.role || 'user' };
   const isAdmin = currentUser.role === 'admin';
+  const isSupervisor = currentUser.role === 'supervisor';
 
   // Verifica aprovação (admin sempre passa)
-  if (!isAdmin) {
+  if (!isAdmin && !isSupervisor) {
     if (!reg || !reg.aprovado) {
       await supa.auth.signOut();
       const msg = document.getElementById('authMsg');

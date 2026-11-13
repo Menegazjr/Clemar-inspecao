@@ -1,3 +1,23 @@
+
+async function obterPendenciasParaExportacao(relatorio) {
+  let existentes = [];
+  if (relatorio?.id) {
+    const { data, error } = await supa.from('pendencias')
+      .select('descricao,prioridade,prazo,status')
+      .eq('relatorio_id', relatorio.id).order('criado_em', { ascending: true });
+    if (error) console.warn('Pendências do relatório não puderam ser carregadas para exportação:', error.message);
+    else existentes = data || [];
+  }
+  const rascunhos = typeof obterPendenciasRascunho === 'function' ? obterPendenciasRascunho() : [];
+  const prioridade = { baixa: 'Baixa', media: 'Média', alta: 'Alta', critica: 'Crítica' };
+  return [...existentes, ...rascunhos.map(descricao => ({
+    descricao,
+    prioridade: document.getElementById('fieldPendenciasPrioridade')?.value || 'media',
+    prazo: document.getElementById('fieldPendenciasPrazo')?.value || null,
+    status: 'pendente'
+  }))].map(p => ({ ...p, prioridade_label: prioridade[p.prioridade] || 'Média' }));
+}
+
 // ═══════════════════════════════════════════════
 function blocosPdfHtml(html, secao) {
   const sa = secao ? ` data-secao="${secao}"` : '';
@@ -106,6 +126,10 @@ async function exportarPDF() {
 
   r.assin_data     = document.getElementById('fieldAssinData').value;
   (r.fotos||[]).forEach(f => { salvarCamposFoto(f.id); });
+  const pendenciasRelatorioPdf = await obterPendenciasParaExportacao(r);
+  const pendenciasPdfHtml = pendenciasRelatorioPdf.length
+    ? pendenciasRelatorioPdf.map(p => `<p style="margin:0 0 5px"><strong>${escHtml(p.prioridade_label)}</strong> — ${escHtml(p.descricao)}${p.prazo ? ` (Prazo: ${fmtData(p.prazo)})` : ''}</p>`).join('')
+    : '<p style="margin:0 0 5px;color:#999">Nenhuma pendência registrada nesta visita.</p>';
 
   const ov = document.getElementById('exportOverlay');
   const msg = document.getElementById('exportMsg');
@@ -165,9 +189,10 @@ async function exportarPDF() {
       ${blocosPdfHtml(r.objetivo)}
       <h2 style="font-size:14px;color:#1a2940;margin:16px 0 6px;border-bottom:2px solid #e8a020;padding-bottom:4px">03 — REGISTRO FOTOGRÁFICO</h2>
       ${fotosHtml||'<p>Nenhuma foto registrada.</p>'}
-      <div class="pdf-section-block" data-secao="observacoes"><h2>04 — OBSERVAÇÕES</h2></div>
+      <div class="pdf-section-block"><h2>04 — PENDÊNCIAS IDENTIFICADAS</h2>${pendenciasPdfHtml}</div>
+      <div class="pdf-section-block" data-secao="observacoes"><h2>05 — OBSERVAÇÕES</h2></div>
       ${blocosPdfHtml(r.observacoes, "observacoes")}
-      <div class="pdf-section-block" data-secao="conclusao"><h2>05 — CONCLUSÃO</h2>
+      <div class="pdf-section-block" data-secao="conclusao"><h2>06 — CONCLUSÃO</h2>
       <table>
         <tr><td>Situação Geral</td><td>${r.situacao||'—'}</td></tr>
       </table>
@@ -496,7 +521,7 @@ function barraEspaco(titulo, subtitulo, resultado, limite, funcao) {
     <div class="g-barra"><i style="width:${Math.max(percentual, 1.5)}%;background:${cor}"></i></div><small>${percentual.toFixed(1)}% do limite de referência do plano gratuito</small></div>`;
 }
 
-const _gStatus = usuario => usuario.role === 'admin' ? 'admin' : usuario.aprovado ? 'aprovado' : 'pendente';
+const _gStatus = usuario => usuario.role === 'admin' ? 'admin' : usuario.role === 'supervisor' ? 'supervisor' : usuario.aprovado ? 'aprovado' : 'pendente';
 const _gAvatarCores = ['#0a8fe0', '#27ae60', '#8e44ad', '#e67e22', '#16a085', '#c0392b', '#34495e'];
 const _gCorAvatar = texto => _gAvatarCores[[...String(texto || '')].reduce((soma, caractere) => soma + caractere.charCodeAt(0), 0) % _gAvatarCores.length];
 const _gTempoAcesso = iso => {
@@ -525,6 +550,7 @@ function renderGestao() {
   const conta = predicado => _gUsuarios.filter(predicado).length;
   const pendentes = conta(usuario => _gStatus(usuario) === 'pendente');
   const admins = conta(usuario => _gStatus(usuario) === 'admin');
+  const supervisores = conta(usuario => _gStatus(usuario) === 'supervisor');
   const aprovados = conta(usuario => _gStatus(usuario) === 'aprovado');
   const semanaAtras = Date.now() - 7 * 864e5;
   const ativos = conta(usuario => usuario.ultimo_login && new Date(usuario.ultimo_login).getTime() > semanaAtras);
@@ -532,17 +558,19 @@ function renderGestao() {
   cards.innerHTML = card('Usuários', _gUsuarios.length)
     + card('Aguardando aprovação', pendentes, pendentes ? 'g-alerta' : '')
     + card('Administradores', admins)
+    + card('Supervisores', supervisores)
     + card('Ativos nos últimos 7 dias', ativos);
 
   const chip = (filtro, titulo, quantidade) => `<button class="g-chip${_gFiltro === filtro ? ' on' : ''}" onclick="gFiltrar('${filtro}')">${titulo}<small>${quantidade}</small></button>`;
   chips.innerHTML = chip('todos', 'Todos', _gUsuarios.length)
     + chip('pendente', 'Pendentes', pendentes)
     + chip('aprovado', 'Aprovados', aprovados)
-    + chip('admin', 'Admins', admins);
+    + chip('admin', 'Admins', admins)
+    + chip('supervisor', 'Supervisores', supervisores);
 
   const norm = texto => String(texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const busca = norm(_gBusca).trim();
-  const prioridade = { pendente: 0, admin: 1, aprovado: 2 };
+  const prioridade = { pendente: 0, supervisor: 1, admin: 2, aprovado: 3 };
   const usuarios = _gUsuarios
     .filter(usuario => (_gFiltro === 'todos' || _gStatus(usuario) === _gFiltro)
       && (!busca || norm(`${usuario.nome || ''} ${usuario.email || ''}`).includes(busca)))
@@ -561,12 +589,14 @@ function renderUsuarioAdmin(usuario) {
   const nome = usuario.nome || email.split('@')[0] || 'Sem nome';
   const iniciais = nome.trim().split(/\s+/).slice(0, 2).map(parte => parte[0]).join('').toUpperCase() || '?';
   const badge = status === 'admin' ? '<span class="g-badge adm">Admin</span>'
+    : status === 'supervisor' ? '<span class="g-badge ok">Supervisor</span>'
     : status === 'aprovado' ? '<span class="g-badge ok">Aprovado</span>'
     : '<span class="g-badge pend">Pendente</span>';
   let acoes = '';
   if (!ehAtual) {
     if (status === 'pendente') acoes += `<button class="g-btn ok" onclick="aprovarUsuario('${id}')">✓ Aprovar</button>`;
-    if (status === 'aprovado') acoes += `<button class="g-btn" onclick="alterarRole('${id}','admin')">Tornar admin</button><button class="g-btn" onclick="revogarUsuario('${id}')">Revogar acesso</button>`;
+    if (status === 'aprovado') acoes += `<button class="g-btn" onclick="alterarRole('${id}','supervisor')">Tornar supervisor</button><button class="g-btn" onclick="alterarRole('${id}','admin')">Tornar admin</button><button class="g-btn" onclick="revogarUsuario('${id}')">Revogar acesso</button>`;
+    if (status === 'supervisor') acoes += `<button class="g-btn" onclick="alterarRole('${id}','user')">Remover supervisor</button><button class="g-btn" onclick="alterarRole('${id}','admin')">Tornar admin</button><button class="g-btn" onclick="revogarUsuario('${id}')">Revogar acesso</button>`;
     if (status === 'admin') acoes += `<button class="g-btn" onclick="alterarRole('${id}','user')">Remover admin</button>`;
     acoes += `<button class="g-btn perigo" onclick="excluirUsuario('${id}', this.dataset.email)" data-email="${escHtml(email)}">Excluir</button>`;
   }
@@ -590,14 +620,16 @@ async function excluirUsuario(id, email) {
 
 
 async function alterarRole(id, novoRole) {
-  const acao = novoRole === 'admin' ? 'tornar administrador' : 'remover privilégios de admin de';
+  const acoes = { admin: 'tornar administrador', supervisor: 'tornar supervisor', user: 'remover privilégios especiais de' };
+  const acao = acoes[novoRole] || 'alterar o perfil de';
   if (!confirm(`Deseja ${acao} este usuário?`)) return;
   const { error } = await supa.rpc('admin_atualizar_usuario', {
     p_usuario_id: id,
     p_role: novoRole,
+    p_aprovado: novoRole === 'user' ? true : null,
   });
   if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
-  showAlert(novoRole === 'admin' ? 'Usuário promovido a admin!' : 'Privilégios de admin removidos.', 'ok');
+  showAlert(novoRole === 'admin' ? 'Usuário promovido a administrador!' : novoRole === 'supervisor' ? 'Usuário promovido a supervisor!' : 'Privilégios especiais removidos.', 'ok');
   await carregarUsuariosAdmin();
 }
 
@@ -612,8 +644,10 @@ async function aprovarUsuario(id) {
 }
 
 async function revogarUsuario(id) {
+  const usuario = _gUsuarios.find(u => u.id === id);
   const { error } = await supa.rpc('admin_atualizar_usuario', {
     p_usuario_id: id,
+    p_role: usuario?.role === 'supervisor' ? 'user' : null,
     p_aprovado: false,
   });
   if (error) { showAlert('Erro: ' + error.message, 'err'); return; }

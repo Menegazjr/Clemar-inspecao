@@ -337,6 +337,10 @@ async function salvar() {
   r.parecer        = getEditorHtml(_quillParecer);
   r.assin_nome     = document.getElementById('fieldAssinNome').value;
   selecionarObraMapa(r.obra);
+  if (typeof obterPendenciasRascunho === 'function' && obterPendenciasRascunho().length && !r.obra_mapa_id) {
+    showAlert('Para cadastrar pendências, selecione uma obra existente no mapa.', 'err');
+    return;
+  }
 
   r.assin_data     = document.getElementById('fieldAssinData').value;
   r.atualizado_em  = new Date().toISOString();
@@ -396,9 +400,21 @@ async function salvar() {
   }
   _fotosProntasId = r.id;
 
-  // Atualiza versão local
+  // Atualiza a versão do relatório imediatamente após o salvamento, mesmo se o cadastro
+  // complementar de pendências precisar ser tentado novamente.
   _versaoAberta = campos.versao;
   r.versao = campos.versao;
+
+  // Cada linha informada na seção de pendências vira um registro individual vinculado a esta obra e relatório.
+  if (typeof salvarPendenciasDoRelatorio === 'function') {
+    const pendenciasSalvas = await salvarPendenciasDoRelatorio(r);
+    if (!pendenciasSalvas) {
+      atualizarTamanhoRelatorio(r);
+      renderizarHistorico();
+      renderizarLista();
+      return;
+    }
+  }
 
   // Confirma presença após salvar
   await registrarPresenca(r.id);
@@ -749,6 +765,7 @@ async function salvarPerfil() {
 
     // Atualiza exibição
     currentUser.email = email;
+    currentUser.nome = nome;
     document.getElementById('userEmail').textContent = email;
     showMsg('Perfil atualizado com sucesso!', true);
     setTimeout(() => fecharModal('modalPerfil'), 1500);

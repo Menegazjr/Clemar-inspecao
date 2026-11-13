@@ -191,7 +191,8 @@ button.leg-row.on { background:rgba(25,180,255,.2); box-shadow:inset 0 0 0 1px r
   </div>
   <div class="topnav-actions">
     <button class="btn btn-blue js-nova" id="btnNova" style="display:none" onclick="novaObra()">+ <span class="btn-hide-mobile">Nova obra</span></button>
-    <a class="btn btn-steel" href="index.html">Inspeções</a>
+    <a class="btn btn-steel" href="index.html">Relatórios</a>
+    <a class="btn btn-steel" href="pendencias.html">Pendências</a>
     <button class="btn btn-steel js-auth" id="btnAuth" onclick="authClick()">Entrar</button>
   </div>
 </nav>
@@ -201,7 +202,8 @@ button.leg-row.on { background:rgba(25,180,255,.2); box-shadow:inset 0 0 0 1px r
     <div class="side-head">
       <div class="side-acoes only-mobile">
         <button class="btn btn-blue js-nova" style="display:none" onclick="novaObra()">+ Nova obra</button>
-        <a class="btn btn-steel" href="index.html">Inspeções</a>
+        <a class="btn btn-steel" href="index.html">Relatórios</a>
+        <a class="btn btn-steel" href="pendencias.html">Pendências</a>
         <button class="btn btn-steel js-auth" onclick="authClick()">Entrar</button>
         <button class="btn btn-steel" onclick="alternarMenu()" aria-label="Fechar menu" style="margin-left:auto">✕</button>
       </div>
@@ -533,6 +535,7 @@ function abrir(id, centralizar) {
       ? `<a class="pb pb-azul largo" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${ico('monitor')} Abrir supervisório</a>`
       : `<span class="pb pb-off largo">${ico('monitor')} ${o.supervisorio_url ? 'Link inválido' : 'Sem supervisório cadastrado'}</span>`}
       <a class="pb pb-claro" href="index.html?obra_mapa_id=${encodeURIComponent(o.id)}">${ico('prancheta')} Relatórios</a>
+      <a class="pb pb-claro" href="pendencias.html?obra_mapa_id=${encodeURIComponent(o.id)}">${ico('prancheta')} Pendências</a>
       <button class="pb pb-claro" onclick="editar('${o.id}')">${ico('lapis')} Editar</button></div>
       <button class="excluir" onclick="excluir('${o.id}')">Excluir obra</button>`
     : '';
@@ -661,7 +664,7 @@ async function checarSessao() {
     const { data: r, error: erroPerfil } = await supa.from('usuarios').select('aprovado, role').eq('id', user.id).single();
     if (tentativa !== verificacaoSessao) return;
     if (erroPerfil) { bloquearMapa('Não foi possível validar sua autorização. Tente novamente ou contate o administrador.'); return; }
-    podeEditar = !!(r && (r.aprovado || r.role === 'admin'));
+    podeEditar = !!(r && (r.aprovado || r.role === 'admin' || r.role === 'supervisor'));
     document.querySelectorAll('.js-nova').forEach(b => b.style.display = podeEditar ? '' : 'none');
     document.querySelectorAll('.js-auth').forEach(b => b.textContent = user ? 'Sair' : 'Entrar');
     if (!podeEditar) { bloquearMapa('Seu acesso ainda não foi aprovado pelo administrador.'); return; }
