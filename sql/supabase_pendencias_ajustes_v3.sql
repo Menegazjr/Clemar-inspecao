@@ -35,7 +35,6 @@ for delete to authenticated
 using ((select public.clemar_e_admin()));
 
 drop policy if exists pendencia_fotos_admin_apagam on storage.objects;
-drop policy if exists pendencia_fotos_admin_apagam on storage.objects;
 create policy pendencia_fotos_admin_apagam on storage.objects
 for delete to authenticated
 using (
