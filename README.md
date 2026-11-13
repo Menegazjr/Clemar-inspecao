@@ -23,20 +23,19 @@ Quando habilitado, o navegador tenta acessar o link a cada 30 minutos enquanto o
 
 ## Módulo de pendências
 
-A página `pendencias.html` reúne as pendências por obra, com indicadores, prazos, prioridade, histórico e validação pelo supervisor. O módulo utiliza as tabelas `pendencias` e `pendencias_historico` e o bucket privado `pendencia-fotos`.
+A página `pendencias.html` reúne as pendências por obra, com indicadores, prazos, histórico e validação pelo supervisor. Usuários aprovados podem visualizar as pendências e registrar correções com fotos; supervisores validam as correções; somente administradores podem excluir pendências. O módulo utiliza as tabelas `pendencias` e `pendencias_historico` e o bucket privado `pendencia-fotos`.
 
 ### Ativação no Supabase
 
 1. Abra o SQL Editor do projeto Supabase usado pela aplicação.
 2. Execute `sql/supabase_pendencias.sql` depois de `sql/supabase_rls_hardening.sql`.
-3. Na tela Gestão, um administrador pode promover usuários aprovados para o perfil **Supervisor**. Administradores também podem validar correções.
-4. Publique os arquivos atualizados da aplicação.
+3. Execute `sql/supabase_pendencias_ajustes_v2.sql` e, em seguida, `sql/supabase_pendencias_ajustes_v3.sql`.
+4. Na tela Gestão, um administrador pode definir se um usuário aprovado é usuário, supervisor ou administrador.
+5. Publique os arquivos atualizados da aplicação.
 
 Os status do fluxo são somente `pendente`, `aguardando_validacao` e `concluida`. O responsável registra a descrição da correção e pode anexar fotos; somente supervisor ou administrador aprova ou devolve, com justificativa obrigatória na devolução. O nome e o ID do usuário são gravados automaticamente no histórico.
 
 
-## Atualização do módulo de pendências (v2)
+## Atualização do módulo de pendências
 
-Para atualizar uma instalação que já executou `sql/supabase_pendencias.sql`, execute também `sql/supabase_pendencias_ajustes_v2.sql` no SQL Editor do Supabase. Essa atualização adiciona as fotos da pendência, remove a coluna de prioridade e habilita a exclusão de uma pendência vinculada ao relatório conforme as permissões do usuário.
-
-A tela de Gestão de Usuários já existente permite promover usuários aprovados a supervisor pelo botão **Tornar supervisor**. Para remover essa função, use **Remover supervisor**.
+Em instalações que já executaram `sql/supabase_pendencias.sql`, execute `sql/supabase_pendencias_ajustes_v2.sql` e depois `sql/supabase_pendencias_ajustes_v3.sql` no SQL Editor do Supabase. A v3 restringe exclusões de pendências e fotos ao perfil **Administrador**.

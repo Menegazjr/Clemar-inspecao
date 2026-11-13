@@ -11,8 +11,25 @@ function fmtDateTime(value){return value?new Date(value).toLocaleString('pt-BR',
 function localToday(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10);}
 function overdue(p){return p.status!=='concluida'&&p.prazo&&p.prazo<localToday();}
 function statusBadge(status){const s=STATUS[status]||['Indefinido',''];return `<span class="pill ${s[1]}">${s[0]}</span>`;}
+function isAdmin(){return currentUser?.role==='admin';}
+function photoPicker(prefix){
+  return `<div class="photo-picker"><div class="photo-actions"><button type="button" class="primary photo-button" onclick="$('${prefix}PhotoCamera').click()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>Nova foto (câmera)</button><button type="button" class="ghost photo-button" onclick="$('${prefix}Photos').click()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>Nova foto (galeria)</button></div><small id="${prefix}PhotoStatus">Nenhuma foto selecionada</small><input id="${prefix}PhotoCamera" class="photo-input" type="file" accept="image/*" capture="environment" onchange="updatePhotoSelection('${prefix}')"><input id="${prefix}Photos" class="photo-input" type="file" accept="image/*" multiple onchange="updatePhotoSelection('${prefix}')"></div>`;
+}
+function selectedPhotoFiles(prefix){
+  return [...($(`${prefix}PhotoCamera`)?.files||[]),...($(`${prefix}Photos`)?.files||[])];
+}
+function updatePhotoSelection(prefix){
+  const count=selectedPhotoFiles(prefix).length;
+  $(`${prefix}PhotoStatus`).textContent=count?`${count} foto(s) selecionada(s)`:'Nenhuma foto selecionada';
+}
+function resetPhotoPicker(prefix){
+  $(`${prefix}PhotoCamera`).value='';
+  $(`${prefix}Photos`).value='';
+  updatePhotoSelection(prefix);
+}
 
 async function init(){
+  $('createPhotoPicker').innerHTML=photoPicker('create');
   const {data:{session}}=await supa.auth.getSession();
   if(session?.user) await validateUser(session.user);
   supa.auth.onAuthStateChange((_event,session)=>{if(!session){currentUser=null;$('loginScreen').classList.remove('hidden');}else setTimeout(()=>validateUser(session.user),0);});
@@ -40,7 +57,7 @@ async function loadData(){
   $('pendingList').innerHTML='<div class="empty">Carregando pendências...</div>';
   const [{data:workData,error:workError},{data:pendingData,error:pendingError}]=await Promise.all([
     supa.from('obras_mapa').select('id,nome,cliente,cidade,uf,supervisorio_url').order('nome'),
-    supa.from('pendencias').select('*,obras_mapa(id,nome,cliente,cidade,uf),relatorios(numero,data)').order('criado_em',{ascending:false})
+    supa.from('pendencias').select('*,obras_mapa(id,nome,cliente,cidade,uf),relatorios(id,numero,data)').order('criado_em',{ascending:false})
   ]);
   if(workError||pendingError){$('pendingList').innerHTML=`<div class="empty access-denied">Erro ao carregar: ${esc(workError?.message||pendingError?.message)}<br><small>Confira se a migração sql/supabase_pendencias.sql foi executada no Supabase.</small></div>`;return;}
   obras=workData||[];pendencias=pendingData||[];
@@ -72,12 +89,22 @@ function renderList(){
   $('listCount').textContent=`${rows.length} de ${pendencias.length} pendência(s)`;
   $('pendingList').innerHTML=rows.length?rows.map(p=>{
     const obra=p.obras_mapa?.nome||'Obra';const due=overdue(p);
-    return `<article class="pending-row" onclick="openDetail('${p.id}')"><div class="pending-main"><div class="pending-top"><b>${esc(obra)}</b>${statusBadge(p.status)}${due?'<span class="pill s-pendente">Atrasada</span>':''}</div><div class="pending-desc">${esc(p.descricao)}</div><div class="pending-meta"><span>Aberta por ${esc(p.criado_por_nome)}</span><span>Em ${fmtDate(p.criado_em.slice(0,10))}</span><span class="${due?'due':''}">Prazo: ${fmtDate(p.prazo)}</span>${p.relatorio_id?`<span>Relatório #${esc(p.relatorios?.numero??'—')}</span>`:''}</div></div><div class="row-arrow">›</div></article>`;
+    const reportUrl=p.relatorio_id?`index.html?relatorio_id=${encodeURIComponent(p.relatorio_id)}`:'';
+    return `<article class="pending-row" onclick="openPending('${p.id}')"><div class="pending-main"><div class="pending-top"><b>${esc(obra)}</b>${statusBadge(p.status)}${due?'<span class="pill s-pendente">Atrasada</span>':''}</div><div class="pending-desc">${esc(p.descricao)}</div><div class="pending-meta"><span>Aberta por ${esc(p.criado_por_nome)}</span><span>Em ${fmtDate(p.criado_em.slice(0,10))}</span><span class="${due?'due':''}">Prazo: ${fmtDate(p.prazo)}</span>${p.relatorio_id?`<span>Relatório #${esc(p.relatorios?.numero??'—')}</span>`:''}</div></div><div class="row-actions">${p.relatorio_id?`<a class="row-action report-link" href="${reportUrl}" onclick="event.stopPropagation()">Abrir relatório</a>`:''}<button type="button" class="ghost row-action" onclick="event.stopPropagation();openDetail('${p.id}')">Detalhes</button>${isAdmin()?`<button type="button" class="danger row-action" onclick="event.stopPropagation();deletePending('${p.id}')">Excluir</button>`:''}</div></article>`;
   }).join(''):'<div class="empty">Nenhuma pendência encontrada com esses filtros.</div>';
+}
+function openPending(id){
+  const pendencia=pendencias.find(item=>item.id===id);
+  if(!pendencia)return;
+  if(pendencia.relatorio_id){
+    location.href=`index.html?relatorio_id=${encodeURIComponent(pendencia.relatorio_id)}`;
+    return;
+  }
+  openDetail(id);
 }
 function openCreate(){
   if(!obras.length){toast('Cadastre uma obra no mapa antes de criar pendências.');return;}
-  $('createDescription').value='';$('createPriority').value='media';$('createDeadline').value='';
+  $('createDescription').value='';$('createDeadline').value='';resetPhotoPicker('create');
   if(obraParam)$('createObra').value=obraParam;
   $('createModal').classList.add('open');
 }
@@ -85,17 +112,28 @@ async function createPending(){
   if(creatingPending)return;
   const obraId=$('createObra').value,description=$('createDescription').value.trim();
   if(!obraId||!description){toast('Selecione a obra e informe a descrição.');return;}
-  const id=crypto.randomUUID(), files=[...($('createPhotos')?.files||[])];
+  const id=crypto.randomUUID(), files=selectedPhotoFiles('create');
   creatingPending=true;
   let fotos=[];
   try{
     fotos=await uploadCorrectionPhotos(id,files);
     const {error}=await supa.from('pendencias').insert({id,obra_mapa_id:obraId,descricao,prazo:$('createDeadline').value||null,fotos});
     if(error)throw error;
-    $('createDescription').value='';$('createDeadline').value='';$('createPhotos').value='';
+    $('createDescription').value='';$('createDeadline').value='';resetPhotoPicker('create');
     closeModal('createModal');toast('Pendência cadastrada.');await loadData();
   }catch(error){if(fotos.length)await supa.storage.from('pendencia-fotos').remove(fotos);toast('Não foi possível cadastrar: '+error.message);}
   finally{creatingPending=false;}
+}
+async function deletePending(id){
+  if(!isAdmin()){toast('Somente administradores podem excluir pendências.');return;}
+  const pendencia=pendencias.find(item=>item.id===id);
+  if(!pendencia)return;
+  if(!confirm(`Excluir a pendência "${pendencia.descricao}"? Esta ação não pode ser desfeita.`))return;
+  const {error,erroFotos}=await excluirPendenciaComFotos(id);
+  if(error){toast('Não foi possível excluir: '+error.message);return;}
+  if(selected?.id===id){closeModal('detailModal');selected=null;}
+  toast(erroFotos?`Pendência excluída, mas não foi possível remover todas as fotos: ${erroFotos.message}`:'Pendência excluída.');
+  await loadData();
 }
 async function openDetail(id){
   selected=pendencias.find(p=>p.id===id);if(!selected)return;
@@ -113,10 +151,11 @@ async function openDetail(id){
   }));
   const photos=await signedPhotos(p.fotos_correcao||[]);
   const originalPhotos=await signedPhotos(p.fotos||[]);
-  const report=p.relatorios?.numero?`Relatório #${p.relatorios.numero}`:'Cadastro direto na obra';
+  const report=p.relatorios?.numero?`<a href="index.html?relatorio_id=${encodeURIComponent(p.relatorio_id)}">Abrir relatório #${p.relatorios.numero}</a>`:'Cadastro direto na obra';
+  const adminAction=isAdmin()?`<div class="review-actions"><button class="danger" onclick="deletePending('${p.id}')">Excluir pendência</button></div>`:'';
   const review=p.status==='aguardando_validacao'&&supervisor?`<div class="review-actions"><button class="danger" onclick="returnCorrection('${p.id}')">Devolver para correção</button><button class="primary" onclick="approveCorrection('${p.id}')">Aprovar correção</button></div>`:'';
-  const correctionForm=p.status==='pendente'?`<div class="correction-box"><h3>${p.status==='aguardando_validacao'?'Enviar nova correção':'Registrar correção'}</h3><label>Descreva o que foi corrigido <em>*</em><textarea id="correctionText" placeholder="Informe o serviço realizado e o resultado..."></textarea></label><label>Fotos da correção (opcional)<input id="correctionPhotos" type="file" accept="image/*" multiple></label><div class="correction-actions"><button class="primary" onclick="submitCorrection('${p.id}')">Enviar para validação</button></div></div>`:'';
-  $('detailBody').innerHTML=`<div class="detail-grid"><div><small>SITUAÇÃO</small><b>${STATUS[p.status]?.[0]||p.status}</b></div><div><small>PRAZO</small><b class="${overdue(p)?'due':''}">${fmtDate(p.prazo)}</b></div><div><small>CADASTRADA POR</small><b>${esc(p.criado_por_nome)}</b></div><div><small>DATA DE ABERTURA</small><b>${fmtDateTime(p.criado_em)}</b></div><div><small>ORIGEM</small><b>${report}</b></div></div><div class="detail-description">${esc(p.descricao)}${originalPhotos?`<div class="photo-grid">${originalPhotos}</div>`:''}</div>${p.correcao_texto?`<div class="detail-description"><b>Última correção enviada por ${esc(p.corrigido_por_nome||'—')}:</b><br>${esc(p.correcao_texto)}${photos?`<div class="photo-grid">${photos}</div>`:''}</div>`:''}${p.motivo_devolucao?`<div class="detail-description"><b>Última devolução:</b><br>${esc(p.motivo_devolucao)}</div>`:''}<div class="section-title">Histórico de movimentações</div><div class="history">${historyHtml.join('')||'<p>Sem histórico.</p>'}</div>${correctionForm}${review}${p.status==='concluida'?`<div class="detail-description" style="margin-top:16px;color:#16865b"><b>Concluída por ${esc(p.aprovado_por_nome||'Supervisor')}</b><br>${fmtDateTime(p.aprovado_em)}</div>`:''}`;
+  const correctionForm=p.status==='pendente'?`<div class="correction-box"><h3>Registrar correção</h3><label>Descreva o que foi corrigido <em>*</em><textarea id="correctionText" placeholder="Informe o serviço realizado e o resultado..."></textarea></label><div class="photo-field"><div class="photo-label">Fotos da correção (opcional)</div>${photoPicker('correction')}</div><div class="correction-actions"><button class="primary" onclick="submitCorrection('${p.id}')">Enviar para validação</button></div></div>`:'';
+  $('detailBody').innerHTML=`<div class="detail-grid"><div><small>SITUAÇÃO</small><b>${STATUS[p.status]?.[0]||p.status}</b></div><div><small>PRAZO</small><b class="${overdue(p)?'due':''}">${fmtDate(p.prazo)}</b></div><div><small>CADASTRADA POR</small><b>${esc(p.criado_por_nome)}</b></div><div><small>DATA DE ABERTURA</small><b>${fmtDateTime(p.criado_em)}</b></div><div><small>ORIGEM</small><b>${report}</b></div></div><div class="detail-description">${esc(p.descricao)}${originalPhotos?`<div class="photo-grid">${originalPhotos}</div>`:''}</div>${p.correcao_texto?`<div class="detail-description"><b>Última correção enviada por ${esc(p.corrigido_por_nome||'—')}:</b><br>${esc(p.correcao_texto)}${photos?`<div class="photo-grid">${photos}</div>`:''}</div>`:''}${p.motivo_devolucao?`<div class="detail-description"><b>Última devolução:</b><br>${esc(p.motivo_devolucao)}</div>`:''}<div class="section-title">Histórico de movimentações</div><div class="history">${historyHtml.join('')||'<p>Sem histórico.</p>'}</div>${correctionForm}${review}${adminAction}${p.status==='concluida'?`<div class="detail-description" style="margin-top:16px;color:#16865b"><b>Concluída por ${esc(p.aprovado_por_nome||'Supervisor')}</b><br>${fmtDateTime(p.aprovado_em)}</div>`:''}`;
 }
 async function signedPhotos(paths){
   if(!Array.isArray(paths)||!paths.length)return '';
@@ -135,7 +174,7 @@ async function uploadCorrectionPhotos(id,files){
 }
 async function submitCorrection(id){
   if(sendingCorrection)return;
-  const text=$('correctionText')?.value.trim()||'',files=[...($('correctionPhotos')?.files||[])];
+  const text=$('correctionText')?.value.trim()||'',files=selectedPhotoFiles('correction');
   if(!text){toast('A descrição da correção é obrigatória.');return;}
   sendingCorrection=true;
   let paths=[];

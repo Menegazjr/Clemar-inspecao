@@ -591,6 +591,9 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
   .g-btn:hover { border-color: var(--accent); }
   .g-btn.ok { border-color: var(--ok); background: var(--ok); color: #fff; }
   .g-btn.perigo { border-color: #f1b5ae; color: var(--signal); }
+  .g-role-control { display: flex; align-items: center; gap: 6px; }
+  .g-role-control label { color: var(--ink-light); font: 600 11px var(--font-cond); }
+  .g-role-select { min-width: 130px; padding: 7px 9px; border: 1.5px solid var(--border); border-radius: 8px; background: var(--white); color: var(--ink-mid); font: 600 12px var(--font-cond); }
   @media (max-width: 700px) {
     #adminPanel { padding: 0; }
     .gestao-modal { height: 100dvh; max-height: 100dvh; border-radius: 0; }
@@ -599,6 +602,7 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
     .g-espaco { grid-template-columns: 1fr; }
     .g-user { grid-template-columns: 44px minmax(0, 1fr); }
     .g-acoes { grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; margin-top: 8px; }
+    .g-role-control { flex-wrap: wrap; }
   }
 
   /* ── PASTAS ── */

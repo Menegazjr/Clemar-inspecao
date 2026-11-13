@@ -92,6 +92,17 @@ async function carregarLista() {
   atualizaFiltros();
   renderizarLista();
   renderizarHistorico();
+  const relatorioId = new URLSearchParams(location.search).get('relatorio_id');
+  if (relatorioId) {
+    const url = new URL(location.href);
+    url.searchParams.delete('relatorio_id');
+    history.replaceState(history.state, '', url);
+    if (relatorios.some(relatorio => relatorio.id === relatorioId)) {
+      await abrirRelatorio(relatorioId);
+    } else {
+      showAlert('O relatório vinculado a esta pendência não está disponível.', 'warn');
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════

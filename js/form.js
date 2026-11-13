@@ -433,18 +433,23 @@ async function carregarPendenciasRelatorio(relatorio) {
       return urlData?.signedUrl || '';
     }));
     const thumbs = signed.filter(Boolean).map(url => `<a href="${escHtml(url)}" target="_blank" rel="noopener"><img src="${escHtml(url)}" alt="Foto da pendência" style="width:64px;height:48px;object-fit:cover;border-radius:4px;margin:5px 5px 0 0"></a>`).join('');
-    return `<div class="pendencia-existente"><div><span>${escHtml(p.descricao)}</span><strong class="pendencia-status status-${p.status}">${labels[p.status] || p.status}</strong>${thumbs}</div><button type="button" class="btn btn-danger btn-sm" onclick="excluirPendenciaRelatorio('${p.id}')">Excluir</button></div>`;
+    const acaoExcluir = currentUser?.role === 'admin'
+      ? `<button type="button" class="btn btn-danger btn-sm" onclick="excluirPendenciaRelatorio('${p.id}')">Excluir</button>`
+      : '';
+    return `<div class="pendencia-existente"><div><span>${escHtml(p.descricao)}</span><strong class="pendencia-status status-${p.status}">${labels[p.status] || p.status}</strong>${thumbs}</div>${acaoExcluir}</div>`;
   }));
   box.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:7px">Já cadastradas neste relatório</div>` + linhas.join('');
 }
 async function excluirPendenciaRelatorio(id) {
+  if (currentUser?.role !== 'admin') {
+    showAlert('Somente administradores podem excluir pendências.', 'err');
+    return;
+  }
   if (!confirm('Excluir esta pendência também do Dashboard?')) return;
-  const { data: registro } = await supa.from('pendencias').select('fotos').eq('id', id).maybeSingle();
-  const { error } = await supa.from('pendencias').delete().eq('id', id);
-  if (!error && registro?.fotos?.length) await supa.storage.from('pendencia-fotos').remove(registro.fotos);
+  const { error, erroFotos } = await excluirPendenciaComFotos(id);
   if (error) { showAlert('Não foi possível excluir a pendência: ' + error.message, 'err'); return; }
   await carregarPendenciasRelatorio(getRelatorioAtual());
-  showAlert('Pendência excluída do relatório e do Dashboard.', 'ok');
+  showAlert(erroFotos ? 'Pendência excluída, mas não foi possível remover todas as fotos: ' + erroFotos.message : 'Pendência excluída do relatório e do Dashboard.', erroFotos ? 'warn' : 'ok');
 }
 function comprimirFotoPendencia(file) {
   return new Promise((resolve, reject) => {

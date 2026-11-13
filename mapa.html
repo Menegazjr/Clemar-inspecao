@@ -545,7 +545,7 @@ function abrir(id, centralizar) {
     <div class="meta">${ico('pino')}<span>${esc(local(o))}</span></div>
     ${o.observacoes ? `<div class="meta obs">${esc(o.observacoes)}</div>` : ''}
     ${supOnline ? `<div class="meta sup-ok">${ico('monitor')}<span>Supervisório online</span></div>` : ''}
-    ${btnPendencias}${acesso}`;
+    <div class="grade">${btnPendencias}</div>${acesso}`;
   if (centralizar) map.easeTo({ center: [o.lng, o.lat], bearing: 0, duration: 600 });   // só centraliza, sem zoom
   popup = new maplibregl.Popup({ offset: 22, maxWidth: '310px', className: 'pop' }).setLngLat([o.lng, o.lat]).setHTML(html).addTo(map);
 }

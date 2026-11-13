@@ -506,7 +506,7 @@ async function carregarEspaco() {
   ]);
   box.innerHTML =
     barraEspaco('Banco de dados', 'relatórios, usuários e obras', db, _G_DB_LIMITE, 'db_size')
-    + barraEspaco('Fotos armazenadas', 'bucket relatorio-fotos', storage, _G_ST_LIMITE, 'storage_size');
+    + barraEspaco('Fotos armazenadas', 'relatorio-fotos e pendencia-fotos', storage, _G_ST_LIMITE, 'storage_size');
 }
 
 function barraEspaco(titulo, subtitulo, resultado, limite, funcao) {
@@ -595,9 +595,11 @@ function renderUsuarioAdmin(usuario) {
   let acoes = '';
   if (!ehAtual) {
     if (status === 'pendente') acoes += `<button class="g-btn ok" onclick="aprovarUsuario('${id}')">✓ Aprovar</button>`;
-    if (status === 'aprovado') acoes += `<button class="g-btn" onclick="alterarRole('${id}','supervisor')">Tornar supervisor</button><button class="g-btn" onclick="alterarRole('${id}','admin')">Tornar admin</button><button class="g-btn" onclick="revogarUsuario('${id}')">Revogar acesso</button>`;
-    if (status === 'supervisor') acoes += `<button class="g-btn" onclick="alterarRole('${id}','user')">Remover supervisor</button><button class="g-btn" onclick="alterarRole('${id}','admin')">Tornar admin</button><button class="g-btn" onclick="revogarUsuario('${id}')">Revogar acesso</button>`;
-    if (status === 'admin') acoes += `<button class="g-btn" onclick="alterarRole('${id}','user')">Remover admin</button>`;
+    if (['aprovado', 'supervisor', 'admin'].includes(status)) {
+      const role = ['admin', 'supervisor'].includes(usuario.role) ? usuario.role : 'user';
+      const revogar = status === 'admin' ? '' : `<button class="g-btn" onclick="revogarUsuario('${id}')">Revogar acesso</button>`;
+      acoes += `<div class="g-role-control"><label for="gRole-${id}">Perfil</label><select class="g-role-select" id="gRole-${id}"><option value="user"${role === 'user' ? ' selected' : ''}>Usuário</option><option value="supervisor"${role === 'supervisor' ? ' selected' : ''}>Supervisor</option><option value="admin"${role === 'admin' ? ' selected' : ''}>Administrador</option></select><button class="g-btn" onclick="alterarRole('${id}',document.getElementById('gRole-${id}').value)">Salvar</button></div>${revogar}`;
+    }
     acoes += `<button class="g-btn perigo" onclick="excluirUsuario('${id}', this.dataset.email)" data-email="${escHtml(email)}">Excluir</button>`;
   }
   const criado = usuario.criado_em ? `Criado em ${new Date(usuario.criado_em).toLocaleDateString('pt-BR')}` : '';
@@ -620,6 +622,8 @@ async function excluirUsuario(id, email) {
 
 
 async function alterarRole(id, novoRole) {
+  const usuario = _gUsuarios.find(item => item.id === id);
+  if (usuario && (usuario.role || 'user') === novoRole) return;
   const acoes = { admin: 'tornar administrador', supervisor: 'tornar supervisor', user: 'remover privilégios especiais de' };
   const acao = acoes[novoRole] || 'alterar o perfil de';
   if (!confirm(`Deseja ${acao} este usuário?`)) return;

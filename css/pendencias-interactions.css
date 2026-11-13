@@ -1,0 +1,87 @@
+.row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.row-action {
+  min-height: 34px;
+  padding: 7px 10px;
+  font: 600 12px 'Barlow Condensed', 'Barlow', sans-serif;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.report-link {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+}
+.report-link:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.detail-grid a {
+  color: var(--blue);
+  text-decoration: none;
+}
+.detail-grid a:hover {
+  text-decoration: underline;
+}
+.photo-field {
+  margin-bottom: 14px;
+}
+.photo-label {
+  margin-bottom: 7px;
+  color: #4c5a6d;
+  font-size: 12px;
+  font-weight: 700;
+}
+.photo-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.photo-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.photo-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 9px 13px;
+  font: 600 13px 'Barlow Condensed', 'Barlow', sans-serif;
+}
+.photo-button svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+.photo-picker small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.photo-input {
+  display: none !important;
+}
+@media (max-width: 580px) {
+  .row-actions {
+    justify-content: flex-start;
+    grid-column: 1 / -1;
+  }
+  .photo-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+  .photo-button {
+    width: 100%;
+  }
+}
