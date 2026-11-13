@@ -55,10 +55,15 @@ async function validateUser(user){
   currentUser={id:user.id,email:user.email,nome:profile.nome||user.user_metadata?.nome||user.email.split('@')[0],role:profile.role};
   supervisor=['admin','supervisor'].includes(profile.role);
   $('userName').textContent=currentUser.nome;
+  $('btnGestaoUsuariosPendencias').style.display=isAdmin()?'inline-flex':'none';
   $('mainNav').style.display='flex';
   $('loginScreen').classList.add('hidden');
   finishInitialSessionCheck();
   await loadData();
+}
+function abrirGestaoUsuarios(){
+  if(!isAdmin()){toast('Somente administradores podem gerenciar usuários.');return;}
+  location.href='index.html?gestao=usuarios';
 }
 async function login(){
   $('loginError').style.display='none';

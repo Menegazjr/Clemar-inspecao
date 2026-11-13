@@ -136,6 +136,12 @@ async function aoLogar(user) {
   await carregarPastas();
   exibirLista();
   finalizarValidacaoSessaoInicial();
+  if (isAdmin && new URLSearchParams(location.search).get('gestao') === 'usuarios') {
+    const url = new URL(location.href);
+    url.searchParams.delete('gestao');
+    history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+    await abrirAdmin();
+  }
 }
 
 async function fazerLogout() {

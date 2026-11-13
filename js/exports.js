@@ -552,14 +552,11 @@ function renderGestao() {
   const admins = conta(usuario => _gStatus(usuario) === 'admin');
   const supervisores = conta(usuario => _gStatus(usuario) === 'supervisor');
   const aprovados = conta(usuario => _gStatus(usuario) === 'aprovado');
-  const semanaAtras = Date.now() - 7 * 864e5;
-  const ativos = conta(usuario => usuario.ultimo_login && new Date(usuario.ultimo_login).getTime() > semanaAtras);
   const card = (titulo, valor, classe = '') => `<div class="g-card ${classe}"><b>${valor}</b><span>${titulo}</span></div>`;
   cards.innerHTML = card('Usuários', _gUsuarios.length)
     + card('Aguardando aprovação', pendentes, pendentes ? 'g-alerta' : '')
     + card('Administradores', admins)
-    + card('Supervisores', supervisores)
-    + card('Ativos nos últimos 7 dias', ativos);
+    + card('Supervisores', supervisores);
 
   const chip = (filtro, titulo, quantidade) => `<button class="g-chip${_gFiltro === filtro ? ' on' : ''}" onclick="gFiltrar('${filtro}')">${titulo}<small>${quantidade}</small></button>`;
   chips.innerHTML = chip('todos', 'Todos', _gUsuarios.length)
@@ -602,13 +599,13 @@ function renderUsuarioAdmin(usuario) {
     }
     acoes += `<button class="g-btn perigo" onclick="excluirUsuario('${id}', this.dataset.email)" data-email="${escHtml(email)}">Excluir</button>`;
   }
-  const criado = usuario.criado_em ? `Criado em ${new Date(usuario.criado_em).toLocaleDateString('pt-BR')}` : '';
-  const meta = [escHtml(email), criado, _gTempoAcesso(usuario.ultimo_login)].filter(Boolean).join(' · ');
   return `<div class="g-user${status === 'pendente' ? ' pendente' : ''}">
     <div class="g-avatar" style="background:${_gCorAvatar(email)}">${escHtml(iniciais)}</div>
-    <div class="g-nome">${escHtml(nome)} ${badge}${ehAtual ? '<span class="g-badge voce">Você</span>' : ''}</div>
+    <div class="g-identidade">
+      <div class="g-nome"><strong>${escHtml(nome)}</strong>${badge}${ehAtual ? '<span class="g-badge voce">Você</span>' : ''}</div>
+      <div class="g-meta"><span>${escHtml(email)}</span><small>${escHtml(_gTempoAcesso(usuario.ultimo_login))}</small></div>
+    </div>
     <div class="g-acoes">${acoes || (ehAtual ? '<span class="g-voce-label">Sua conta</span>' : '')}</div>
-    <div class="g-meta">${meta}</div>
   </div>`;
 }
 

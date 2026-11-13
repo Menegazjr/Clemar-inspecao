@@ -180,15 +180,20 @@
   <div class="gestao-modal">
     <div class="gestao-head">
       <div>
-        <div class="gestao-titulo">Gestão</div>
-        <div class="gestao-sub">Usuários e espaço do Supabase</div>
+        <div class="gestao-titulo">Gestão de usuários</div>
+        <div class="gestao-sub">Acessos e permissões</div>
       </div>
       <button class="gestao-x" onclick="fecharAdmin()" aria-label="Fechar">×</button>
     </div>
     <div class="gestao-body">
       <div class="g-cards" id="gCards"><div class="admin-empty">Carregando…</div></div>
-      <h4 class="g-sec">Espaço no Supabase <button class="g-link" onclick="carregarEspaco()">↻ atualizar</button></h4>
-      <div class="g-espaco" id="gEspaco"><div class="admin-empty" style="grid-column:1/-1">Calculando…</div></div>
+      <details class="g-espaco-disclosure">
+        <summary><span>Uso do Supabase</span><span>Ver detalhes</span></summary>
+        <div class="g-espaco-content">
+          <button class="g-link" onclick="carregarEspaco()">↻ Atualizar</button>
+          <div class="g-espaco" id="gEspaco"><div class="admin-empty" style="grid-column:1/-1">Calculando…</div></div>
+        </div>
+      </details>
       <h4 class="g-sec">Usuários</h4>
       <div class="g-toolbar">
         <input id="gBusca" type="search" name="busca-usuarios" placeholder="Buscar por nome ou e-mail…" oninput="gBuscar(this.value)" autocomplete="off">
