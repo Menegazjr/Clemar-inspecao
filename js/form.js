@@ -418,12 +418,15 @@ function adicionarLinhaPendencia(descricao = '', fotos = []) {
 async function carregarPendenciasRelatorio(relatorio) {
   const box = document.getElementById('pendenciasRelatorioExistentes');
   const drafts = document.getElementById('pendenciasRascunho');
+  const resumo = document.getElementById('pendenciasResumo');
   if (!box || !relatorio) return;
+  if (resumo) { resumo.innerHTML = ''; resumo.style.display = 'none'; }
   if (drafts) { drafts.innerHTML = ''; _linhasPendencia = 0; adicionarLinhaPendencia(); }
   if (!relatorio.id || !relatorio.obra_mapa_id) { box.innerHTML = ''; return; }
-  const { data, error } = await supa.from('pendencias').select('id,descricao,status,prazo,fotos')
+  const { data, error } = await supa.from('pendencias').select('id,descricao,status,fotos')
     .eq('relatorio_id', relatorio.id).order('criado_em', { ascending: true });
   if (error) { box.innerHTML = `<small style="color:var(--signal)">Não foi possível carregar as pendências vinculadas: ${escHtml(error.message)}</small>`; return; }
+  renderizarResumoPendencias(data || []);
   if (!data?.length) { box.innerHTML = '<small style="color:var(--ink-light)">Nenhuma pendência cadastrada neste relatório.</small>'; return; }
   const labels = { pendente: 'Pendente', aguardando_validacao: 'Aguardando validação', concluida: 'Concluída' };
   const linhas = await Promise.all(data.map(async p => {
@@ -439,6 +442,23 @@ async function carregarPendenciasRelatorio(relatorio) {
     return `<div class="pendencia-existente"><div><span>${escHtml(p.descricao)}</span><strong class="pendencia-status status-${p.status}">${labels[p.status] || p.status}</strong>${thumbs}</div>${acaoExcluir}</div>`;
   }));
   box.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:7px">Já cadastradas neste relatório</div>` + linhas.join('');
+}
+function renderizarResumoPendencias(pendencias) {
+  const resumo = document.getElementById('pendenciasResumo');
+  if (!resumo) return;
+  if (!pendencias.length) { resumo.innerHTML = ''; resumo.style.display = 'none'; return; }
+  const contagens = {
+    pendente: pendencias.filter(p => p.status === 'pendente').length,
+    aguardando_validacao: pendencias.filter(p => p.status === 'aguardando_validacao').length,
+    concluida: pendencias.filter(p => p.status === 'concluida').length
+  };
+  const itens = [
+    ['Pendentes', contagens.pendente, 'pendente'],
+    ['Aguardando validação', contagens.aguardando_validacao, 'validacao'],
+    ['Concluídas', contagens.concluida, 'concluida']
+  ];
+  resumo.innerHTML = `<div class="pendencias-resumo-head"><strong>Resumo das pendências</strong><span>${pendencias.length} item(ns)</span></div><div class="pendencias-resumo-items">${itens.map(([label, total, status]) => `<span class="pendencias-resumo-item ${status}">${label}<b>${total}</b></span>`).join('')}</div>`;
+  resumo.style.display = '';
 }
 async function excluirPendenciaRelatorio(id) {
   if (currentUser?.role !== 'admin') {

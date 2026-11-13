@@ -598,7 +598,7 @@ function renderUsuarioAdmin(usuario) {
     if (['aprovado', 'supervisor', 'admin'].includes(status)) {
       const role = ['admin', 'supervisor'].includes(usuario.role) ? usuario.role : 'user';
       const revogar = status === 'admin' ? '' : `<button class="g-btn" onclick="revogarUsuario('${id}')">Revogar acesso</button>`;
-      acoes += `<div class="g-role-control"><label for="gRole-${id}">Perfil</label><select class="g-role-select" id="gRole-${id}"><option value="user"${role === 'user' ? ' selected' : ''}>Usuário</option><option value="supervisor"${role === 'supervisor' ? ' selected' : ''}>Supervisor</option><option value="admin"${role === 'admin' ? ' selected' : ''}>Administrador</option></select><button class="g-btn" onclick="alterarRole('${id}',document.getElementById('gRole-${id}').value)">Salvar</button></div>${revogar}`;
+      acoes += `<div class="g-role-control"><label for="gRole-${id}">Perfil</label><select class="g-role-select" id="gRole-${id}" onchange="alterarRole('${id}',this.value,this)"><option value="user"${role === 'user' ? ' selected' : ''}>Usuário</option><option value="supervisor"${role === 'supervisor' ? ' selected' : ''}>Supervisor</option><option value="admin"${role === 'admin' ? ' selected' : ''}>Administrador</option></select></div>${revogar}`;
     }
     acoes += `<button class="g-btn perigo" onclick="excluirUsuario('${id}', this.dataset.email)" data-email="${escHtml(email)}">Excluir</button>`;
   }
@@ -621,18 +621,23 @@ async function excluirUsuario(id, email) {
 }
 
 
-async function alterarRole(id, novoRole) {
+async function alterarRole(id, novoRole, seletor) {
   const usuario = _gUsuarios.find(item => item.id === id);
-  if (usuario && (usuario.role || 'user') === novoRole) return;
+  const roleAtual = usuario?.role || 'user';
+  if (roleAtual === novoRole) return;
   const acoes = { admin: 'tornar administrador', supervisor: 'tornar supervisor', user: 'remover privilégios especiais de' };
   const acao = acoes[novoRole] || 'alterar o perfil de';
-  if (!confirm(`Deseja ${acao} este usuário?`)) return;
+  if (!confirm(`Deseja ${acao} este usuário?`)) { if (seletor) seletor.value = roleAtual; return; }
   const { error } = await supa.rpc('admin_atualizar_usuario', {
     p_usuario_id: id,
     p_role: novoRole,
     p_aprovado: novoRole === 'user' ? true : null,
   });
-  if (error) { showAlert('Erro: ' + error.message, 'err'); return; }
+  if (error) {
+    if (seletor) seletor.value = roleAtual;
+    showAlert('Erro ao alterar o perfil: ' + error.message, 'err');
+    return;
+  }
   showAlert(novoRole === 'admin' ? 'Usuário promovido a administrador!' : novoRole === 'supervisor' ? 'Usuário promovido a supervisor!' : 'Privilégios especiais removidos.', 'ok');
   await carregarUsuariosAdmin();
 }

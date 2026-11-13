@@ -886,3 +886,48 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .pendencia-status{font-size:11px}
 .status-pendente{color:#b33a31}.status-aguardando_validacao{color:#a66a12}.status-concluida{color:#16865b}
 @media(max-width:600px){.pendencia-existente{align-items:flex-start;flex-direction:column}.pendencia-existente .btn{width:100%;justify-content:center}.pendencia-draft{padding:9px}}
+
+.pendencias-resumo {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.pendencias-resumo-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.pendencias-resumo-head strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+.pendencias-resumo-head span {
+  color: var(--ink-light);
+  font-size: 11px;
+}
+.pendencias-resumo-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.pendencias-resumo-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 11px;
+}
+.pendencias-resumo-item b {
+  font-family: var(--font-mono);
+}
+.pendencias-resumo-item.pendente { color: #a52b32; }
+.pendencias-resumo-item.validacao { color: #9a6a12; }
+.pendencias-resumo-item.concluida { color: #16865b; }

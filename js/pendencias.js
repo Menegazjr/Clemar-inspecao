@@ -6,10 +6,7 @@ const obraParam = new URLSearchParams(location.search).get('obra_mapa_id');
 
 function toast(message){ const el=$('toast'); el.textContent=message; el.style.display='block'; clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.style.display='none',3200); }
 function closeModal(id){$(id).classList.remove('open');}
-function fmtDate(date){if(!date)return 'Sem prazo';const [y,m,d]=date.slice(0,10).split('-');return `${d}/${m}/${y}`;}
 function fmtDateTime(value){return value?new Date(value).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'—';}
-function localToday(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10);}
-function overdue(p){return p.status!=='concluida'&&p.prazo&&p.prazo<localToday();}
 function statusBadge(status){const s=STATUS[status]||['Indefinido',''];return `<span class="pill ${s[1]}">${s[0]}</span>`;}
 function isAdmin(){return currentUser?.role==='admin';}
 function photoPicker(prefix){
@@ -30,17 +27,37 @@ function resetPhotoPicker(prefix){
 
 async function init(){
   $('createPhotoPicker').innerHTML=photoPicker('create');
-  const {data:{session}}=await supa.auth.getSession();
-  if(session?.user) await validateUser(session.user);
-  supa.auth.onAuthStateChange((_event,session)=>{if(!session){currentUser=null;$('loginScreen').classList.remove('hidden');}else setTimeout(()=>validateUser(session.user),0);});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('detailModal').classList.contains('open'))closeModal('detailModal');});
+  const {data,error}=await supa.auth.getSession();
+  if(error){
+    $('loginError').textContent='Não foi possível verificar sua sessão: '+error.message;
+    $('loginError').style.display='block';
+    finishInitialSessionCheck();
+  }else if(data.session?.user) await validateUser(data.session.user);
+  else finishInitialSessionCheck();
+  supa.auth.onAuthStateChange((event,session)=>{
+    if(event==='INITIAL_SESSION')return;
+    if(!session){currentUser=null;$('mainNav').style.display='none';$('loginScreen').classList.remove('hidden');}
+    else setTimeout(()=>validateUser(session.user),0);
+  });
 }
+function finishInitialSessionCheck(){document.body.classList.remove('session-pending');}
 async function validateUser(user){
   const {data:profile,error}=await supa.from('usuarios').select('id,nome,email,role,aprovado').eq('id',user.id).single();
-  if(error||!profile||(!profile.aprovado&&!['admin','supervisor'].includes(profile.role))){$('loginError').textContent=error?.message||'Seu acesso ainda não foi aprovado.';$('loginError').style.display='block';return;}
+  if(error||!profile||(!profile.aprovado&&!['admin','supervisor'].includes(profile.role))){
+    $('loginError').textContent=error?.message||'Seu acesso ainda não foi aprovado.';
+    $('loginError').style.display='block';
+    $('mainNav').style.display='none';
+    $('loginScreen').classList.remove('hidden');
+    finishInitialSessionCheck();
+    return;
+  }
   currentUser={id:user.id,email:user.email,nome:profile.nome||user.user_metadata?.nome||user.email.split('@')[0],role:profile.role};
   supervisor=['admin','supervisor'].includes(profile.role);
   $('userName').textContent=currentUser.nome;
+  $('mainNav').style.display='flex';
   $('loginScreen').classList.add('hidden');
+  finishInitialSessionCheck();
   await loadData();
 }
 async function login(){
@@ -70,8 +87,8 @@ function fillWorkFilters(){
   if(obraParam){$('filterObra').value=obraParam;$('createObra').value=obraParam;}
 }
 function renderDashboard(){
-  const total=pendencias.length, open=pendencias.filter(p=>p.status==='pendente').length, validation=pendencias.filter(p=>p.status==='aguardando_validacao').length, done=pendencias.filter(p=>p.status==='concluida').length, late=pendencias.filter(overdue).length;
-  const cards=[['Total',total,'Todos os registros'],['Pendentes',open,'Aguardando correção'],['Aguardando validação',validation,'Correções enviadas'],['Atrasadas',late,'Prazo vencido'],['Concluídas',done,'Aprovadas pelo supervisor']];
+  const total=pendencias.length, open=pendencias.filter(p=>p.status==='pendente').length, validation=pendencias.filter(p=>p.status==='aguardando_validacao').length, done=pendencias.filter(p=>p.status==='concluida').length;
+  const cards=[['Total',total,'Todos os registros'],['Pendentes',open,'Aguardando correção'],['Aguardando validação',validation,'Correções enviadas'],['Concluídas',done,'Aprovadas pelo supervisor']];
   $('kpis').innerHTML=cards.map((c,i)=>`<div class="kpi"><small>${c[0]}</small><strong>${c[1]}</strong><div class="hint">${c[2]}</div></div>`).join('');
   const items=[['Pendente',open,'#c43d45'],['Aguardando validação',validation,'#d69a32'],['Concluída',done,'#16865b']];
   $('statusChart').innerHTML=items.map(i=>`<div class="chart-item"><strong>${i[1]}</strong><span>${i[0]}</span><div class="chart-bar"><i style="width:${total?i[1]/total*100:0}%;background:${i[2]}"></i></div></div>`).join('');
@@ -83,14 +100,14 @@ function renderList(){
   const q=($('search').value||'').trim().toLocaleLowerCase('pt-BR'),status=$('filterStatus').value,work=$('filterObra').value;
   const rows=pendencias.filter(p=>{
     const obra=p.obras_mapa?.nome||'';const matchText=`${p.descricao} ${obra} ${p.criado_por_nome}`.toLocaleLowerCase('pt-BR').includes(q);
-    const matchStatus=status==='todos'||(status==='atrasada'?overdue(p):p.status===status);
+    const matchStatus=status==='todos'||p.status===status;
     return matchText&&matchStatus&&(work==='todas'||p.obra_mapa_id===work);
   });
   $('listCount').textContent=`${rows.length} de ${pendencias.length} pendência(s)`;
   $('pendingList').innerHTML=rows.length?rows.map(p=>{
-    const obra=p.obras_mapa?.nome||'Obra';const due=overdue(p);
+    const obra=p.obras_mapa?.nome||'Obra';
     const reportUrl=p.relatorio_id?`index.html?relatorio_id=${encodeURIComponent(p.relatorio_id)}`:'';
-    return `<article class="pending-row" onclick="openPending('${p.id}')"><div class="pending-main"><div class="pending-top"><b>${esc(obra)}</b>${statusBadge(p.status)}${due?'<span class="pill s-pendente">Atrasada</span>':''}</div><div class="pending-desc">${esc(p.descricao)}</div><div class="pending-meta"><span>Aberta por ${esc(p.criado_por_nome)}</span><span>Em ${fmtDate(p.criado_em.slice(0,10))}</span><span class="${due?'due':''}">Prazo: ${fmtDate(p.prazo)}</span>${p.relatorio_id?`<span>Relatório #${esc(p.relatorios?.numero??'—')}</span>`:''}</div></div><div class="row-actions">${p.relatorio_id?`<a class="row-action report-link" href="${reportUrl}" onclick="event.stopPropagation()">Abrir relatório</a>`:''}<button type="button" class="ghost row-action" onclick="event.stopPropagation();openDetail('${p.id}')">Detalhes</button>${isAdmin()?`<button type="button" class="danger row-action" onclick="event.stopPropagation();deletePending('${p.id}')">Excluir</button>`:''}</div></article>`;
+    return `<article class="pending-row" onclick="openPending('${p.id}')"><div class="pending-main"><div class="pending-top"><b>${esc(obra)}</b>${statusBadge(p.status)}</div><div class="pending-desc">${esc(p.descricao)}</div><div class="pending-meta"><span>Aberta por ${esc(p.criado_por_nome)}</span>${p.relatorio_id?`<span>Relatório #${esc(p.relatorios?.numero??'—')}</span>`:''}</div></div><div class="row-actions">${p.relatorio_id?`<a class="row-action report-link" href="${reportUrl}" onclick="event.stopPropagation()">Abrir relatório</a>`:''}<button type="button" class="ghost row-action" onclick="event.stopPropagation();openDetail('${p.id}')">Detalhes</button>${isAdmin()?`<button type="button" class="danger row-action" onclick="event.stopPropagation();deletePending('${p.id}')">Excluir</button>`:''}</div></article>`;
   }).join(''):'<div class="empty">Nenhuma pendência encontrada com esses filtros.</div>';
 }
 function openPending(id){
@@ -104,7 +121,7 @@ function openPending(id){
 }
 function openCreate(){
   if(!obras.length){toast('Cadastre uma obra no mapa antes de criar pendências.');return;}
-  $('createDescription').value='';$('createDeadline').value='';resetPhotoPicker('create');
+  $('createDescription').value='';resetPhotoPicker('create');
   if(obraParam)$('createObra').value=obraParam;
   $('createModal').classList.add('open');
 }
@@ -117,9 +134,9 @@ async function createPending(){
   let fotos=[];
   try{
     fotos=await uploadCorrectionPhotos(id,files);
-    const {error}=await supa.from('pendencias').insert({id,obra_mapa_id:obraId,descricao,prazo:$('createDeadline').value||null,fotos});
+    const {error}=await supa.from('pendencias').insert({id,obra_mapa_id:obraId,descricao,fotos});
     if(error)throw error;
-    $('createDescription').value='';$('createDeadline').value='';resetPhotoPicker('create');
+    $('createDescription').value='';resetPhotoPicker('create');
     closeModal('createModal');toast('Pendência cadastrada.');await loadData();
   }catch(error){if(fotos.length)await supa.storage.from('pendencia-fotos').remove(fotos);toast('Não foi possível cadastrar: '+error.message);}
   finally{creatingPending=false;}
@@ -155,7 +172,7 @@ async function openDetail(id){
   const adminAction=isAdmin()?`<div class="review-actions"><button class="danger" onclick="deletePending('${p.id}')">Excluir pendência</button></div>`:'';
   const review=p.status==='aguardando_validacao'&&supervisor?`<div class="review-actions"><button class="danger" onclick="returnCorrection('${p.id}')">Devolver para correção</button><button class="primary" onclick="approveCorrection('${p.id}')">Aprovar correção</button></div>`:'';
   const correctionForm=p.status==='pendente'?`<div class="correction-box"><h3>Registrar correção</h3><label>Descreva o que foi corrigido <em>*</em><textarea id="correctionText" placeholder="Informe o serviço realizado e o resultado..."></textarea></label><div class="photo-field"><div class="photo-label">Fotos da correção (opcional)</div>${photoPicker('correction')}</div><div class="correction-actions"><button class="primary" onclick="submitCorrection('${p.id}')">Enviar para validação</button></div></div>`:'';
-  $('detailBody').innerHTML=`<div class="detail-grid"><div><small>SITUAÇÃO</small><b>${STATUS[p.status]?.[0]||p.status}</b></div><div><small>PRAZO</small><b class="${overdue(p)?'due':''}">${fmtDate(p.prazo)}</b></div><div><small>CADASTRADA POR</small><b>${esc(p.criado_por_nome)}</b></div><div><small>DATA DE ABERTURA</small><b>${fmtDateTime(p.criado_em)}</b></div><div><small>ORIGEM</small><b>${report}</b></div></div><div class="detail-description">${esc(p.descricao)}${originalPhotos?`<div class="photo-grid">${originalPhotos}</div>`:''}</div>${p.correcao_texto?`<div class="detail-description"><b>Última correção enviada por ${esc(p.corrigido_por_nome||'—')}:</b><br>${esc(p.correcao_texto)}${photos?`<div class="photo-grid">${photos}</div>`:''}</div>`:''}${p.motivo_devolucao?`<div class="detail-description"><b>Última devolução:</b><br>${esc(p.motivo_devolucao)}</div>`:''}<div class="section-title">Histórico de movimentações</div><div class="history">${historyHtml.join('')||'<p>Sem histórico.</p>'}</div>${correctionForm}${review}${adminAction}${p.status==='concluida'?`<div class="detail-description" style="margin-top:16px;color:#16865b"><b>Concluída por ${esc(p.aprovado_por_nome||'Supervisor')}</b><br>${fmtDateTime(p.aprovado_em)}</div>`:''}`;
+  $('detailBody').innerHTML=`<div class="detail-grid"><div><small>SITUAÇÃO</small><b>${STATUS[p.status]?.[0]||p.status}</b></div><div><small>CADASTRADA POR</small><b>${esc(p.criado_por_nome)}</b></div><div><small>DATA DE ABERTURA</small><b>${fmtDateTime(p.criado_em)}</b></div><div><small>ORIGEM</small><b>${report}</b></div></div><div class="detail-description">${esc(p.descricao)}${originalPhotos?`<div class="photo-grid">${originalPhotos}</div>`:''}</div>${p.correcao_texto?`<div class="detail-description"><b>Última correção enviada por ${esc(p.corrigido_por_nome||'—')}:</b><br>${esc(p.correcao_texto)}${photos?`<div class="photo-grid">${photos}</div>`:''}</div>`:''}${p.motivo_devolucao?`<div class="detail-description"><b>Última devolução:</b><br>${esc(p.motivo_devolucao)}</div>`:''}<div class="section-title">Histórico de movimentações</div><div class="history">${historyHtml.join('')||'<p>Sem histórico.</p>'}</div>${correctionForm}${review}${adminAction}${p.status==='concluida'?`<div class="detail-description" style="margin-top:16px;color:#16865b"><b>Concluída por ${esc(p.aprovado_por_nome||'Supervisor')}</b><br>${fmtDateTime(p.aprovado_em)}</div>`:''}`;
 }
 async function signedPhotos(paths){
   if(!Array.isArray(paths)||!paths.length)return '';

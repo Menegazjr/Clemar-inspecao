@@ -23,7 +23,7 @@ Quando habilitado, o navegador tenta acessar o link a cada 30 minutos enquanto o
 
 ## Módulo de pendências
 
-A página `pendencias.html` reúne as pendências por obra, com indicadores, prazos, histórico e validação pelo supervisor. Usuários aprovados podem visualizar as pendências e registrar correções com fotos; supervisores validam as correções; somente administradores podem excluir pendências. O módulo utiliza as tabelas `pendencias` e `pendencias_historico` e o bucket privado `pendencia-fotos`.
+A página `pendencias.html` reúne as pendências por obra, com indicadores, histórico e validação pelo supervisor. Usuários aprovados podem visualizar as pendências e registrar correções com fotos; supervisores validam as correções; somente administradores podem excluir pendências. O módulo utiliza as tabelas `pendencias` e `pendencias_historico` e o bucket privado `pendencia-fotos`.
 
 ### Ativação no Supabase
 
@@ -38,4 +38,4 @@ Os status do fluxo são somente `pendente`, `aguardando_validacao` e `concluida`
 
 ## Atualização do módulo de pendências
 
-Em instalações que já executaram `sql/supabase_pendencias.sql`, execute `sql/supabase_pendencias_ajustes_v2.sql` e depois `sql/supabase_pendencias_ajustes_v3.sql` no SQL Editor do Supabase. A v3 restringe exclusões de pendências e fotos ao perfil **Administrador**.
+Em instalações que já executaram `sql/supabase_pendencias.sql`, execute `sql/supabase_pendencias_ajustes_v2.sql` e depois `sql/supabase_pendencias_ajustes_v3.sql` no SQL Editor do Supabase. A v3 restringe exclusões de pendências e fotos ao perfil **Administrador** e atualiza a função de alteração de usuários para aceitar o perfil **Supervisor**.
