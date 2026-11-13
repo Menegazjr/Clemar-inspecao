@@ -406,18 +406,23 @@ function fecharViewerBtn() {
 //  EXPORTAR PDF
 
 
-// Pendências individuais vinculadas ao relatório. Cada linha aceita texto longo e fotos.
+// Pendências vinculadas ao relatório; cada item pode ter título, descrição e fotos.
 let _linhasPendencia = 0;
-function adicionarLinhaPendencia(descricao = '', fotos = []) {
+function adicionarLinhaPendencia(titulo = '', descricao = '') {
   const box = document.getElementById('pendenciasRascunho'); if (!box) return;
   const id = `pendenciaNova_${++_linhasPendencia}`;
   const item = document.createElement('div'); item.className = 'pendencia-draft'; item.dataset.id = id;
   item.innerHTML = `
     <div class="pendencia-draft-head">
-      <strong>Nova pendência</strong>
+      <strong>Pendência ${_linhasPendencia}</strong>
       <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.pendencia-draft').remove()">Remover</button>
     </div>
-    <textarea class="pendencia-draft-text" rows="3" placeholder="Descreva detalhadamente o que precisa ser corrigido..."></textarea>
+    <label class="pendencia-draft-field">Título
+      <input class="pendencia-draft-title" type="text" maxlength="160" placeholder="Ex.: Ajustar acabamento da fachada">
+    </label>
+    <label class="pendencia-draft-field">Descrição
+      <textarea class="pendencia-draft-text" rows="3" placeholder="Descreva detalhadamente o que precisa ser corrigido..."></textarea>
+    </label>
     <div class="pendencia-foto-label">
       <span>Fotos da pendência (opcional)</span>
       <div class="pendencia-foto-picker">
@@ -436,7 +441,9 @@ function adicionarLinhaPendencia(descricao = '', fotos = []) {
         <small class="pendencia-foto-status">Nenhuma foto selecionada</small>
       </div>
     </div>`;
-  item.querySelector('textarea').value = descricao; box.appendChild(item);
+  item.querySelector('.pendencia-draft-title').value = titulo;
+  item.querySelector('textarea').value = descricao;
+  box.appendChild(item);
 }
 async function carregarPendenciasRelatorio(relatorio) {
   const box = document.getElementById('pendenciasRelatorioExistentes');
@@ -444,9 +451,9 @@ async function carregarPendenciasRelatorio(relatorio) {
   const resumo = document.getElementById('pendenciasResumo');
   if (!box || !relatorio) return;
   if (resumo) { resumo.innerHTML = ''; resumo.style.display = 'none'; }
-  if (drafts) { drafts.innerHTML = ''; _linhasPendencia = 0; adicionarLinhaPendencia(); }
+  if (drafts) { drafts.innerHTML = ''; _linhasPendencia = 0; }
   if (!relatorio.id || !relatorio.obra_mapa_id) { box.innerHTML = ''; return; }
-  const { data, error } = await supa.from('pendencias').select('id,descricao,status,fotos')
+  const { data, error } = await supa.from('pendencias').select('id,titulo,descricao,status,fotos')
     .eq('relatorio_id', relatorio.id).order('criado_em', { ascending: true });
   if (error) { box.innerHTML = `<small style="color:var(--signal)">Não foi possível carregar as pendências vinculadas: ${escHtml(error.message)}</small>`; return; }
   renderizarResumoPendencias(data || []);
@@ -462,7 +469,7 @@ async function carregarPendenciasRelatorio(relatorio) {
     const acaoExcluir = currentUser?.role === 'admin'
       ? `<button type="button" class="btn btn-danger btn-sm" onclick="excluirPendenciaRelatorio('${p.id}')">Excluir</button>`
       : '';
-    return `<div class="pendencia-existente"><div><span>${escHtml(p.descricao)}</span><strong class="pendencia-status status-${p.status}">${labels[p.status] || p.status}</strong>${thumbs}</div>${acaoExcluir}</div>`;
+    return `<div class="pendencia-existente"><div>${p.titulo ? `<strong>${escHtml(p.titulo)}</strong>` : ''}<span>${escHtml(p.descricao)}</span><strong class="pendencia-status status-${p.status}">${labels[p.status] || p.status}</strong>${thumbs}</div>${acaoExcluir}</div>`;
   }));
   box.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:7px">Já cadastradas neste relatório</div>` + linhas.join('');
 }
@@ -475,21 +482,11 @@ function renderizarResumoPendencias(pendencias) {
     aguardando_validacao: ['Aguardando validação', 'status-aguardando_validacao'],
     concluida: ['Concluída', 'status-concluida']
   };
-  const contagens = {
-    pendente: pendencias.filter(p => p.status === 'pendente').length,
-    aguardando_validacao: pendencias.filter(p => p.status === 'aguardando_validacao').length,
-    concluida: pendencias.filter(p => p.status === 'concluida').length
-  };
-  const totais = [
-    ['Pendentes', contagens.pendente, 'pendente'],
-    ['Aguardando validação', contagens.aguardando_validacao, 'validacao'],
-    ['Concluídas', contagens.concluida, 'concluida']
-  ];
   const descricoes = pendencias.map(p => {
     const [label, classe] = statusInfo[p.status] || ['Status desconhecido', ''];
-    return `<div class="pendencias-resumo-descricao"><span>${escHtml(p.descricao || '')}</span><strong class="${classe}">${label}</strong></div>`;
+    return `<div class="pendencias-resumo-descricao">${p.titulo ? `<strong class="pendencias-resumo-titulo">${escHtml(p.titulo)}</strong>` : ''}<span>${escHtml(p.descricao || '')}</span><strong class="pendencias-resumo-status ${classe}">${label}</strong></div>`;
   }).join('');
-  resumo.innerHTML = `<div class="pendencias-resumo-head"><strong>Resumo das pendências</strong><span>${pendencias.length} item(ns)</span></div><div class="pendencias-resumo-items">${totais.map(([label, total, status]) => `<span class="pendencias-resumo-item ${status}">${label}<b>${total}</b></span>`).join('')}</div><div class="pendencias-resumo-descricoes">${descricoes}</div>`;
+  resumo.innerHTML = `<div class="pendencias-resumo-head"><strong>Resumo das pendências</strong></div><div class="pendencias-resumo-descricoes">${descricoes}</div>`;
   resumo.style.display = '';
 }
 function atualizarFotosPendenciaDraft(input) {
@@ -533,17 +530,22 @@ async function uploadFotosPendenciaRelatorio(pendenciaId, files) {
 async function salvarPendenciasDoRelatorio(relatorio) {
   const box = document.getElementById('pendenciasRascunho');
   const linhas = [...(box?.querySelectorAll('.pendencia-draft') || [])]
-    .map(item => ({ descricao: item.querySelector('textarea')?.value.trim() || '', files: [...item.querySelectorAll('input[type="file"]')].flatMap(input => [...input.files]) }))
-    .filter(item => item.descricao || item.files.length);
+    .map(item => ({
+      titulo: item.querySelector('.pendencia-draft-title')?.value.trim() || '',
+      descricao: item.querySelector('textarea')?.value.trim() || '',
+      files: [...item.querySelectorAll('input[type="file"]')].flatMap(input => [...input.files])
+    }))
+    .filter(item => item.titulo || item.descricao || item.files.length);
   if (!linhas.length) return true;
   if (!relatorio.obra_mapa_id) { showAlert('Selecione uma obra cadastrada no mapa para vincular as pendências.', 'err'); return false; }
+  if (linhas.some(linha => !linha.titulo)) { showAlert('Preencha o título de cada pendência que deseja cadastrar.', 'err'); return false; }
+  if (linhas.some(linha => !linha.descricao)) { showAlert('Preencha a descrição de cada pendência que deseja cadastrar.', 'err'); return false; }
   for (const linha of linhas) {
-    if (!linha.descricao) { showAlert('Preencha a descrição de cada pendência que deseja cadastrar.', 'err'); return false; }
     const id = crypto.randomUUID();
     let fotos = [];
     try {
       fotos = await uploadFotosPendenciaRelatorio(id, linha.files);
-      const { error } = await supa.from('pendencias').insert({ id, obra_mapa_id: relatorio.obra_mapa_id, relatorio_id: relatorio.id, descricao: linha.descricao, fotos });
+      const { error } = await supa.from('pendencias').insert({ id, obra_mapa_id: relatorio.obra_mapa_id, relatorio_id: relatorio.id, titulo: linha.titulo, descricao: linha.descricao, fotos });
       if (error) throw error;
     } catch (error) {
       if (fotos.length) await supa.storage.from('pendencia-fotos').remove(fotos);

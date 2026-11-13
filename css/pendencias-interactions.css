@@ -227,3 +227,11 @@ body.session-pending #sessionLoaderPendencias {
   font-weight: 600;
   letter-spacing: .5px;
 }
+
+.pending-title {
+  margin-bottom: 2px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}

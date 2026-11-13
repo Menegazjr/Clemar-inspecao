@@ -23,13 +23,13 @@ Quando habilitado, o navegador tenta acessar o link a cada 30 minutos enquanto o
 
 ## Módulo de pendências
 
-A página `pendencias.html` reúne as pendências por obra, com indicadores, histórico e validação pelo supervisor. Usuários aprovados podem visualizar as pendências e registrar correções com fotos; supervisores validam as correções; somente administradores podem excluir pendências. O módulo utiliza as tabelas `pendencias` e `pendencias_historico` e o bucket privado `pendencia-fotos`.
+A página `pendencias.html` reúne as pendências por obra, com indicadores, histórico e validação pelo supervisor. Usuários aprovados podem visualizar as pendências e registrar correções com fotos; supervisores validam as correções; somente administradores podem excluir pendências. Pendências criadas no relatório incluem título e descrição. O módulo utiliza as tabelas `pendencias` e `pendencias_historico` e o bucket privado `pendencia-fotos`.
 
 ### Ativação no Supabase
 
 1. Abra o SQL Editor do projeto Supabase usado pela aplicação.
 2. Execute `sql/supabase_pendencias.sql` depois de `sql/supabase_rls_hardening.sql`.
-3. Execute `sql/supabase_pendencias_ajustes_v2.sql` e, em seguida, `sql/supabase_pendencias_ajustes_v3.sql`.
+3. Execute `sql/supabase_pendencias_ajustes_v2.sql`, `sql/supabase_pendencias_ajustes_v3.sql` e `sql/supabase_pendencias_ajustes_v4.sql`, nessa ordem.
 4. Na tela Gestão, um administrador pode definir se um usuário aprovado é usuário, supervisor ou administrador.
 5. Publique os arquivos atualizados da aplicação.
 
@@ -38,4 +38,4 @@ Os status do fluxo são somente `pendente`, `aguardando_validacao` e `concluida`
 
 ## Atualização do módulo de pendências
 
-Em instalações que já executaram `sql/supabase_pendencias.sql`, execute `sql/supabase_pendencias_ajustes_v2.sql` e depois `sql/supabase_pendencias_ajustes_v3.sql` no SQL Editor do Supabase. A v3 restringe exclusões de pendências e fotos ao perfil **Administrador** e atualiza a função de alteração de usuários para aceitar o perfil **Supervisor**.
+Em instalações que já executaram `sql/supabase_pendencias.sql`, execute `sql/supabase_pendencias_ajustes_v2.sql`, `sql/supabase_pendencias_ajustes_v3.sql` e `sql/supabase_pendencias_ajustes_v4.sql`, nessa ordem, no SQL Editor do Supabase. A v3 restringe exclusões de pendências e fotos ao perfil **Administrador** e atualiza a função de alteração de usuários para aceitar o perfil **Supervisor**. A v4 adiciona o título às pendências.

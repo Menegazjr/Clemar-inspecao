@@ -104,7 +104,7 @@ function renderDashboard(){
 function renderList(){
   const q=($('search').value||'').trim().toLocaleLowerCase('pt-BR'),status=$('filterStatus').value,work=$('filterObra').value;
   const rows=pendencias.filter(p=>{
-    const obra=p.obras_mapa?.nome||'';const matchText=`${p.descricao} ${obra} ${p.criado_por_nome}`.toLocaleLowerCase('pt-BR').includes(q);
+    const obra=p.obras_mapa?.nome||'';const matchText=`${p.titulo||''} ${p.descricao} ${obra} ${p.criado_por_nome}`.toLocaleLowerCase('pt-BR').includes(q);
     const matchStatus=status==='todos'||p.status===status;
     return matchText&&matchStatus&&(work==='todas'||p.obra_mapa_id===work);
   });
@@ -112,7 +112,7 @@ function renderList(){
   $('pendingList').innerHTML=rows.length?rows.map(p=>{
     const obra=p.obras_mapa?.nome||'Obra';
     const reportUrl=p.relatorio_id?`index.html?relatorio_id=${encodeURIComponent(p.relatorio_id)}`:'';
-    return `<article class="pending-row" onclick="openPending('${p.id}')"><div class="pending-main"><div class="pending-top"><b>${esc(obra)}</b>${statusBadge(p.status)}</div><div class="pending-desc">${esc(p.descricao)}</div><div class="pending-meta"><span>Aberta por ${esc(p.criado_por_nome)}</span>${p.relatorio_id?`<span>Relatório #${esc(p.relatorios?.numero??'—')}</span>`:''}</div></div><div class="row-actions">${p.relatorio_id?`<a class="row-action report-link" href="${reportUrl}" onclick="event.stopPropagation()">Abrir relatório</a>`:''}<button type="button" class="ghost row-action" onclick="event.stopPropagation();openDetail('${p.id}')">Detalhes</button>${isAdmin()?`<button type="button" class="danger row-action" onclick="event.stopPropagation();deletePending('${p.id}')">Excluir</button>`:''}</div></article>`;
+    return `<article class="pending-row" onclick="openPending('${p.id}')"><div class="pending-main"><div class="pending-top"><b>${esc(obra)}</b>${statusBadge(p.status)}</div>${p.titulo?`<div class="pending-title">${esc(p.titulo)}</div>`:''}<div class="pending-desc">${esc(p.descricao)}</div><div class="pending-meta"><span>Aberta por ${esc(p.criado_por_nome)}</span>${p.relatorio_id?`<span>Relatório #${esc(p.relatorios?.numero??'—')}</span>`:''}</div></div><div class="row-actions">${p.relatorio_id?`<a class="row-action report-link" href="${reportUrl}" onclick="event.stopPropagation()">Abrir relatório</a>`:''}<button type="button" class="ghost row-action" onclick="event.stopPropagation();openDetail('${p.id}')">Detalhes</button>${isAdmin()?`<button type="button" class="danger row-action" onclick="event.stopPropagation();deletePending('${p.id}')">Excluir</button>`:''}</div></article>`;
   }).join(''):'<div class="empty">Nenhuma pendência encontrada com esses filtros.</div>';
 }
 function openPending(id){
@@ -144,7 +144,7 @@ async function deletePending(id){
   if(!isAdmin()){toast('Somente administradores podem excluir pendências.');return;}
   const pendencia=pendencias.find(item=>item.id===id);
   if(!pendencia)return;
-  if(!confirm(`Excluir a pendência "${pendencia.descricao}"? Esta ação não pode ser desfeita.`))return;
+  if(!confirm(`Excluir a pendência "${pendencia.titulo||pendencia.descricao}"? Esta ação não pode ser desfeita.`))return;
   const {error,erroFotos}=await excluirPendenciaComFotos(id);
   if(error){toast('Não foi possível excluir: '+error.message);return;}
   if(selected?.id===id){closeModal('detailModal');selected=null;}
@@ -155,7 +155,7 @@ async function openDetail(id){
   selected=pendencias.find(p=>p.id===id);if(!selected)return;
   const p=selected,obra=p.obras_mapa?.nome||'Obra';
   $('detailMeta').textContent=`${obra} · ${STATUS[p.status]?.[0]||p.status}`;
-  $('detailTitle').textContent=p.descricao;
+  $('detailTitle').textContent=p.titulo||p.descricao;
   $('detailBody').innerHTML='<div class="empty">Carregando histórico...</div>';
   $('detailModal').classList.add('open');
   const {data:history,error}=await supa.from('pendencias_historico').select('*').eq('pendencia_id',id).order('criado_em',{ascending:true});
