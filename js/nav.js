@@ -198,6 +198,14 @@ function atualizaFiltros() {
   }
   const d = document.getElementById('listaDica'); if (d) d.style.display = _busca.trim() ? '' : 'none';
 }
+
+document.addEventListener('click', event => {
+  const alvo = event.target;
+  document.querySelectorAll('#filtroSituacao, #filtroOpcoes').forEach(menu => {
+    if (!(alvo instanceof Element) || !menu.contains(alvo)) menu.open = false;
+  });
+});
+
 // Relatórios que passam pela busca, filtros e pasta atual, já ordenados.
 // Com texto na busca, procura em TODAS as pastas; sem texto, mostra a pasta atual (inclui subpastas).
 function relatoriosVisiveis() {

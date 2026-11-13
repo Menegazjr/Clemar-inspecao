@@ -859,7 +859,7 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
   .filtro-situacao-opcoes, .filtro-opcoes-menu { max-width: calc(100vw - 24px); }
   .filtro-opcoes-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: min(280px, calc(100vw - 24px)); }
   .filtro-opcoes-menu .lista-ordem-wrap, .filtro-opcoes-menu .flimpar { grid-column: 1 / -1; }
-  .filtro-opcoes-menu #btnLimparFiltros { display: none !important; }
+  .flimpar-desktop { display: none !important; }
   .flimpar-mobile, .flimpar-mobile.visivel { display: inline-flex; align-items: center; padding: 6px 10px; border: 1.5px solid var(--signal); border-radius: 20px; }
   .flimpar-mobile:not(.visivel) { display: none; }
   .filtro-opcoes-menu .fchip { justify-content: center; padding-inline: 8px; }
