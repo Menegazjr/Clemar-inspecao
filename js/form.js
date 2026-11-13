@@ -412,7 +412,30 @@ function adicionarLinhaPendencia(descricao = '', fotos = []) {
   const box = document.getElementById('pendenciasRascunho'); if (!box) return;
   const id = `pendenciaNova_${++_linhasPendencia}`;
   const item = document.createElement('div'); item.className = 'pendencia-draft'; item.dataset.id = id;
-  item.innerHTML = `<div class="pendencia-draft-head"><strong>Nova pendência</strong><button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.pendencia-draft').remove()">Remover</button></div><textarea class="pendencia-draft-text" rows="3" placeholder="Descreva detalhadamente o que precisa ser corrigido..."></textarea><label class="pendencia-foto-label">Fotos da pendência (opcional)<input class="pendencia-draft-files" type="file" accept="image/*" multiple></label>`;
+  item.innerHTML = `
+    <div class="pendencia-draft-head">
+      <strong>Nova pendência</strong>
+      <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.pendencia-draft').remove()">Remover</button>
+    </div>
+    <textarea class="pendencia-draft-text" rows="3" placeholder="Descreva detalhadamente o que precisa ser corrigido..."></textarea>
+    <div class="pendencia-foto-label">
+      <span>Fotos da pendência (opcional)</span>
+      <div class="pendencia-foto-picker">
+        <div class="pendencia-foto-actions">
+          <button type="button" class="btn btn-primary btn-only-mobile" onclick="this.closest('.pendencia-foto-picker').querySelector('.pendencia-draft-camera').click()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Nova Foto (câmera)
+          </button>
+          <button type="button" class="btn btn-steel" onclick="this.closest('.pendencia-foto-picker').querySelector('.pendencia-draft-files').click()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+            Nova Foto (galeria)
+          </button>
+        </div>
+        <input class="pendencia-draft-files" type="file" accept="image/*" multiple onchange="atualizarFotosPendenciaDraft(this)">
+        <input class="pendencia-draft-camera" type="file" accept="image/*" capture="environment" onchange="atualizarFotosPendenciaDraft(this)">
+        <small class="pendencia-foto-status">Nenhuma foto selecionada</small>
+      </div>
+    </div>`;
   item.querySelector('textarea').value = descricao; box.appendChild(item);
 }
 async function carregarPendenciasRelatorio(relatorio) {
@@ -447,18 +470,32 @@ function renderizarResumoPendencias(pendencias) {
   const resumo = document.getElementById('pendenciasResumo');
   if (!resumo) return;
   if (!pendencias.length) { resumo.innerHTML = ''; resumo.style.display = 'none'; return; }
+  const statusInfo = {
+    pendente: ['Pendente', 'status-pendente'],
+    aguardando_validacao: ['Aguardando validação', 'status-aguardando_validacao'],
+    concluida: ['Concluída', 'status-concluida']
+  };
   const contagens = {
     pendente: pendencias.filter(p => p.status === 'pendente').length,
     aguardando_validacao: pendencias.filter(p => p.status === 'aguardando_validacao').length,
     concluida: pendencias.filter(p => p.status === 'concluida').length
   };
-  const itens = [
+  const totais = [
     ['Pendentes', contagens.pendente, 'pendente'],
     ['Aguardando validação', contagens.aguardando_validacao, 'validacao'],
     ['Concluídas', contagens.concluida, 'concluida']
   ];
-  resumo.innerHTML = `<div class="pendencias-resumo-head"><strong>Resumo das pendências</strong><span>${pendencias.length} item(ns)</span></div><div class="pendencias-resumo-items">${itens.map(([label, total, status]) => `<span class="pendencias-resumo-item ${status}">${label}<b>${total}</b></span>`).join('')}</div>`;
+  const descricoes = pendencias.map(p => {
+    const [label, classe] = statusInfo[p.status] || ['Status desconhecido', ''];
+    return `<div class="pendencias-resumo-descricao"><span>${escHtml(p.descricao || '')}</span><strong class="${classe}">${label}</strong></div>`;
+  }).join('');
+  resumo.innerHTML = `<div class="pendencias-resumo-head"><strong>Resumo das pendências</strong><span>${pendencias.length} item(ns)</span></div><div class="pendencias-resumo-items">${totais.map(([label, total, status]) => `<span class="pendencias-resumo-item ${status}">${label}<b>${total}</b></span>`).join('')}</div><div class="pendencias-resumo-descricoes">${descricoes}</div>`;
   resumo.style.display = '';
+}
+function atualizarFotosPendenciaDraft(input) {
+  const picker = input.closest('.pendencia-foto-picker');
+  const total = [...picker.querySelectorAll('input[type="file"]')].reduce((count, arquivo) => count + arquivo.files.length, 0);
+  picker.querySelector('.pendencia-foto-status').textContent = total ? `${total} foto(s) selecionada(s)` : 'Nenhuma foto selecionada';
 }
 async function excluirPendenciaRelatorio(id) {
   if (currentUser?.role !== 'admin') {
@@ -496,7 +533,7 @@ async function uploadFotosPendenciaRelatorio(pendenciaId, files) {
 async function salvarPendenciasDoRelatorio(relatorio) {
   const box = document.getElementById('pendenciasRascunho');
   const linhas = [...(box?.querySelectorAll('.pendencia-draft') || [])]
-    .map(item => ({ descricao: item.querySelector('textarea')?.value.trim() || '', files: [...(item.querySelector('input[type=file]')?.files || [])] }))
+    .map(item => ({ descricao: item.querySelector('textarea')?.value.trim() || '', files: [...item.querySelectorAll('input[type="file"]')].flatMap(input => [...input.files]) }))
     .filter(item => item.descricao || item.files.length);
   if (!linhas.length) return true;
   if (!relatorio.obra_mapa_id) { showAlert('Selecione uma obra cadastrada no mapa para vincular as pendências.', 'err'); return false; }

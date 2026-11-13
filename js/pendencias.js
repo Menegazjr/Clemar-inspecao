@@ -111,12 +111,6 @@ function renderList(){
   }).join(''):'<div class="empty">Nenhuma pendência encontrada com esses filtros.</div>';
 }
 function openPending(id){
-  const pendencia=pendencias.find(item=>item.id===id);
-  if(!pendencia)return;
-  if(pendencia.relatorio_id){
-    location.href=`index.html?relatorio_id=${encodeURIComponent(pendencia.relatorio_id)}`;
-    return;
-  }
   openDetail(id);
 }
 function openCreate(){

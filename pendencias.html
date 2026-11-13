@@ -9,7 +9,29 @@
 <body class="session-pending">
 <div id="sessionLoaderPendencias" role="status" aria-live="polite"><span></span>Validando sessão...</div>
 <div id="loginScreen" class="login-screen"><div class="login-card"><img src="assets/brand/logo-clemar-cores.png" alt="Clemar"><h1>Pendências das Obras</h1><p>Acesse com seu usuário do sistema Clemar.</p><div id="loginError" class="error"></div><label>E-mail<input id="loginEmail" type="email" autocomplete="username"></label><label>Senha<input id="loginPassword" type="password" autocomplete="current-password"></label><button class="primary" onclick="login()">Entrar</button></div></div>
-<nav class="topnav pend-topnav" id="mainNav" style="display:none"><div class="topnav-brand"><div class="topnav-logo"><img src="assets/brand/logo-clemar.png" alt="Clemar Engenharia"></div><div class="topnav-logo-mobile"><img src="assets/brand/logo-clemar-pequeno.png" alt="Clemar"></div><div class="pend-brand-copy"><strong>GESTÃO DE PENDÊNCIAS</strong><small>Relatórios de visita</small></div></div><div class="topnav-actions"><a class="btn btn-steel" href="index.html">Relatórios</a><a class="btn btn-steel" href="mapa.html">Mapa</a><a class="btn btn-primary" href="pendencias.html">Pendências</a><span id="userName" class="pend-user"></span><button class="btn btn-outline" onclick="logout()">Sair</button></div></nav>
+<nav class="topnav pend-topnav" id="mainNav" style="display:none">
+  <div class="topnav-brand">
+    <div class="topnav-logo"><img src="assets/brand/logo-clemar.png" alt="Clemar Engenharia"></div>
+    <div class="topnav-logo-mobile"><img src="assets/brand/logo-clemar-pequeno.png" alt="Clemar"></div>
+  </div>
+  <div class="topnav-actions">
+    <div class="pend-nav-links">
+      <a class="btn btn-steel" href="index.html" title="Relatórios" style="padding:4px 8px;font-size:12px;height:28px;min-height:unset;text-decoration:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+        <span class="btn-hide-mobile">Relatórios</span>
+      </a>
+      <a class="btn btn-steel" href="mapa.html" title="Mapa de obras" style="padding:4px 8px;font-size:12px;height:28px;min-height:unset;text-decoration:none">🗺️ <span class="btn-hide-mobile">Mapa</span></a>
+      <a class="btn btn-steel" href="pendencias.html" title="Pendências" style="padding:4px 8px;font-size:12px;height:28px;min-height:unset;text-decoration:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6M9 11h6M9 15h6"/></svg>
+        <span class="btn-hide-mobile">Pendências</span>
+      </a>
+    </div>
+    <div class="user-bar pend-user-bar">
+      <span id="userName"></span>
+      <button id="btnSairPendencias" onclick="logout()">Sair</button>
+    </div>
+  </div>
+</nav>
 <main class="page">
   <section class="page-head"><div><div class="eyebrow">GESTÃO DE PENDÊNCIAS</div><h1>Gestão de Pendências</h1><p>Centralize as correções identificadas nas obras e acompanhe a validação.</p></div><button class="primary add-btn" onclick="openCreate()">＋ Nova pendência</button></section>
   <section class="kpis" id="kpis"><div class="kpi"><small>Total</small><strong>—</strong></div></section>

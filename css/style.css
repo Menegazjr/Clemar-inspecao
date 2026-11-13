@@ -880,7 +880,12 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .pendencia-draft-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;color:var(--steel);font-family:var(--font-cond);font-size:14px}
 .pendencia-draft textarea{width:100%;min-height:86px;resize:vertical;padding:10px;border:1px solid var(--border);border-radius:5px;font:14px var(--font);color:var(--ink)}
 .pendencia-foto-label{display:flex;flex-direction:column;gap:5px;margin-top:8px;font-size:12px;color:var(--ink-light)}
-.pendencia-foto-label input{font:12px var(--font);max-width:100%}
+.pendencia-foto-picker{display:flex;flex-direction:column;align-items:flex-start;gap:7px}
+.pendencia-foto-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pendencia-foto-actions .btn{display:inline-flex;align-items:center;gap:7px}
+.pendencia-foto-actions svg{width:16px;height:16px}
+.pendencia-foto-picker input[type=file]{display:none}
+.pendencia-foto-status{font-size:11px;color:var(--ink-light)}
 .pendencia-existente{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;background:var(--surface-2);border-radius:6px;margin-top:6px;font-size:12px}
 .pendencia-existente>div{display:flex;flex-direction:column;gap:5px;min-width:0;white-space:pre-wrap}
 .pendencia-status{font-size:11px}
@@ -931,3 +936,40 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .pendencias-resumo-item.pendente { color: #a52b32; }
 .pendencias-resumo-item.validacao { color: #9a6a12; }
 .pendencias-resumo-item.concluida { color: #16865b; }
+.pendencias-resumo-descricoes {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+.pendencias-resumo-descricao {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+}
+.pendencias-resumo-descricao span {
+  min-width: 0;
+  flex: 1;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.pendencias-resumo-descricao strong {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 11px;
+}
+@media (max-width: 600px) {
+  .pendencias-resumo-descricao {
+    flex-direction: column;
+    gap: 5px;
+  }
+}

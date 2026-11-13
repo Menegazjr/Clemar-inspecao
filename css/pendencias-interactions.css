@@ -92,25 +92,41 @@
   }
 }
 
-.pend-topnav .pend-brand-copy {
+.pend-nav-links {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  color: #fff;
-  font-family: 'Barlow Condensed', 'Barlow', sans-serif;
+  align-items: center;
+  gap: 8px;
 }
-.pend-brand-copy strong {
-  font-size: 15px;
-  letter-spacing: .06em;
+.pend-topnav .user-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,.1);
+  color: rgba(255,255,255,.85);
+  font: 12px 'Barlow Condensed', sans-serif;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
 }
-.pend-brand-copy small {
-  color: rgba(255,255,255,.7);
-  font: 500 11px 'Barlow', sans-serif;
-}
-.pend-topnav .pend-user {
-  color: rgba(255,255,255,.88);
-  font: 600 12px 'Barlow', sans-serif;
+.pend-topnav .user-bar span {
+  max-width: 120px;
+  overflow: hidden;
+  flex-shrink: 1;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+.pend-topnav .user-bar button {
+  padding: 3px 8px;
+  border: 1px solid rgba(255,255,255,.3);
+  border-radius: 4px;
+  background: none;
+  color: rgba(255,255,255,.7);
+  font: 11px 'Barlow Condensed', sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 body.session-pending #loginScreen {
@@ -160,11 +176,43 @@ body.session-pending #sessionLoaderPendencias {
   }
 }
 
-@media (max-width: 580px) {
-  .pend-brand-copy strong {
-    font-size: 13px;
+@media (max-width: 600px) {
+  .pend-topnav {
+    height: 52px;
+    min-height: 52px;
+    max-height: 52px;
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 0 12px;
   }
-  .pend-topnav .pend-user {
+  .pend-topnav .topnav-brand {
+    gap: 8px;
+  }
+  .pend-topnav .topnav-actions {
+    flex: 1;
+    width: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
+    border-top: 0;
+    padding-top: 0;
+  }
+  .pend-topnav .btn-hide-mobile {
     display: none;
+  }
+  .pend-nav-links {
+    gap: 6px;
+  }
+  .pend-topnav .user-bar {
+    gap: 4px;
+    padding: 3px 6px;
+  }
+  .pend-topnav .user-bar span {
+    max-width: 70px;
+  }
+  .pend-topnav .user-bar button {
+    padding: 4px 8px;
+    font-size: 11px;
   }
 }
