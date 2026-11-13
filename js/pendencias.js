@@ -1,7 +1,6 @@
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const STATUS = { pendente:['Pendente','s-pendente'], aguardando_validacao:['Aguardando validação','s-validacao'], concluida:['Concluída','s-concluida'] };
-const PRIORIDADE = { baixa:['Baixa','p-baixa'], media:['Média','p-media'], alta:['Alta','p-alta'], critica:['Crítica','p-critica'] };
 let currentUser = null, supervisor = false, obras = [], pendencias = [], selected = null, creatingPending = false, sendingCorrection = false;
 const obraParam = new URLSearchParams(location.search).get('obra_mapa_id');
 
@@ -12,7 +11,6 @@ function fmtDateTime(value){return value?new Date(value).toLocaleString('pt-BR',
 function localToday(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10);}
 function overdue(p){return p.status!=='concluida'&&p.prazo&&p.prazo<localToday();}
 function statusBadge(status){const s=STATUS[status]||['Indefinido',''];return `<span class="pill ${s[1]}">${s[0]}</span>`;}
-function priorityBadge(priority){const p=PRIORIDADE[priority]||PRIORIDADE.media;return `<span class="pill ${p[1]}">${p[0]}</span>`;}
 
 async function init(){
   const {data:{session}}=await supa.auth.getSession();
@@ -74,7 +72,7 @@ function renderList(){
   $('listCount').textContent=`${rows.length} de ${pendencias.length} pendência(s)`;
   $('pendingList').innerHTML=rows.length?rows.map(p=>{
     const obra=p.obras_mapa?.nome||'Obra';const due=overdue(p);
-    return `<article class="pending-row" onclick="openDetail('${p.id}')"><div class="pending-main"><div class="pending-top"><b>${esc(obra)}</b>${statusBadge(p.status)}${priorityBadge(p.prioridade)}${due?'<span class="pill s-pendente">Atrasada</span>':''}</div><div class="pending-desc">${esc(p.descricao)}</div><div class="pending-meta"><span>Aberta por ${esc(p.criado_por_nome)}</span><span>Em ${fmtDate(p.criado_em.slice(0,10))}</span><span class="${due?'due':''}">Prazo: ${fmtDate(p.prazo)}</span>${p.relatorio_id?`<span>Relatório #${esc(p.relatorios?.numero??'—')}</span>`:''}</div></div><div class="row-arrow">›</div></article>`;
+    return `<article class="pending-row" onclick="openDetail('${p.id}')"><div class="pending-main"><div class="pending-top"><b>${esc(obra)}</b>${statusBadge(p.status)}${due?'<span class="pill s-pendente">Atrasada</span>':''}</div><div class="pending-desc">${esc(p.descricao)}</div><div class="pending-meta"><span>Aberta por ${esc(p.criado_por_nome)}</span><span>Em ${fmtDate(p.criado_em.slice(0,10))}</span><span class="${due?'due':''}">Prazo: ${fmtDate(p.prazo)}</span>${p.relatorio_id?`<span>Relatório #${esc(p.relatorios?.numero??'—')}</span>`:''}</div></div><div class="row-arrow">›</div></article>`;
   }).join(''):'<div class="empty">Nenhuma pendência encontrada com esses filtros.</div>';
 }
 function openCreate(){
@@ -87,12 +85,17 @@ async function createPending(){
   if(creatingPending)return;
   const obraId=$('createObra').value,description=$('createDescription').value.trim();
   if(!obraId||!description){toast('Selecione a obra e informe a descrição.');return;}
-  const payload={obra_mapa_id:obraId,descricao:description,prioridade:$('createPriority').value,prazo:$('createDeadline').value||null};
+  const id=crypto.randomUUID(), files=[...($('createPhotos')?.files||[])];
   creatingPending=true;
-  const {error}=await supa.from('pendencias').insert(payload);
-  creatingPending=false;
-  if(error){toast('Não foi possível cadastrar: '+error.message);return;}
-  closeModal('createModal');toast('Pendência cadastrada.');await loadData();
+  let fotos=[];
+  try{
+    fotos=await uploadCorrectionPhotos(id,files);
+    const {error}=await supa.from('pendencias').insert({id,obra_mapa_id:obraId,descricao,prazo:$('createDeadline').value||null,fotos});
+    if(error)throw error;
+    $('createDescription').value='';$('createDeadline').value='';$('createPhotos').value='';
+    closeModal('createModal');toast('Pendência cadastrada.');await loadData();
+  }catch(error){if(fotos.length)await supa.storage.from('pendencia-fotos').remove(fotos);toast('Não foi possível cadastrar: '+error.message);}
+  finally{creatingPending=false;}
 }
 async function openDetail(id){
   selected=pendencias.find(p=>p.id===id);if(!selected)return;
@@ -109,10 +112,11 @@ async function openDetail(id){
     return `<div class="history-item"><b>${titles[h.evento]||h.evento}</b><small>${esc(h.usuario_nome)} · ${fmtDateTime(h.criado_em)}</small>${h.descricao?`<p>${esc(h.descricao)}</p>`:''}${h.motivo?`<p><b>Motivo:</b> ${esc(h.motivo)}</p>`:''}${pics?`<div class="photo-grid">${pics}</div>`:''}</div>`;
   }));
   const photos=await signedPhotos(p.fotos_correcao||[]);
+  const originalPhotos=await signedPhotos(p.fotos||[]);
   const report=p.relatorios?.numero?`Relatório #${p.relatorios.numero}`:'Cadastro direto na obra';
   const review=p.status==='aguardando_validacao'&&supervisor?`<div class="review-actions"><button class="danger" onclick="returnCorrection('${p.id}')">Devolver para correção</button><button class="primary" onclick="approveCorrection('${p.id}')">Aprovar correção</button></div>`:'';
   const correctionForm=p.status==='pendente'?`<div class="correction-box"><h3>${p.status==='aguardando_validacao'?'Enviar nova correção':'Registrar correção'}</h3><label>Descreva o que foi corrigido <em>*</em><textarea id="correctionText" placeholder="Informe o serviço realizado e o resultado..."></textarea></label><label>Fotos da correção (opcional)<input id="correctionPhotos" type="file" accept="image/*" multiple></label><div class="correction-actions"><button class="primary" onclick="submitCorrection('${p.id}')">Enviar para validação</button></div></div>`:'';
-  $('detailBody').innerHTML=`<div class="detail-grid"><div><small>SITUAÇÃO</small><b>${STATUS[p.status]?.[0]||p.status}</b></div><div><small>PRIORIDADE</small><b>${PRIORIDADE[p.prioridade]?.[0]||'Média'}</b></div><div><small>PRAZO</small><b class="${overdue(p)?'due':''}">${fmtDate(p.prazo)}</b></div><div><small>CADASTRADA POR</small><b>${esc(p.criado_por_nome)}</b></div><div><small>DATA DE ABERTURA</small><b>${fmtDateTime(p.criado_em)}</b></div><div><small>ORIGEM</small><b>${report}</b></div></div><div class="detail-description">${esc(p.descricao)}</div>${p.correcao_texto?`<div class="detail-description"><b>Última correção enviada por ${esc(p.corrigido_por_nome||'—')}:</b><br>${esc(p.correcao_texto)}${photos?`<div class="photo-grid">${photos}</div>`:''}</div>`:''}${p.motivo_devolucao?`<div class="detail-description"><b>Última devolução:</b><br>${esc(p.motivo_devolucao)}</div>`:''}<div class="section-title">Histórico de movimentações</div><div class="history">${historyHtml.join('')||'<p>Sem histórico.</p>'}</div>${correctionForm}${review}${p.status==='concluida'?`<div class="detail-description" style="margin-top:16px;color:#16865b"><b>Concluída por ${esc(p.aprovado_por_nome||'Supervisor')}</b><br>${fmtDateTime(p.aprovado_em)}</div>`:''}`;
+  $('detailBody').innerHTML=`<div class="detail-grid"><div><small>SITUAÇÃO</small><b>${STATUS[p.status]?.[0]||p.status}</b></div><div><small>PRAZO</small><b class="${overdue(p)?'due':''}">${fmtDate(p.prazo)}</b></div><div><small>CADASTRADA POR</small><b>${esc(p.criado_por_nome)}</b></div><div><small>DATA DE ABERTURA</small><b>${fmtDateTime(p.criado_em)}</b></div><div><small>ORIGEM</small><b>${report}</b></div></div><div class="detail-description">${esc(p.descricao)}${originalPhotos?`<div class="photo-grid">${originalPhotos}</div>`:''}</div>${p.correcao_texto?`<div class="detail-description"><b>Última correção enviada por ${esc(p.corrigido_por_nome||'—')}:</b><br>${esc(p.correcao_texto)}${photos?`<div class="photo-grid">${photos}</div>`:''}</div>`:''}${p.motivo_devolucao?`<div class="detail-description"><b>Última devolução:</b><br>${esc(p.motivo_devolucao)}</div>`:''}<div class="section-title">Histórico de movimentações</div><div class="history">${historyHtml.join('')||'<p>Sem histórico.</p>'}</div>${correctionForm}${review}${p.status==='concluida'?`<div class="detail-description" style="margin-top:16px;color:#16865b"><b>Concluída por ${esc(p.aprovado_por_nome||'Supervisor')}</b><br>${fmtDateTime(p.aprovado_em)}</div>`:''}`;
 }
 async function signedPhotos(paths){
   if(!Array.isArray(paths)||!paths.length)return '';

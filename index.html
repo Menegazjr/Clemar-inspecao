@@ -384,17 +384,12 @@
             <div class="card-header"><span class="card-header-title">04 — Pendências identificadas</span><span class="card-header-badge">Vinculadas à obra</span></div>
             <div class="card-body">
               <div class="field">
-                <label for="fieldPendencias">Descreva uma pendência por linha</label>
-                <textarea id="fieldPendencias" rows="4" placeholder="Ex.:
-Ajustar identificação dos cabos no painel.
-Corrigir acabamento da infraestrutura."></textarea>
-                <small style="display:block;color:var(--ink-light);margin-top:5px">Ao salvar o relatório, cada linha será cadastrada como uma pendência individual na obra selecionada.</small>
+                <label>Pendências deste relatório</label>
+                <div id="pendenciasRascunho" class="pendencias-rascunho"></div>
+                <button type="button" class="btn btn-outline" style="margin-top:8px" onclick="adicionarLinhaPendencia()">＋ Adicionar outra pendência</button>
+                <small style="display:block;color:var(--ink-light);margin-top:6px">Cada item pode ter uma descrição longa e fotos próprias. Ao salvar, ele aparece individualmente no painel de Pendências.</small>
               </div>
-              <div class="form-grid form-grid-4" style="margin-top:12px">
-                <div class="field"><label for="fieldPendenciasPrazo">Prazo para correção</label><input type="date" id="fieldPendenciasPrazo"></div>
-                <div class="field"><label for="fieldPendenciasPrioridade">Prioridade</label><select id="fieldPendenciasPrioridade"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option><option value="critica">Crítica</option></select></div>
-              </div>
-              <div id="pendenciasRelatorioExistentes" style="margin-top:12px"></div>
+              <div id="pendenciasRelatorioExistentes" style="margin-top:14px"></div>
             </div>
           </div>
 

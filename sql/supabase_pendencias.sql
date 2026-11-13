@@ -68,7 +68,7 @@ create table if not exists public.pendencias (
   obra_mapa_id uuid not null references public.obras_mapa(id) on delete restrict,
   relatorio_id uuid references public.relatorios(id) on delete set null,
   descricao text not null check (length(trim(descricao)) > 0),
-  prioridade text not null default 'media' check (prioridade in ('baixa','media','alta','critica')),
+  fotos jsonb not null default '[]'::jsonb,
   prazo date,
   status text not null default 'pendente' check (status in ('pendente','aguardando_validacao','concluida')),
   criado_por uuid references public.usuarios(id) on delete set null,
@@ -223,7 +223,10 @@ create policy pendencias_historico_aprovados_criam on public.pendencias_historic
 with check ((select public.clemar_usuario_aprovado()) and usuario_id = (select auth.uid()));
 revoke all on table public.pendencias, public.pendencias_historico from public, anon, authenticated;
 grant select on table public.pendencias to authenticated;
-grant insert (obra_mapa_id, relatorio_id, descricao, prioridade, prazo) on table public.pendencias to authenticated;
+grant insert (id, obra_mapa_id, relatorio_id, descricao, prazo, fotos) on table public.pendencias to authenticated;
+grant delete on table public.pendencias to authenticated;
+drop policy if exists pendencias_relatorio_apaga on public.pendencias;
+create policy pendencias_relatorio_apaga on public.pendencias for delete to authenticated using (public.clemar_usuario_aprovado() and (public.clemar_e_supervisor() or criado_por = auth.uid() or exists (select 1 from public.relatorios r where r.id = pendencias.relatorio_id and r.user_id = auth.uid())));
 grant select on table public.pendencias_historico to authenticated;
 
 -- 6) Bucket privado para fotos de correção.

@@ -406,50 +406,89 @@ function fecharViewerBtn() {
 //  EXPORTAR PDF
 
 
-// Pendências vinculadas ao relatório: uma descrição por linha vira um registro individual.
+// Pendências individuais vinculadas ao relatório. Cada linha aceita texto longo e fotos.
+let _linhasPendencia = 0;
+function adicionarLinhaPendencia(descricao = '', fotos = []) {
+  const box = document.getElementById('pendenciasRascunho'); if (!box) return;
+  const id = `pendenciaNova_${++_linhasPendencia}`;
+  const item = document.createElement('div'); item.className = 'pendencia-draft'; item.dataset.id = id;
+  item.innerHTML = `<div class="pendencia-draft-head"><strong>Nova pendência</strong><button type="button" class="btn btn-outline btn-sm" onclick="this.closest('.pendencia-draft').remove()">Remover</button></div><textarea class="pendencia-draft-text" rows="3" placeholder="Descreva detalhadamente o que precisa ser corrigido..."></textarea><label class="pendencia-foto-label">Fotos da pendência (opcional)<input class="pendencia-draft-files" type="file" accept="image/*" multiple></label>`;
+  item.querySelector('textarea').value = descricao; box.appendChild(item);
+}
 async function carregarPendenciasRelatorio(relatorio) {
   const box = document.getElementById('pendenciasRelatorioExistentes');
-  const input = document.getElementById('fieldPendencias');
+  const drafts = document.getElementById('pendenciasRascunho');
   if (!box || !relatorio) return;
-  if (input) input.value = '';
+  if (drafts) { drafts.innerHTML = ''; _linhasPendencia = 0; adicionarLinhaPendencia(); }
   if (!relatorio.id || !relatorio.obra_mapa_id) { box.innerHTML = ''; return; }
-  const { data, error } = await supa.from('pendencias')
-    .select('id,descricao,status,prazo,prioridade')
+  const { data, error } = await supa.from('pendencias').select('id,descricao,status,prazo,fotos')
     .eq('relatorio_id', relatorio.id).order('criado_em', { ascending: true });
-  if (error) {
-    box.innerHTML = `<small style="color:var(--signal)">Não foi possível carregar as pendências vinculadas: ${escHtml(error.message)}</small>`;
-    return;
-  }
-  if (!data?.length) { box.innerHTML = ''; return; }
+  if (error) { box.innerHTML = `<small style="color:var(--signal)">Não foi possível carregar as pendências vinculadas: ${escHtml(error.message)}</small>`; return; }
+  if (!data?.length) { box.innerHTML = '<small style="color:var(--ink-light)">Nenhuma pendência cadastrada neste relatório.</small>'; return; }
   const labels = { pendente: 'Pendente', aguardando_validacao: 'Aguardando validação', concluida: 'Concluída' };
-  box.innerHTML = `<div style="font-size:12px;font-weight:700;margin-bottom:7px">Pendências já cadastradas neste relatório</div>` + data.map(p =>
-    `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 10px;background:var(--surface-2);border-radius:7px;margin-top:5px;font-size:12px"><span>${escHtml(p.descricao)}</span><strong style="white-space:nowrap">${labels[p.status] || p.status}</strong></div>`
-  ).join('');
-}
-
-function obterPendenciasRascunho() {
-  return String(document.getElementById('fieldPendencias')?.value || '')
-    .split(/\r?\n/).map(texto => texto.trim()).filter(Boolean);
-}
-
-async function salvarPendenciasDoRelatorio(relatorio) {
-  const descricoes = obterPendenciasRascunho();
-  if (!descricoes.length) return true;
-  if (!relatorio.obra_mapa_id) {
-    showAlert('Selecione uma obra cadastrada no mapa para vincular as pendências.', 'err');
-    return false;
-  }
-  const payload = descricoes.map(descricao => ({
-    obra_mapa_id: relatorio.obra_mapa_id,
-    relatorio_id: relatorio.id,
-    descricao,
-    prioridade: document.getElementById('fieldPendenciasPrioridade')?.value || 'media',
-    prazo: document.getElementById('fieldPendenciasPrazo')?.value || null,
+  const linhas = await Promise.all(data.map(async p => {
+    const paths = Array.isArray(p.fotos) ? p.fotos : [];
+    const signed = await Promise.all(paths.map(async path => {
+      const { data: urlData } = await supa.storage.from('pendencia-fotos').createSignedUrl(path, 1800);
+      return urlData?.signedUrl || '';
+    }));
+    const thumbs = signed.filter(Boolean).map(url => `<a href="${escHtml(url)}" target="_blank" rel="noopener"><img src="${escHtml(url)}" alt="Foto da pendência" style="width:64px;height:48px;object-fit:cover;border-radius:4px;margin:5px 5px 0 0"></a>`).join('');
+    return `<div class="pendencia-existente"><div><span>${escHtml(p.descricao)}</span><strong class="pendencia-status status-${p.status}">${labels[p.status] || p.status}</strong>${thumbs}</div><button type="button" class="btn btn-danger btn-sm" onclick="excluirPendenciaRelatorio('${p.id}')">Excluir</button></div>`;
   }));
-  const { error } = await supa.from('pendencias').insert(payload);
-  if (error) { showAlert('Relatório salvo, mas não foi possível cadastrar as pendências: ' + error.message, 'err'); return false; }
-  document.getElementById('fieldPendencias').value = '';
-  document.getElementById('fieldPendenciasPrazo').value = '';
+  box.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:7px">Já cadastradas neste relatório</div>` + linhas.join('');
+}
+async function excluirPendenciaRelatorio(id) {
+  if (!confirm('Excluir esta pendência também do Dashboard?')) return;
+  const { data: registro } = await supa.from('pendencias').select('fotos').eq('id', id).maybeSingle();
+  const { error } = await supa.from('pendencias').delete().eq('id', id);
+  if (!error && registro?.fotos?.length) await supa.storage.from('pendencia-fotos').remove(registro.fotos);
+  if (error) { showAlert('Não foi possível excluir a pendência: ' + error.message, 'err'); return; }
+  await carregarPendenciasRelatorio(getRelatorioAtual());
+  showAlert('Pendência excluída do relatório e do Dashboard.', 'ok');
+}
+function comprimirFotoPendencia(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader(); reader.onerror = reject;
+    reader.onload = () => { const img = new Image(); img.onerror = reject; img.onload = () => {
+      const max = 1400, scale = Math.min(1, max / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas'); canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Falha ao processar foto')), 'image/jpeg', .78);
+    }; img.src = reader.result; }; reader.readAsDataURL(file);
+  });
+}
+async function uploadFotosPendenciaRelatorio(pendenciaId, files) {
+  const paths = [];
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
+    const blob = await comprimirFotoPendencia(file);
+    const path = `${pendenciaId}/${crypto.randomUUID()}.jpg`;
+    const { error } = await supa.storage.from('pendencia-fotos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+    if (error) throw error; paths.push(path);
+  }
+  return paths;
+}
+async function salvarPendenciasDoRelatorio(relatorio) {
+  const box = document.getElementById('pendenciasRascunho');
+  const linhas = [...(box?.querySelectorAll('.pendencia-draft') || [])]
+    .map(item => ({ descricao: item.querySelector('textarea')?.value.trim() || '', files: [...(item.querySelector('input[type=file]')?.files || [])] }))
+    .filter(item => item.descricao || item.files.length);
+  if (!linhas.length) return true;
+  if (!relatorio.obra_mapa_id) { showAlert('Selecione uma obra cadastrada no mapa para vincular as pendências.', 'err'); return false; }
+  for (const linha of linhas) {
+    if (!linha.descricao) { showAlert('Preencha a descrição de cada pendência que deseja cadastrar.', 'err'); return false; }
+    const id = crypto.randomUUID();
+    let fotos = [];
+    try {
+      fotos = await uploadFotosPendenciaRelatorio(id, linha.files);
+      const { error } = await supa.from('pendencias').insert({ id, obra_mapa_id: relatorio.obra_mapa_id, relatorio_id: relatorio.id, descricao: linha.descricao, fotos });
+      if (error) throw error;
+    } catch (error) {
+      if (fotos.length) await supa.storage.from('pendencia-fotos').remove(fotos);
+      showAlert('Relatório salvo, mas não foi possível cadastrar uma pendência: ' + error.message, 'err');
+      return false;
+    }
+  }
   await carregarPendenciasRelatorio(relatorio);
   return true;
 }

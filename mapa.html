@@ -535,17 +535,17 @@ function abrir(id, centralizar) {
       ? `<a class="pb pb-azul largo" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${ico('monitor')} Abrir supervisório</a>`
       : `<span class="pb pb-off largo">${ico('monitor')} ${o.supervisorio_url ? 'Link inválido' : 'Sem supervisório cadastrado'}</span>`}
       <a class="pb pb-claro" href="index.html?obra_mapa_id=${encodeURIComponent(o.id)}">${ico('prancheta')} Relatórios</a>
-      <a class="pb pb-claro" href="pendencias.html?obra_mapa_id=${encodeURIComponent(o.id)}">${ico('prancheta')} Pendências</a>
       <button class="pb pb-claro" onclick="editar('${o.id}')">${ico('lapis')} Editar</button></div>
       <button class="excluir" onclick="excluir('${o.id}')">Excluir obra</button>`
     : '';
+  const btnPendencias = `<a class="pb pb-claro largo" href="pendencias.html?obra_mapa_id=${encodeURIComponent(o.id)}">${ico('prancheta')} Ver pendências desta obra</a>`;
   const html = `<h3>${esc(o.nome)}</h3>
     <div class="tags"><span class="tag" style="background:${c}22;color:${c};border:1px solid ${c}66">${esc(o.status)}</span>${o.manutencao ? `<span class="tag tag-mt">${ico('chave')} Manutenção</span>` : ''}</div>
     ${o.cliente ? `<div class="meta">${ico('predio')}<span>${esc(o.cliente)}</span></div>` : ''}
     <div class="meta">${ico('pino')}<span>${esc(local(o))}</span></div>
     ${o.observacoes ? `<div class="meta obs">${esc(o.observacoes)}</div>` : ''}
     ${supOnline ? `<div class="meta sup-ok">${ico('monitor')}<span>Supervisório online</span></div>` : ''}
-    ${acesso}`;
+    ${btnPendencias}${acesso}`;
   if (centralizar) map.easeTo({ center: [o.lng, o.lat], bearing: 0, duration: 600 });   // só centraliza, sem zoom
   popup = new maplibregl.Popup({ offset: 22, maxWidth: '310px', className: 'pop' }).setLngLat([o.lng, o.lat]).setHTML(html).addTo(map);
 }
