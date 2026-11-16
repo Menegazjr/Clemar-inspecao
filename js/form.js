@@ -462,7 +462,7 @@ async function carregarPendenciasRelatorio(relatorio) {
     _rascunhoPendenciaRelatorioId = relatorio.id;
   }
   if (!relatorio.id) { _pendenciasRelatorioPorId.clear(); box.innerHTML = ''; return; }
-  const { data, error } = await supa.from('pendencias').select('id,titulo,descricao,status,fotos')
+  const { data, error } = await supa.from('pendencias').select('id,titulo,descricao,status,fotos,aprovado_em')
     .eq('relatorio_id', relatorio.id).order('criado_em', { ascending: true });
   if (error) { _pendenciasRelatorioPorId.clear(); box.innerHTML = `<small style="color:var(--signal)">Não foi possível carregar as pendências vinculadas: ${escHtml(error.message)}</small>`; return; }
   _pendenciasRelatorioPorId = new Map((data || []).map(p => [p.id, p]));
@@ -482,7 +482,10 @@ async function carregarPendenciasRelatorio(relatorio) {
     const acaoEditar = !_relatorioSomenteLeitura
       ? `<button type="button" class="btn btn-outline btn-sm" onclick="editarPendenciaRelatorio('${p.id}')">Editar</button>`
       : '';
-    return `<div class="pendencia-existente" data-pendencia-id="${escHtml(p.id)}"><div class="pendencia-existente-info">${p.titulo ? `<strong>${escHtml(p.titulo)}</strong>` : ''}<span>${escHtml(p.descricao)}</span><strong class="pendencia-status status-${p.status}">${labels[p.status] || p.status}</strong><div class="pendencia-thumbnails">${thumbs}</div></div><div class="pendencia-existente-actions">${acaoEditar}${acaoExcluir}</div></div>`;
+    const dataConclusao = p.status === 'concluida' && p.aprovado_em
+      ? `<small class="pendencia-concluida-em">Concluída em: ${escHtml(fmtData(p.aprovado_em))}</small>`
+      : '';
+    return `<div class="pendencia-existente" data-pendencia-id="${escHtml(p.id)}"><div class="pendencia-existente-info">${p.titulo ? `<strong>${escHtml(p.titulo)}</strong>` : ''}<span>${escHtml(p.descricao)}</span><strong class="pendencia-status status-${p.status}">${labels[p.status] || p.status}</strong>${dataConclusao}<div class="pendencia-thumbnails">${thumbs}</div></div><div class="pendencia-existente-actions">${acaoEditar}${acaoExcluir}</div></div>`;
   }));
   box.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:7px">Já cadastradas neste relatório</div>` + linhas.join('');
 }
@@ -497,7 +500,10 @@ function renderizarResumoPendencias(pendencias) {
   };
   const descricoes = pendencias.map(p => {
     const [label, classe] = statusInfo[p.status] || ['Status desconhecido', ''];
-    return `<div class="pendencias-resumo-descricao">${p.titulo ? `<strong class="pendencias-resumo-titulo">${escHtml(p.titulo)}</strong>` : ''}<span>${escHtml(p.descricao || '')}</span><strong class="pendencias-resumo-status ${classe}">${label}</strong></div>`;
+    const dataConclusao = p.status === 'concluida' && p.aprovado_em
+      ? `<small>Concluída em: ${escHtml(fmtData(p.aprovado_em))}</small>`
+      : '';
+    return `<div class="pendencias-resumo-descricao">${p.titulo ? `<strong class="pendencias-resumo-titulo">${escHtml(p.titulo)}</strong>` : ''}<span>${escHtml(p.descricao || '')}</span><strong class="pendencias-resumo-status ${classe}">${label}${dataConclusao}</strong></div>`;
   }).join('');
   resumo.innerHTML = `<div class="pendencias-resumo-head"><strong>Resumo das pendências</strong></div><div class="pendencias-resumo-descricoes">${descricoes}</div>`;
   resumo.style.display = '';

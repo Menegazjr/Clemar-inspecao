@@ -927,6 +927,7 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .pendencia-existente{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;background:var(--surface-2);border-radius:6px;margin-top:6px;font-size:12px}
 .pendencia-existente>div{display:flex;flex-direction:column;gap:5px;min-width:0;white-space:pre-wrap}
 .pendencia-status{font-size:11px}
+.pendencia-concluida-em{color:#16865b;font-size:11px}
 .status-pendente{color:#b33a31}.status-aguardando_validacao{color:#a66a12}.status-concluida{color:#16865b}
 @media(max-width:600px){.pendencia-existente{align-items:flex-start;flex-direction:column}.pendencia-existente .btn{width:100%;justify-content:center}.pendencia-draft{padding:9px}}
 .pendencia-existente > .pendencia-existente-info{flex:1}
@@ -994,6 +995,12 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
   border-radius: 999px;
   background: var(--surface-2);
   font-size: 11px;
+}
+.pendencias-resumo-status small {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 500;
 }
 @media (max-width: 600px) {
   .pendencias-resumo-descricao {

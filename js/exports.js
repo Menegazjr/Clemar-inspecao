@@ -2,7 +2,7 @@
 async function obterPendenciasParaExportacao(relatorio, { exigirDados = false, incluirConclusao = false } = {}) {
   if (!relatorio?.id) return [];
   const campos = incluirConclusao
-    ? 'titulo,descricao,status,correcao_texto'
+    ? 'titulo,descricao,status,correcao_texto,aprovado_em'
     : 'titulo,descricao,status';
   const { data, error } = await supa.from('pendencias')
     .select(campos)
@@ -88,6 +88,7 @@ function renderizarPendenciasPdf(pendencias) {
         <div>
           <strong class="pdf-pendencia-label">Conclusão</strong>
           <p>${escHtml(p.correcao_texto||'Ainda não registrada.')}</p>
+          ${p.status === 'concluida' && p.aprovado_em ? `<small>Concluída em: ${escHtml(fmtData(p.aprovado_em))}</small>` : ''}
         </div>
       </div>
     </div>`).join('');
@@ -444,6 +445,7 @@ function fmtDataHora(iso) {
 }
 function fmtData(iso) {
   if (!iso) return '—';
+  if (iso.length > 10) return new Date(iso).toLocaleDateString('pt-BR');
   const [y,m,d] = iso.split('-');
   return `${d}/${m}/${y}`;
 }
