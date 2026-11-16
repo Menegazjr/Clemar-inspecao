@@ -1,7 +1,14 @@
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const STATUS = { pendente:['Pendente','s-pendente'], aguardando_validacao:['Aguardando validação','s-validacao'], concluida:['Concluída','s-concluida'] };
-let currentUser = null, supervisor = false, obras = [], pendencias = [], selected = null, creatingPending = false, sendingCorrection = false;
+const ACTIVITY_STATUS = {
+  nao_iniciada: 'Não iniciada',
+  em_andamento: 'Em andamento',
+  aguardando_terceiros: 'Aguardando terceiros',
+  concluida: 'Concluída',
+  cancelada: 'Cancelada'
+};
+let currentUser = null, supervisor = false, obras = [], pendencias = [], atividades = [], responsaveis = [], selected = null, creatingPending = false, sendingCorrection = false, listView = 'all', activityFeatureError = '';
 const obraParam = new URLSearchParams(location.search).get('obra_mapa_id');
 
 function toast(message){ const el=$('toast'); el.textContent=message; el.style.display='block'; clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.style.display='none',3200); }
@@ -83,6 +90,18 @@ async function loadData(){
   ]);
   if(workError||pendingError){$('pendingList').innerHTML=`<div class="empty access-denied">Erro ao carregar: ${esc(workError?.message||pendingError?.message)}<br><small>Confira se a migração sql/supabase_pendencias.sql foi executada no Supabase.</small></div>`;return;}
   obras=workData||[];pendencias=pendingData||[];
+  const [activitiesResult, usersResult]=await Promise.all([
+    supa.from('pendencias_atividades').select('*').order('criado_em',{ascending:true}),
+    supa.rpc('pendencias_listar_responsaveis')
+  ]);
+  if(activitiesResult.error||usersResult.error){
+    activityFeatureError=activitiesResult.error?.message||usersResult.error?.message||'Falha ao carregar atividades e responsáveis.';
+    atividades=[];responsaveis=[];
+  }else{
+    activityFeatureError='';
+    atividades=activitiesResult.data||[];
+    responsaveis=usersResult.data||[];
+  }
   fillWorkFilters();renderDashboard();renderList();
 }
 function fillWorkFilters(){
@@ -103,6 +122,31 @@ function renderDashboard(){
 }
 function renderList(){
   const q=($('search').value||'').trim().toLocaleLowerCase('pt-BR'),status=$('filterStatus').value,work=$('filterObra').value;
+  const minhas=atividades.filter(item=>item.responsavel_id===currentUser?.id);
+  $('mineCount').textContent=String(minhas.length);
+  $('viewAllPendencies').classList.toggle('active',listView==='all');
+  $('viewAllPendencies').setAttribute('aria-selected',String(listView==='all'));
+  $('viewMyActivities').classList.toggle('active',listView==='mine');
+  $('viewMyActivities').setAttribute('aria-selected',String(listView==='mine'));
+  $('filterStatus').style.display=listView==='mine'?'none':'';
+  if(listView==='mine'){
+    const rows=minhas.filter(item=>{
+      const pendencia=pendencias.find(p=>p.id===item.pendencia_id);
+      const obra=pendencia?.obras_mapa?.nome||'';
+      const texto=`${item.titulo} ${item.descricao} ${pendencia?.titulo||''} ${pendencia?.descricao||''} ${obra}`.toLocaleLowerCase('pt-BR');
+      return texto.includes(q)&&(work==='todas'||pendencia?.obra_mapa_id===work);
+    });
+    $('listCount').textContent=`${rows.length} de ${minhas.length} atividade(s) atribuída(s) a você`;
+    $('pendingList').innerHTML=activityFeatureError
+      ? `<div class="empty access-denied">Não foi possível carregar as atividades: ${esc(activityFeatureError)}<br><small>Confira se a migração sql/supabase_pendencias_ajustes_v5.sql foi executada no Supabase.</small></div>`
+      : rows.length?rows.map(item=>{
+        const pendencia=pendencias.find(p=>p.id===item.pendencia_id);
+        const obra=pendencia?.obras_mapa?.nome||'Obra';
+        return `<article class="pending-row mine-activity-row" onclick="openPending('${esc(item.pendencia_id)}')"><div class="pending-main"><div class="pending-top"><b>${esc(obra)}</b><span class="pill activity-${esc(item.status)}">${esc(ACTIVITY_STATUS[item.status]||item.status)}</span></div><div class="pending-title">${esc(item.titulo)}</div><div class="pending-desc">${esc(item.descricao)}</div><div class="pending-meta"><span>Pendência: ${esc(pendencia?.titulo||pendencia?.descricao||'—')}</span></div></div><span class="row-arrow" aria-hidden="true">›</span></article>`;
+      }).join('')
+      :'<div class="empty">Você ainda não tem atividades atribuídas.</div>';
+    return;
+  }
   const rows=pendencias.filter(p=>{
     const obra=p.obras_mapa?.nome||'';const matchText=`${p.titulo||''} ${p.descricao} ${obra} ${p.criado_por_nome}`.toLocaleLowerCase('pt-BR').includes(q);
     const matchStatus=status==='todos'||p.status===status;
@@ -112,9 +156,10 @@ function renderList(){
   $('pendingList').innerHTML=rows.length?rows.map(p=>{
     const obra=p.obras_mapa?.nome||'Obra';
     const reportUrl=p.relatorio_id?`index.html?relatorio_id=${encodeURIComponent(p.relatorio_id)}`:'';
-    return `<article class="pending-row" onclick="openPending('${p.id}')"><div class="pending-main"><div class="pending-top"><b>${esc(obra)}</b>${statusBadge(p.status)}</div>${p.titulo?`<div class="pending-title">${esc(p.titulo)}</div>`:''}<div class="pending-desc">${esc(p.descricao)}</div><div class="pending-meta"><span>Aberta por ${esc(p.criado_por_nome)}</span>${p.relatorio_id?`<span>Relatório #${esc(p.relatorios?.numero??'—')}</span>`:''}</div></div><div class="row-actions">${p.relatorio_id?`<a class="row-action report-link" href="${reportUrl}" onclick="event.stopPropagation()">Abrir relatório</a>`:''}<button type="button" class="ghost row-action" onclick="event.stopPropagation();openDetail('${p.id}')">Detalhes</button>${isAdmin()?`<button type="button" class="danger row-action" onclick="event.stopPropagation();deletePending('${p.id}')">Excluir</button>`:''}</div></article>`;
+    return `<article class="pending-row" onclick="openPending('${p.id}')"><div class="pending-main"><div class="pending-top"><b>${esc(obra)}</b>${statusBadge(p.status)}</div>${p.titulo?`<div class="pending-title">${esc(p.titulo)}</div>`:''}<div class="pending-desc">${esc(p.descricao)}</div><div class="pending-meta"><span>Aberta por ${esc(p.criado_por_nome)}</span>${p.responsavel_nome?`<span>Responsável principal: ${esc(p.responsavel_nome)}</span>`:''}${p.relatorio_id?`<span>Relatório #${esc(p.relatorios?.numero??'—')}</span>`:''}</div></div><div class="row-actions">${p.relatorio_id?`<a class="row-action report-link" href="${reportUrl}" onclick="event.stopPropagation()">Abrir relatório</a>`:''}<button type="button" class="ghost row-action" onclick="event.stopPropagation();openDetail('${p.id}')">Detalhes</button>${isAdmin()?`<button type="button" class="danger row-action" onclick="event.stopPropagation();deletePending('${p.id}')">Excluir</button>`:''}</div></article>`;
   }).join(''):'<div class="empty">Nenhuma pendência encontrada com esses filtros.</div>';
 }
+function setListView(view){listView=view==='mine'?'mine':'all';renderList();}
 function openPending(id){
   openDetail(id);
 }
@@ -151,6 +196,74 @@ async function deletePending(id){
   toast(erroFotos?`Pendência excluída, mas não foi possível remover todas as fotos: ${erroFotos.message}`:'Pendência excluída.');
   await loadData();
 }
+function responsibleOptions(selectedId='', includeEmpty=true){
+  const empty=includeEmpty?`<option value="">Sem responsável</option>`:'<option value="">Selecione um responsável...</option>';
+  return empty+responsaveis.map(user=>`<option value="${esc(user.id)}"${user.id===selectedId?' selected':''}>${esc(user.nome)}${user.email?` · ${esc(user.email)}`:''}</option>`).join('');
+}
+function activityEventText(event){
+  return ({
+    criada:'Atividade criada',
+    titulo_alterado:'Título alterado',
+    descricao_alterada:'Descrição alterada',
+    responsavel_alterado:'Responsável alterado',
+    status_alterado:'Status alterado',
+    prazo_alterado:'Prazo alterado',
+    comentario:'Comentário'
+  })[event]||event;
+}
+function activityEventDetails(item){
+  if(item.evento==='comentario')return esc(item.comentario||'');
+  const details=item.detalhes||{};
+  if(item.evento==='criada'){
+    return `Descrição: ${esc(details.descricao||'—')} · Responsável: ${esc(details.responsavel||'Sem responsável')}${details.prazo?` · Prazo: ${esc(details.prazo)}`:''}`;
+  }
+  const value=raw=>raw===null||raw===undefined||raw===''?'—':String(raw);
+  const before=item.evento==='status_alterado'?(ACTIVITY_STATUS[details.antes]||value(details.antes)):value(details.antes);
+  const after=item.evento==='status_alterado'?(ACTIVITY_STATUS[details.depois]||value(details.depois)):value(details.depois);
+  const completed=details.concluido_em?` · Concluída em ${fmtDateTime(details.concluido_em)}`:'';
+  return `${esc(before)} → ${esc(after)}${completed}`;
+}
+function renderActivityCard(activity, history){
+  const id=esc(activity.id),mine=activity.responsavel_id===currentUser?.id;
+  const activityHistory=history.filter(item=>item.atividade_id===activity.id);
+  const historyRows=activityHistory.map(item=>`<div class="activity-history-row"><b>${esc(activityEventText(item.evento))}</b><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small>${activityEventDetails(item)?`<p>${activityEventDetails(item)}</p>`:''}</div>`).join('');
+  const statusOptions=Object.entries(ACTIVITY_STATUS).map(([value,label])=>`<option value="${value}"${activity.status===value?' selected':''}>${label}</option>`).join('');
+  return `<article class="activity-card${mine?' mine':''}">
+    <div class="activity-card-heading"><div><h4>${esc(activity.titulo)}</h4><small>Criada por ${esc(activity.criado_por_nome)} · ${fmtDateTime(activity.criado_em)}</small></div>${mine?'<span class="activity-mine-badge">Atribuída a você</span>':''}</div>
+    <div class="activity-form-grid">
+      <label>Título<input id="activityTitle-${id}" type="text" maxlength="160" value="${esc(activity.titulo)}"></label>
+      <label>Responsável<select id="activityAssignee-${id}">${responsibleOptions(activity.responsavel_id)}</select></label>
+      <label class="activity-description-field">Descrição<textarea id="activityDescription-${id}" rows="3" maxlength="5000">${esc(activity.descricao)}</textarea></label>
+      <label>Status<select id="activityStatus-${id}">${statusOptions}</select></label>
+      <label>Prazo (opcional)<input id="activityDue-${id}" type="date" value="${esc(activity.prazo||'')}"></label>
+    </div>
+    <div class="activity-completion">${activity.concluido_em?`Concluída em ${fmtDateTime(activity.concluido_em)}`:''}</div>
+    <div class="activity-actions"><button class="primary" type="button" onclick="updateActivity('${id}','${esc(activity.pendencia_id)}')">Salvar atividade</button></div>
+    <details class="activity-history"><summary>Histórico da atividade (${activityHistory.length})</summary><div>${historyRows||'<p>Sem alterações registradas.</p>'}</div></details>
+  </article>`;
+}
+function renderActivityComments(activities, history){
+  if(!activities.length)return '<p class="activity-empty">Ainda não há atividades para comentar.</p>';
+  return activities.map(activity=>{
+    const id=esc(activity.id);
+    const comments=history.filter(item=>item.atividade_id===activity.id&&item.evento==='comentario');
+    return `<article class="activity-comments-card"><h4>${esc(activity.titulo)}</h4><div class="activity-comment-list">${comments.length?comments.map(item=>`<div class="activity-comment"><p>${esc(item.comentario)}</p><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small></div>`).join(''):'<p class="activity-empty">Nenhum comentário nesta atividade.</p>'}</div><label>Adicionar comentário<textarea id="activityComment-${id}" rows="2" maxlength="5000" placeholder="Registre uma atualização sobre esta atividade..."></textarea></label><button class="ghost" type="button" onclick="addActivityComment('${id}','${esc(activity.pendencia_id)}')">Adicionar comentário</button></article>`;
+  }).join('');
+}
+async function renderFullHistory(mainHistory, activityHistory, activities){
+  const activityById=new Map(activities.map(item=>[item.id,item]));
+  const mainLabels={criada:'Pendência cadastrada',responsavel_atribuido:'Responsável principal atribuído',responsavel_alterado:'Responsável principal alterado',responsavel_removido:'Responsável principal removido',correcao_enviada:'Correção enviada para validação',devolvida:'Pendência devolvida para correção',aprovada:'Pendência aprovada'};
+  const mainRows=await Promise.all(mainHistory.map(async item=>{
+    const photos=await signedPhotos(item.fotos||[]);
+    return {date:item.criado_em,html:`<div class="history-item"><b>${esc(mainLabels[item.evento]||item.evento)}</b><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small>${item.descricao?`<p>${esc(item.descricao)}</p>`:''}${item.motivo?`<p><b>Motivo:</b> ${esc(item.motivo)}</p>`:''}${photos?`<div class="photo-grid">${photos}</div>`:''}</div>`};
+  }));
+  const activityRows=activityHistory.map(item=>{
+    const activity=activityById.get(item.atividade_id);
+    const title=item.detalhes?.titulo||activity?.titulo||'Atividade';
+    return {date:item.criado_em,html:`<div class="history-item activity-global-history"><b>${esc(title)} · ${esc(activityEventText(item.evento))}</b><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small>${activityEventDetails(item)?`<p>${activityEventDetails(item)}</p>`:''}</div>`};
+  });
+  return [...mainRows,...activityRows].sort((a,b)=>new Date(a.date)-new Date(b.date)).map(item=>item.html).join('');
+}
 async function openDetail(id){
   selected=pendencias.find(p=>p.id===id);if(!selected)return;
   const p=selected,obra=p.obras_mapa?.nome||'Obra';
@@ -160,18 +273,69 @@ async function openDetail(id){
   $('detailModal').classList.add('open');
   const {data:history,error}=await supa.from('pendencias_historico').select('*').eq('pendencia_id',id).order('criado_em',{ascending:true});
   if(error){$('detailBody').innerHTML=`<div class="empty">Erro ao carregar histórico: ${esc(error.message)}</div>`;return;}
-  const historyHtml=await Promise.all((history||[]).map(async h=>{
-    const titles={criada:'Pendência cadastrada',correcao_enviada:'Correção registrada',devolvida:'Correção devolvida pelo supervisor',aprovada:'Correção aprovada'};
-    const pics=await signedPhotos(h.fotos||[]);
-    return `<div class="history-item"><b>${titles[h.evento]||h.evento}</b><small>${esc(h.usuario_nome)} · ${fmtDateTime(h.criado_em)}</small>${h.descricao?`<p>${esc(h.descricao)}</p>`:''}${h.motivo?`<p><b>Motivo:</b> ${esc(h.motivo)}</p>`:''}${pics?`<div class="photo-grid">${pics}</div>`:''}</div>`;
-  }));
-  const photos=await signedPhotos(p.fotos_correcao||[]);
+  const {data:activityRows,error:activitiesError}=await supa.from('pendencias_atividades').select('*').eq('pendencia_id',id).order('criado_em',{ascending:true});
+  const activities=activitiesError?[]:(activityRows||[]);
+  let activityHistory=[],activityHistoryError=null;
+  if(activities.length){
+    const result=await supa.from('pendencias_atividades_historico').select('*').in('atividade_id',activities.map(item=>item.id)).order('criado_em',{ascending:true});
+    activityHistory=result.data||[];activityHistoryError=result.error;
+  }
+  const featureError=activitiesError||activityHistoryError;
+  const featureErrorMessage=featureError?.message||activityFeatureError;
   const originalPhotos=await signedPhotos(p.fotos||[]);
+  const correctionPhotos=await signedPhotos(p.fotos_correcao||[]);
   const report=p.relatorios?.numero?`<a href="index.html?relatorio_id=${encodeURIComponent(p.relatorio_id)}">Abrir relatório #${p.relatorios.numero}</a>`:'Cadastro direto na obra';
-  const adminAction=isAdmin()?`<div class="admin-delete-actions"><button class="danger" onclick="deletePending('${p.id}')">Excluir pendência</button></div>`:'';
+  const primaryResponsibleControls=featureErrorMessage
+    ? `<small class="activity-feature-error">Disponível após a migração v5: ${esc(featureErrorMessage)}</small>`
+    : supervisor
+    ? `<div class="responsible-edit"><select id="principalResponsible">${responsibleOptions(p.responsavel_id)}</select><button class="ghost" type="button" onclick="updatePrimaryResponsible('${esc(p.id)}')">Salvar responsável</button></div>`
+    : `<p>${esc(p.responsavel_nome||'Ainda não atribuído')}</p>`;
+  const primaryAssignedMeta=p.responsavel_atribuido_em?`<small>Atribuído por ${esc(p.responsavel_atribuido_por_nome||'—')} · ${fmtDateTime(p.responsavel_atribuido_em)}</small>`:'';
+  const activityErrorMarkup=featureErrorMessage?`<div class="activity-feature-error">Não foi possível carregar o módulo de atividades: ${esc(featureErrorMessage)}. Execute a migração <code>sql/supabase_pendencias_ajustes_v5.sql</code>.</div>`:'';
+  const activitiesMarkup=featureErrorMessage?'':`<p class="activity-section-note">Concluir uma atividade não conclui a pendência. A aprovação final continua sendo feita por administrador ou supervisor.</p>${activities.map(item=>renderActivityCard(item,activityHistory)).join('')||'<p class="activity-empty">Ainda não há atividades nesta pendência.</p>'}`;
+  const createActivityMarkup=featureErrorMessage?'':`<form class="activity-create" onsubmit="event.preventDefault();createActivity('${esc(p.id)}')"><h4>Nova atividade</h4><div class="activity-form-grid"><label>Título<em>*</em><input id="newActivityTitle" type="text" maxlength="160" required placeholder="Ex.: Comprar materiais"></label><label>Responsável<em>*</em><select id="newActivityAssignee" required>${responsibleOptions('',false)}</select></label><label class="activity-description-field">Descrição<em>*</em><textarea id="newActivityDescription" rows="3" maxlength="5000" required placeholder="Descreva o que precisa ser feito..."></textarea></label><label>Prazo (opcional)<input id="newActivityDue" type="date"></label></div><button class="primary" type="submit">Criar atividade</button></form>`;
+  const commentsMarkup=featureErrorMessage?'':renderActivityComments(activities,activityHistory);
+  const historyMarkup=await renderFullHistory(history||[],activityHistory,activities);
   const review=p.status==='aguardando_validacao'&&supervisor?`<div class="review-actions"><button class="danger" onclick="returnCorrection('${p.id}')">Devolver para correção</button><button class="primary" onclick="approveCorrection('${p.id}')">Aprovar correção</button></div>`:'';
   const correctionForm=p.status==='pendente'?`<div class="correction-box"><h3>Registrar correção</h3><label>Descreva o que foi corrigido <em>*</em><textarea id="correctionText" placeholder="Informe o serviço realizado e o resultado..."></textarea></label><div class="photo-field"><div class="photo-label">Fotos da correção (opcional)</div>${photoPicker('correction')}</div><div class="correction-actions"><button class="primary" onclick="submitCorrection('${p.id}')">Enviar para validação</button></div></div>`:'';
-  $('detailBody').innerHTML=`<div class="detail-grid"><div><small>SITUAÇÃO</small><b>${STATUS[p.status]?.[0]||p.status}</b></div><div><small>CADASTRADA POR</small><b>${esc(p.criado_por_nome)}</b></div><div><small>DATA DE ABERTURA</small><b>${fmtDateTime(p.criado_em)}</b></div><div><small>ORIGEM</small><b>${report}</b></div></div><div class="detail-description">${esc(p.descricao)}${originalPhotos?`<div class="photo-grid">${originalPhotos}</div>`:''}</div>${p.correcao_texto?`<div class="detail-description"><b>Última correção enviada por ${esc(p.corrigido_por_nome||'—')}:</b><br>${esc(p.correcao_texto)}${photos?`<div class="photo-grid">${photos}</div>`:''}</div>`:''}${p.motivo_devolucao?`<div class="detail-description"><b>Última devolução:</b><br>${esc(p.motivo_devolucao)}</div>`:''}<div class="section-title">Histórico de movimentações</div><div class="history">${historyHtml.join('')||'<p>Sem histórico.</p>'}</div>${correctionForm}${review}${adminAction}${p.status==='concluida'?`<div class="detail-description" style="margin-top:16px;color:#16865b"><b>Concluída por ${esc(p.aprovado_por_nome||'Supervisor')}</b><br>${fmtDateTime(p.aprovado_em)}</div>`:''}`;
+  const adminAction=isAdmin()?`<div class="admin-delete-actions"><button class="danger" onclick="deletePending('${p.id}')">Excluir pendência</button></div>`:'';
+  $('detailBody').innerHTML=`<section class="detail-section"><h3>Dados gerais</h3><div class="detail-grid"><div><small>SITUAÇÃO GERAL</small><b>${STATUS[p.status]?.[0]||p.status}</b></div><div><small>CADASTRADA POR</small><b>${esc(p.criado_por_nome)}</b></div><div><small>DATA DE ABERTURA</small><b>${fmtDateTime(p.criado_em)}</b></div><div><small>ORIGEM</small><b>${report}</b></div></div><div class="detail-description">${p.titulo?`<strong>${esc(p.titulo)}</strong><br>`:''}${esc(p.descricao)}${originalPhotos?`<div class="photo-grid">${originalPhotos}</div>`:''}</div>${p.correcao_texto?`<div class="detail-description"><b>Última correção enviada por ${esc(p.corrigido_por_nome||'—')}:</b><br>${esc(p.correcao_texto)}${correctionPhotos?`<div class="photo-grid">${correctionPhotos}</div>`:''}</div>`:''}${p.motivo_devolucao?`<div class="detail-description"><b>Última devolução:</b><br>${esc(p.motivo_devolucao)}</div>`:''}${correctionForm}${review}${adminAction}</section><section class="detail-section"><h3>Responsável principal</h3>${primaryResponsibleControls}${primaryAssignedMeta}</section><section class="detail-section"><h3>Atividades e responsáveis</h3>${activityErrorMarkup}${activitiesMarkup}${createActivityMarkup}</section><section class="detail-section"><h3>Comentários e atualizações</h3>${commentsMarkup}</section><section class="detail-section"><h3>Histórico completo</h3><div class="history">${historyMarkup||'<p>Sem movimentações registradas.</p>'}</div></section>${p.status==='concluida'?`<div class="detail-description detail-completed"><b>Pendência aprovada por ${esc(p.aprovado_por_nome||'Supervisor')}</b><br>${fmtDateTime(p.aprovado_em)}</div>`:''}`;
+}
+async function updatePrimaryResponsible(pendenciaId){
+  if(!supervisor)return;
+  const {error}=await supa.rpc('pendencia_atribuir_responsavel',{p_pendencia_id:pendenciaId,p_responsavel_id:$('principalResponsible').value||null});
+  if(error){toast('Não foi possível atribuir o responsável: '+error.message);return;}
+  toast('Responsável principal atualizado.');
+  await loadData();await openDetail(pendenciaId);
+}
+async function createActivity(pendenciaId){
+  const titulo=$('newActivityTitle')?.value.trim()||'',descricao=$('newActivityDescription')?.value.trim()||'',responsavelId=$('newActivityAssignee')?.value||'';
+  if(!titulo||!descricao||!responsavelId){toast('Informe título, descrição e responsável da atividade.');return;}
+  const {error}=await supa.rpc('pendencia_atividade_criar',{p_pendencia_id:pendenciaId,p_titulo:titulo,p_descricao:descricao,p_responsavel_id:responsavelId,p_prazo:$('newActivityDue').value||null});
+  if(error){toast('Não foi possível criar a atividade: '+error.message);return;}
+  toast('Atividade criada.');
+  await loadData();await openDetail(pendenciaId);
+}
+async function updateActivity(activityId,pendenciaId){
+  const {error}=await supa.rpc('pendencia_atividade_atualizar',{
+    p_atividade_id:activityId,
+    p_titulo:$(`activityTitle-${activityId}`).value,
+    p_descricao:$(`activityDescription-${activityId}`).value,
+    p_responsavel_id:$(`activityAssignee-${activityId}`).value||null,
+    p_status:$(`activityStatus-${activityId}`).value,
+    p_prazo:$(`activityDue-${activityId}`).value||null
+  });
+  if(error){toast('Não foi possível atualizar a atividade: '+error.message);return;}
+  toast('Atividade atualizada.');
+  await loadData();await openDetail(pendenciaId);
+}
+async function addActivityComment(activityId,pendenciaId){
+  const input=$(`activityComment-${activityId}`),comentario=input?.value.trim()||'';
+  if(!comentario){toast('Escreva um comentário antes de adicionar.');return;}
+  const {error}=await supa.rpc('pendencia_atividade_comentar',{p_atividade_id:activityId,p_comentario:comentario});
+  if(error){toast('Não foi possível adicionar o comentário: '+error.message);return;}
+  toast('Comentário adicionado.');
+  await loadData();await openDetail(pendenciaId);
 }
 async function signedPhotos(paths){
   if(!Array.isArray(paths)||!paths.length)return '';
