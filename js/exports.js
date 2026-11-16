@@ -155,6 +155,7 @@ async function exportarPDF() {
   try {
     const pendenciasRelatorioPdf = await obterPendenciasParaExportacao(r, { exigirDados: true, incluirConclusao: true });
     // Cada foto vira um bloco separado para evitar corte entre páginas
+    const fotosPdf = [];
     const fotosHtml = (r.fotos||[]).flatMap(grupo => {
       const fotosDo = (grupo.fotos||[]).filter(f=>f.base64);
       if (fotosDo.length === 0) return [];
@@ -166,9 +167,14 @@ async function exportarPDF() {
           ${grupo.descricao ? `<p style="margin:0;color:#555">${escHtml(grupo.descricao)}</p>` : ''}
         </div>`);
       }
-      // Cada foto é um bloco separado com data-base64 para renderizar direto
       fotosDo.forEach(f => {
-        blocos.push(`<div class="pdf-section-block pdf-foto-block" data-tipo="foto" data-base64="${f.base64}" data-w="${f.largura||0}" data-h="${f.altura||0}">
+        const indiceFoto = fotosPdf.length;
+        fotosPdf.push({
+          base64: f.base64,
+          w: parseInt(f.largura || 0, 10),
+          h: parseInt(f.altura || 0, 10),
+        });
+        blocos.push(`<div class="pdf-section-block pdf-foto-block" data-tipo="foto" data-foto-index="${indiceFoto}">
           <div style="height:4px"></div>
         </div>`);
       });
@@ -250,18 +256,21 @@ async function exportarPDF() {
     // Pré-calcular alturas de todos os blocos
     const rendered = [];
     const isMobile = window.innerWidth <= 600;
-    for (const block of blocks) {
+    for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+      const block = blocks[blockIndex];
       if (block.getAttribute('data-tipo') === 'foto') {
-        // Foto: não usar html2canvas, guardar base64 para addImage direto
-        rendered.push({ tipo: 'foto', base64: block.getAttribute('data-base64'), w: parseInt(block.getAttribute('data-w')||0), h: parseInt(block.getAttribute('data-h')||0) });
+        const foto = fotosPdf[Number(block.getAttribute('data-foto-index'))];
+        if (!foto) throw new Error('Não foi possível preparar uma foto para o PDF.');
+        rendered.push({ tipo: 'foto', ...foto });
       } else {
         const bc = await html2canvas(block, {
-          scale: isMobile ? 1.4 : 1.8,
+          scale: isMobile ? 1.25 : 1.5,
           useCORS: true, allowTaint: true,
           backgroundColor: '#ffffff', logging: false
         });
         rendered.push({ tipo: 'canvas', canvas: bc, h: (bc.height * A4w) / bc.width, isTituloFoto: block.getAttribute('data-tipo') === 'foto-titulo' });
       }
+      msg.textContent = `Renderizando... ${blockIndex + 1}/${blocks.length}`;
       if (isMobile) await new Promise(r => setTimeout(r, 0));
     }
 
