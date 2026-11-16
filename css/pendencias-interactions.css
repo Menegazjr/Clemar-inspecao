@@ -190,6 +190,13 @@ body.session-pending #sessionLoaderPendencias {
     flex-wrap: nowrap;
     gap: 8px;
     padding: env(safe-area-inset-top, 0px) 12px 0;
+    box-shadow: none;
+  }
+  .pend-topnav .topnav-logo {
+    display: none;
+  }
+  .pend-topnav .topnav-logo-mobile {
+    display: flex;
   }
   .pend-topnav .topnav-brand {
     width: auto;
@@ -226,6 +233,9 @@ body.session-pending #sessionLoaderPendencias {
   .pend-topnav .user-bar button {
     padding: 4px 8px;
     font-size: 11px;
+  }
+  .modal-backdrop {
+    z-index: 300;
   }
 }
 
