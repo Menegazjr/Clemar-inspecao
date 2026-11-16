@@ -408,6 +408,7 @@ function fecharViewerBtn() {
 
 // Pendências vinculadas ao relatório; cada item pode ter título, descrição e fotos.
 let _linhasPendencia = 0;
+let _rascunhoPendenciaRelatorioId = null;
 function adicionarLinhaPendencia(titulo = '', descricao = '') {
   const box = document.getElementById('pendenciasRascunho'); if (!box) return;
   const id = `pendenciaNova_${++_linhasPendencia}`;
@@ -440,6 +441,9 @@ function adicionarLinhaPendencia(titulo = '', descricao = '') {
         <input class="pendencia-draft-camera" type="file" accept="image/*" capture="environment" onchange="atualizarFotosPendenciaDraft(this)">
         <small class="pendencia-foto-status">Nenhuma foto selecionada</small>
       </div>
+    </div>
+    <div class="pendencia-draft-actions">
+      <button type="button" class="btn btn-primary" onclick="inserirPendenciaRascunho(this)">Inserir pendência</button>
     </div>`;
   item.querySelector('.pendencia-draft-title').value = titulo;
   item.querySelector('textarea').value = descricao;
@@ -451,8 +455,12 @@ async function carregarPendenciasRelatorio(relatorio) {
   const resumo = document.getElementById('pendenciasResumo');
   if (!box || !relatorio) return;
   if (resumo) { resumo.innerHTML = ''; resumo.style.display = 'none'; }
-  if (drafts) { drafts.innerHTML = ''; _linhasPendencia = 0; }
-  if (!relatorio.id || !relatorio.obra_mapa_id) { box.innerHTML = ''; return; }
+  if (drafts && _rascunhoPendenciaRelatorioId !== relatorio.id) {
+    drafts.innerHTML = '';
+    _linhasPendencia = 0;
+    _rascunhoPendenciaRelatorioId = relatorio.id;
+  }
+  if (!relatorio.id) { box.innerHTML = ''; return; }
   const { data, error } = await supa.from('pendencias').select('id,titulo,descricao,status,fotos')
     .eq('relatorio_id', relatorio.id).order('criado_em', { ascending: true });
   if (error) { box.innerHTML = `<small style="color:var(--signal)">Não foi possível carregar as pendências vinculadas: ${escHtml(error.message)}</small>`; return; }
@@ -518,41 +526,67 @@ function comprimirFotoPendencia(file) {
 }
 async function uploadFotosPendenciaRelatorio(pendenciaId, files) {
   const paths = [];
-  for (const file of files) {
-    if (!file.type.startsWith('image/')) continue;
-    const blob = await comprimirFotoPendencia(file);
-    const path = `${pendenciaId}/${crypto.randomUUID()}.jpg`;
-    const { error } = await supa.storage.from('pendencia-fotos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
-    if (error) throw error; paths.push(path);
-  }
-  return paths;
-}
-async function salvarPendenciasDoRelatorio(relatorio) {
-  const box = document.getElementById('pendenciasRascunho');
-  const linhas = [...(box?.querySelectorAll('.pendencia-draft') || [])]
-    .map(item => ({
-      titulo: item.querySelector('.pendencia-draft-title')?.value.trim() || '',
-      descricao: item.querySelector('textarea')?.value.trim() || '',
-      files: [...item.querySelectorAll('input[type="file"]')].flatMap(input => [...input.files])
-    }))
-    .filter(item => item.titulo || item.descricao || item.files.length);
-  if (!linhas.length) return true;
-  if (!relatorio.obra_mapa_id) { showAlert('Selecione uma obra cadastrada no mapa para vincular as pendências.', 'err'); return false; }
-  if (linhas.some(linha => !linha.titulo)) { showAlert('Preencha o título de cada pendência que deseja cadastrar.', 'err'); return false; }
-  if (linhas.some(linha => !linha.descricao)) { showAlert('Preencha a descrição de cada pendência que deseja cadastrar.', 'err'); return false; }
-  for (const linha of linhas) {
-    const id = crypto.randomUUID();
-    let fotos = [];
-    try {
-      fotos = await uploadFotosPendenciaRelatorio(id, linha.files);
-      const { error } = await supa.from('pendencias').insert({ id, obra_mapa_id: relatorio.obra_mapa_id, relatorio_id: relatorio.id, titulo: linha.titulo, descricao: linha.descricao, fotos });
+  try {
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) continue;
+      const blob = await comprimirFotoPendencia(file);
+      const path = `${pendenciaId}/${crypto.randomUUID()}.jpg`;
+      const { error } = await supa.storage.from('pendencia-fotos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
       if (error) throw error;
-    } catch (error) {
-      if (fotos.length) await supa.storage.from('pendencia-fotos').remove(fotos);
-      showAlert('Relatório salvo, mas não foi possível cadastrar uma pendência: ' + error.message, 'err');
-      return false;
+      paths.push(path);
+    }
+    return paths;
+  } catch (error) {
+    if (paths.length) await supa.storage.from('pendencia-fotos').remove(paths);
+    throw error;
+  }
+}
+async function inserirPendenciaRascunho(button) {
+  const item = button.closest('.pendencia-draft');
+  const relatorio = getRelatorioAtual();
+  if (!item || !relatorio) return;
+  if (_relatorioSomenteLeitura) {
+    showAlert('Você não pode alterar pendências deste relatório.', 'err');
+    return;
+  }
+  const titulo = item.querySelector('.pendencia-draft-title').value.trim();
+  const descricao = item.querySelector('.pendencia-draft-text').value.trim();
+  if (!titulo || !descricao) {
+    showAlert('Preencha o título e a descrição da pendência.', 'err');
+    return;
+  }
+  const obra = document.getElementById('fieldObra').value.trim();
+  selecionarObraMapa(obra);
+  if (!relatorio.obra_mapa_id) {
+    showAlert('Selecione uma obra existente no mapa para vincular a pendência.', 'err');
+    return;
+  }
+  const arquivos = [...item.querySelectorAll('input[type="file"]')].flatMap(input => [...input.files]);
+  const id = crypto.randomUUID();
+  button.disabled = true;
+  button.textContent = 'Inserindo…';
+  let fotos = [];
+  try {
+    fotos = await uploadFotosPendenciaRelatorio(id, arquivos);
+    const { error } = await supa.from('pendencias').insert({
+      id,
+      obra_mapa_id: relatorio.obra_mapa_id,
+      relatorio_id: relatorio.id,
+      titulo,
+      descricao,
+      fotos
+    });
+    if (error) throw error;
+    item.remove();
+    showAlert('Pendência inserida no relatório.', 'ok');
+    await carregarPendenciasRelatorio(relatorio);
+  } catch (error) {
+    if (fotos.length) await supa.storage.from('pendencia-fotos').remove(fotos);
+    showAlert('Não foi possível inserir a pendência: ' + error.message, 'err');
+  } finally {
+    if (button.isConnected) {
+      button.disabled = false;
+      button.textContent = 'Inserir pendência';
     }
   }
-  await carregarPendenciasRelatorio(relatorio);
-  return true;
 }

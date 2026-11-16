@@ -1,21 +1,15 @@
 
 async function obterPendenciasParaExportacao(relatorio) {
-  let existentes = [];
-  if (relatorio?.id) {
-    const { data, error } = await supa.from('pendencias')
-      .select('descricao,prioridade,prazo,status')
-      .eq('relatorio_id', relatorio.id).order('criado_em', { ascending: true });
-    if (error) console.warn('Pendências do relatório não puderam ser carregadas para exportação:', error.message);
-    else existentes = data || [];
+  if (!relatorio?.id) return [];
+  const { data, error } = await supa.from('pendencias')
+    .select('titulo,descricao,status')
+    .eq('relatorio_id', relatorio.id).order('criado_em', { ascending: true });
+  if (error) {
+    console.warn('Pendências do relatório não puderam ser carregadas para exportação:', error.message);
+    return [];
   }
-  const rascunhos = typeof obterPendenciasRascunho === 'function' ? obterPendenciasRascunho() : [];
-  const prioridade = { baixa: 'Baixa', media: 'Média', alta: 'Alta', critica: 'Crítica' };
-  return [...existentes, ...rascunhos.map(descricao => ({
-    descricao,
-    prioridade: document.getElementById('fieldPendenciasPrioridade')?.value || 'media',
-    prazo: document.getElementById('fieldPendenciasPrazo')?.value || null,
-    status: 'pendente'
-  }))].map(p => ({ ...p, prioridade_label: prioridade[p.prioridade] || 'Média' }));
+  const statusLabel = { pendente: 'Pendente', aguardando_validacao: 'Aguardando validação', concluida: 'Concluída' };
+  return (data || []).map(p => ({ ...p, status_label: statusLabel[p.status] || p.status }));
 }
 
 // ═══════════════════════════════════════════════
@@ -128,7 +122,7 @@ async function exportarPDF() {
   (r.fotos||[]).forEach(f => { salvarCamposFoto(f.id); });
   const pendenciasRelatorioPdf = await obterPendenciasParaExportacao(r);
   const pendenciasPdfHtml = pendenciasRelatorioPdf.length
-    ? pendenciasRelatorioPdf.map(p => `<p style="margin:0 0 5px"><strong>${escHtml(p.prioridade_label)}</strong> — ${escHtml(p.descricao)}${p.prazo ? ` (Prazo: ${fmtData(p.prazo)})` : ''}</p>`).join('')
+    ? pendenciasRelatorioPdf.map(p => `<p style="margin:0 0 5px">${p.titulo ? `<strong>${escHtml(p.titulo)}</strong> — ` : ''}${escHtml(p.descricao)} <em>(${escHtml(p.status_label)})</em></p>`).join('')
     : '<p style="margin:0 0 5px;color:#999">Nenhuma pendência registrada nesta visita.</p>';
 
   const ov = document.getElementById('exportOverlay');

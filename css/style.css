@@ -592,20 +592,20 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
   .g-meta { display: flex; flex-direction: column; gap: 3px; margin-top: 5px; min-width: 0; color: var(--ink-light); font-size: 12px; }
   .g-meta span { overflow-wrap: anywhere; }
   .g-meta small { font-size: 11px; }
-  .g-acoes { display: flex; grid-column: 3; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+  .g-acoes { display: flex; grid-column: 3; align-items: flex-end; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
   .g-badge { padding: 3px 8px; border-radius: 999px; font: 700 10px var(--font-cond); letter-spacing: .3px; white-space: nowrap; }
   .g-badge.pend { border: 1px solid #ffcc80; background: #fff3e0; color: #e65100; }
   .g-badge.ok { border: 1px solid #a5d6a7; background: #e8f5e9; color: var(--ok); }
   .g-badge.adm { background: var(--steel); color: #fff; }
   .g-badge.voce { background: var(--surface-2); color: var(--ink-mid); }
   .g-voce-label { padding: 4px 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink-light); font: 600 11px var(--font-cond); }
-  .g-btn { min-height: 36px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--white); color: var(--ink-mid); font: 600 12px var(--font-cond); cursor: pointer; touch-action: manipulation; }
+  .g-btn { height: 36px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--white); color: var(--ink-mid); font: 600 12px var(--font-cond); cursor: pointer; touch-action: manipulation; white-space: nowrap; }
   .g-btn:hover { border-color: var(--accent); }
   .g-btn.ok { border-color: var(--steel); background: var(--steel); color: #fff; }
   .g-btn.perigo { border-color: #f1b5ae; color: var(--signal); }
-  .g-role-control { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+  .g-role-control { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 4px; }
   .g-role-control label { color: var(--ink-light); font: 600 10px var(--font-cond); letter-spacing: .5px; text-transform: uppercase; }
-  .g-role-select { min-width: 150px; min-height: 36px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--white); color: var(--ink-mid); font: 600 12px var(--font-cond); }
+  .g-role-select { width: 150px; height: 36px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--white); color: var(--ink-mid); font: 600 12px var(--font-cond); }
   @media (max-width: 700px) {
     #adminPanel { padding: 0; }
     .gestao-modal { height: 100dvh; max-height: 100dvh; border-radius: 0; }
@@ -904,6 +904,8 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .pendencia-foto-actions svg{width:16px;height:16px}
 .pendencia-foto-picker input[type=file]{display:none}
 .pendencia-foto-status{font-size:11px;color:var(--ink-light)}
+.pendencia-draft-actions{display:flex;justify-content:flex-end;margin-top:10px}
+.pendencia-draft-actions .btn{min-height:36px}
 .pendencia-existente{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;background:var(--surface-2);border-radius:6px;margin-top:6px;font-size:12px}
 .pendencia-existente>div{display:flex;flex-direction:column;gap:5px;min-width:0;white-space:pre-wrap}
 .pendencia-status{font-size:11px}

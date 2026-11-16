@@ -257,7 +257,7 @@ async function exportarWord() {
     const pendenciasWord = await obterPendenciasParaExportacao(r);
     children.push(secTitle('04 — PENDÊNCIAS IDENTIFICADAS'));
     if (pendenciasWord.length) {
-      pendenciasWord.forEach(p => pushBloco(children, `${p.prioridade_label} — ${p.descricao}${p.prazo ? ` (Prazo: ${fmtData(p.prazo)})` : ''}`));
+      pendenciasWord.forEach(p => pushBloco(children, `${p.titulo ? `${p.titulo} — ` : ''}${p.descricao} (${p.status_label})`));
     } else {
       pushBloco(children, 'Nenhuma pendência registrada nesta visita.');
     }

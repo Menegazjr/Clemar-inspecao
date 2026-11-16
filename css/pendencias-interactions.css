@@ -235,3 +235,13 @@ body.session-pending #sessionLoaderPendencias {
   font-weight: 700;
   overflow-wrap: anywhere;
 }
+
+.admin-delete-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 14px;
+}
+.admin-delete-actions .danger {
+  min-height: 34px;
+  padding: 7px 11px;
+}
