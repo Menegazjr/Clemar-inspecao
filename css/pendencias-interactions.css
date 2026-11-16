@@ -31,6 +31,12 @@
 .detail-grid a:hover {
   text-decoration: underline;
 }
+.pend-topnav {
+  height: calc(56px + env(safe-area-inset-top, 0px));
+  min-height: calc(56px + env(safe-area-inset-top, 0px));
+  max-height: calc(56px + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+}
 .photo-field {
   margin-bottom: 14px;
 }
@@ -178,12 +184,12 @@ body.session-pending #sessionLoaderPendencias {
 
 @media (max-width: 600px) {
   .pend-topnav {
-    height: 52px;
-    min-height: 52px;
-    max-height: 52px;
+    height: calc(52px + env(safe-area-inset-top, 0px));
+    min-height: calc(52px + env(safe-area-inset-top, 0px));
+    max-height: calc(52px + env(safe-area-inset-top, 0px));
     flex-wrap: nowrap;
     gap: 8px;
-    padding: 0 12px;
+    padding: env(safe-area-inset-top, 0px) 12px 0;
   }
   .pend-topnav .topnav-brand {
     width: auto;
