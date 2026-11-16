@@ -223,20 +223,24 @@ function activityEventDetails(item){
   const completed=details.concluido_em?` · Concluída em ${fmtDateTime(details.concluido_em)}`:'';
   return `${esc(before)} → ${esc(after)}${completed}`;
 }
-function renderActivityCard(activity, history){
+function renderActivityCard(activity, history, index){
   const id=esc(activity.id),mine=activity.responsavel_id===currentUser?.id;
   const activityHistory=history.filter(item=>item.atividade_id===activity.id);
   const historyRows=activityHistory.map(item=>`<div class="activity-history-row"><b>${esc(activityEventText(item.evento))}</b><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small>${activityEventDetails(item)?`<p>${activityEventDetails(item)}</p>`:''}</div>`).join('');
   const commentsMarkup=renderActivityComments(activity,history);
   const statusOptions=Object.entries(ACTIVITY_STATUS).map(([value,label])=>`<option value="${value}"${activity.status===value?' selected':''}>${label}</option>`).join('');
-  const meta=[`Responsável: ${activity.responsavel_nome||'Não atribuído'}`,activity.prazo?`Prazo: ${activity.prazo}`:'Sem prazo'].join(' · ');
-  return `<article class="activity-card${mine?' mine':''}">
-    <div class="activity-card-heading"><div><h4>${esc(activity.titulo)}</h4><small>${esc(meta)}</small></div><span class="pill activity-${esc(activity.status)}">${esc(ACTIVITY_STATUS[activity.status]||activity.status)}</span></div>
-    ${activity.descricao?`<p class="activity-card-description">${esc(activity.descricao)}</p>`:''}
-    <div class="activity-card-footer"><small>Criada por ${esc(activity.criado_por_nome)} · ${fmtDateTime(activity.criado_em)}</small>${mine?'<span class="activity-mine-badge">Atribuída a você</span>':''}</div>
-    ${activity.concluido_em?`<p class="activity-completion">Concluída em ${fmtDateTime(activity.concluido_em)}</p>`:''}
-    <details class="activity-disclosure activity-edit-disclosure" data-disclosure-id="activity-edit-${id}">
-      <summary>Editar atividade</summary>
+  const prazo=activity.prazo?new Date(`${activity.prazo}T00:00:00`).toLocaleDateString('pt-BR'):'';
+  return `<details class="activity-card activity-row${mine?' mine':''}" data-disclosure-id="activity-${id}">
+    <summary class="activity-row-summary">
+      <span class="activity-row-number">${index+1}.</span>
+      <span class="activity-row-content">
+        <span class="activity-row-heading"><strong>${esc(activity.titulo)}</strong><span class="pill activity-${esc(activity.status)}">${esc(ACTIVITY_STATUS[activity.status]||activity.status)}</span></span>
+        <span class="activity-row-description">${esc(activity.descricao)}</span>
+        <span class="activity-row-responsible"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><strong>${esc(activity.responsavel_nome||'Não atribuído')}</strong>${prazo?`<small>Prazo: ${esc(prazo)}</small>`:''}</span>
+      </span>
+    </summary>
+    <div class="activity-editor-panel">
+      <small class="activity-created">Criada por ${esc(activity.criado_por_nome)} · ${fmtDateTime(activity.criado_em)}${activity.concluido_em?` · Concluída em ${fmtDateTime(activity.concluido_em)}`:''}</small>
       <div class="activity-form-grid">
         <label><span>Título</span><input id="activityTitle-${id}" type="text" maxlength="160" value="${esc(activity.titulo)}"></label>
         <label><span>Responsável</span><select id="activityAssignee-${id}">${responsibleOptions(activity.responsavel_id)}</select></label>
@@ -244,11 +248,11 @@ function renderActivityCard(activity, history){
         <label><span>Status</span><select id="activityStatus-${id}">${statusOptions}</select></label>
         <label><span>Prazo (opcional)</span><input id="activityDue-${id}" type="date" value="${esc(activity.prazo||'')}"></label>
       </div>
-      <div class="activity-actions"><button class="primary" type="button" onclick="updateActivity('${id}','${esc(activity.pendencia_id)}')">Salvar alterações</button></div>
-    </details>
-    ${commentsMarkup}
-    <details class="activity-disclosure activity-history" data-disclosure-id="activity-history-${id}"><summary>Histórico da atividade <span>${activityHistory.length}</span></summary><div>${historyRows||'<p>Sem alterações registradas.</p>'}</div></details>
-  </article>`;
+      <div class="activity-actions"><button class="primary" type="button" onclick="updateActivity('${id}','${esc(activity.pendencia_id)}')">Salvar</button></div>
+      ${commentsMarkup}
+      <details class="activity-disclosure activity-history" data-disclosure-id="activity-history-${id}"><summary>Histórico <span>${activityHistory.length}</span></summary><div>${historyRows||'<p>Sem alterações registradas.</p>'}</div></details>
+    </div>
+  </details>`;
 }
 function renderActivityComments(activity, history){
   const id=esc(activity.id);
@@ -293,19 +297,21 @@ async function openDetail(id){
   const originalPhotos=await signedPhotos(p.fotos||[]);
   const correctionPhotos=await signedPhotos(p.fotos_correcao||[]);
   const report=p.relatorios?.numero?`<a href="index.html?relatorio_id=${encodeURIComponent(p.relatorio_id)}">Abrir relatório #${p.relatorios.numero}</a>`:'Cadastro direto na obra';
+  const primaryResponsibleValue=`<div class="primary-responsible-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span>Responsável principal: <strong>${esc(p.responsavel_nome||'Não atribuído')}</strong></span></div>`;
   const primaryResponsibleControls=featureErrorMessage
     ? `<small class="activity-feature-error">Disponível após a migração v5: ${esc(featureErrorMessage)}</small>`
     : supervisor
-    ? `<div class="responsible-edit"><select id="principalResponsible">${responsibleOptions(p.responsavel_id)}</select><button class="ghost" type="button" onclick="updatePrimaryResponsible('${esc(p.id)}')">Salvar responsável</button></div>`
-    : `<p>${esc(p.responsavel_nome||'Ainda não atribuído')}</p>`;
+    ? `<details class="responsible-edit-disclosure" data-disclosure-id="primary-responsible"><summary>Alterar responsável</summary><div class="responsible-edit"><select id="principalResponsible">${responsibleOptions(p.responsavel_id)}</select><button class="ghost" type="button" onclick="updatePrimaryResponsible('${esc(p.id)}')">Salvar</button></div></details>`
+    : '';
   const primaryAssignedMeta=p.responsavel_atribuido_em?`<small>Atribuído por ${esc(p.responsavel_atribuido_por_nome||'—')} · ${fmtDateTime(p.responsavel_atribuido_em)}</small>`:'';
   const activityErrorMarkup=featureErrorMessage?`<div class="activity-feature-error">Não foi possível carregar o módulo de atividades: ${esc(featureErrorMessage)}. Execute a migração <code>sql/supabase_pendencias_ajustes_v5.sql</code>.</div>`:'';
-  const activitiesMarkup=featureErrorMessage?'':`<p class="activity-section-note">As atividades extras ajudam a dividir a execução. Concluir uma atividade não conclui a pendência.</p>${activities.map(item=>renderActivityCard(item,activityHistory)).join('')||'<p class="activity-empty">Ainda não há atividades extras.</p>'}`;
-  const createActivityMarkup=featureErrorMessage?'':`<details class="activity-create-disclosure" data-disclosure-id="activity-create"><summary>＋ Adicionar atividade extra</summary><form class="activity-create" onsubmit="event.preventDefault();createActivity('${esc(p.id)}')"><div class="activity-form-grid"><label><span>Título <em>*</em></span><input id="newActivityTitle" type="text" maxlength="160" required placeholder="Ex.: Comprar materiais"></label><label><span>Responsável <em>*</em></span><select id="newActivityAssignee" required>${responsibleOptions('',false)}</select></label><label class="activity-description-field"><span>Descrição <em>*</em></span><textarea id="newActivityDescription" rows="3" maxlength="5000" required placeholder="Descreva o que precisa ser feito..."></textarea></label><label><span>Prazo (opcional)</span><input id="newActivityDue" type="date"></label></div><button class="primary" type="submit">Criar atividade</button></form></details>`;
-  const activityCount=activities.length;
+  const activitiesMarkup=featureErrorMessage?'':activities.length
+    ? `<div class="activity-list">${activities.map((item,index)=>renderActivityCard(item,activityHistory,index)).join('')}</div>`
+    : '<p class="activity-empty">Nenhuma atividade adicional.</p>';
+  const createActivityMarkup=featureErrorMessage?'':`<details class="activity-create-disclosure" data-disclosure-id="activity-create"><summary class="activity-add-button">＋ Adicionar atividade</summary><form class="activity-create" onsubmit="event.preventDefault();createActivity('${esc(p.id)}')"><div class="activity-form-grid"><label><span>Título <em>*</em></span><input id="newActivityTitle" type="text" maxlength="160" required placeholder="Ex.: Comprar materiais"></label><label><span>Responsável <em>*</em></span><select id="newActivityAssignee" required>${responsibleOptions('',false)}</select></label><label class="activity-description-field"><span>Descrição <em>*</em></span><textarea id="newActivityDescription" rows="3" maxlength="5000" required placeholder="Descreva o que precisa ser feito..."></textarea></label><label><span>Prazo (opcional)</span><input id="newActivityDue" type="date"></label></div><div class="activity-create-actions"><button class="ghost" type="button" onclick="this.closest('details').open=false">Cancelar</button><button class="primary" type="submit">Adicionar</button></div></form></details>`;
   const activitySection=featureErrorMessage
-    ? `<section class="detail-section"><h3>Atividades extras</h3>${activityErrorMarkup}</section>`
-    : `<details class="detail-section detail-accordion activity-accordion" data-disclosure-id="activities"><summary class="detail-accordion-summary"><span><strong>Atividades extras</strong><small>Detalhes e criação são opcionais</small></span><span class="accordion-count">${activityCount}</span></summary><div class="detail-accordion-content">${activitiesMarkup}${createActivityMarkup}</div></details>`;
+    ? `<section class="detail-section"><h3>Atividades e responsáveis</h3>${activityErrorMarkup}</section>`
+    : `<section class="detail-section activity-section"><h3>Atividades e responsáveis</h3>${activitiesMarkup}${createActivityMarkup}</section>`;
   const historyMarkup=await renderFullHistory(history||[],activityHistory,activities);
   const review=p.status==='aguardando_validacao'&&supervisor?`<div class="review-actions"><button class="danger" onclick="returnCorrection('${p.id}')">Devolver para correção</button><button class="primary" onclick="approveCorrection('${p.id}')">Aprovar correção</button></div>`:'';
   const correctionForm=p.status==='pendente'?`<div class="correction-box"><p>Descreva o que foi corrigido. O envio encaminha a pendência para validação.</p><label><span>Correção realizada <em>*</em></span><textarea id="correctionText" placeholder="Informe o serviço realizado e o resultado..."></textarea></label><div class="photo-field"><div class="photo-label">Fotos da correção (opcional)</div>${photoPicker('correction')}</div><div class="correction-actions"><button class="primary" onclick="submitCorrection('${p.id}')">Enviar para validação</button></div></div>`:'';
@@ -317,19 +323,14 @@ async function openDetail(id){
   const workflowTitle=p.status==='pendente'?'Registrar correção':p.status==='aguardando_validacao'?'Validação final':'Conclusão';
   const adminAction=isAdmin()?`<details class="detail-section danger-zone" data-disclosure-id="danger-zone"><summary class="detail-accordion-summary"><span><strong>Ações administrativas</strong><small>Exclusão permanente da pendência</small></span><span class="danger-zone-chevron" aria-hidden="true">›</span></summary><div class="danger-zone-content"><p>Esta ação não pode ser desfeita e remove a pendência do sistema.</p><button class="danger" onclick="deletePending('${p.id}')">Excluir pendência</button></div></details>`:'';
   $('detailBody').innerHTML=`
-    <section class="detail-section">
-      <h3>Dados gerais</h3>
-      <div class="detail-grid">
-        <div><small>SITUAÇÃO GERAL</small><b>${STATUS[p.status]?.[0]||p.status}</b></div>
-        <div><small>CADASTRADA POR</small><b>${esc(p.criado_por_nome)}</b></div>
-        <div><small>DATA DE ABERTURA</small><b>${fmtDateTime(p.criado_em)}</b></div>
-        <div><small>ORIGEM</small><b>${report}</b></div>
-      </div>
-      <div class="detail-description">${p.titulo?`<strong>${esc(p.titulo)}</strong><br>`:''}${esc(p.descricao)}${originalPhotos?`<div class="photo-grid">${originalPhotos}</div>`:''}</div>
+    <section class="detail-section pending-summary-section">
+      ${p.titulo?`<div class="detail-description">${esc(p.descricao)}${originalPhotos?`<div class="photo-grid">${originalPhotos}</div>`:''}</div>`:originalPhotos?`<div class="detail-description"><div class="photo-grid">${originalPhotos}</div></div>`:''}
+      <div class="detail-origin">${report}</div>
+      <details class="detail-technical-meta" data-disclosure-id="technical-meta"><summary>Detalhes do registro</summary><div><span>Cadastrada por <strong>${esc(p.criado_por_nome)}</strong></span><span>Data de abertura <strong>${fmtDateTime(p.criado_em)}</strong></span><span>Situação <strong>${STATUS[p.status]?.[0]||p.status}</strong></span></div></details>
       ${p.correcao_texto?`<div class="detail-description"><b>Última correção enviada por ${esc(p.corrigido_por_nome||'—')}:</b><br>${esc(p.correcao_texto)}${correctionPhotos?`<div class="photo-grid">${correctionPhotos}</div>`:''}</div>`:''}
       ${p.motivo_devolucao?`<div class="detail-description"><b>Última devolução:</b><br>${esc(p.motivo_devolucao)}</div>`:''}
     </section>
-    <section class="detail-section"><h3>Responsável principal</h3>${primaryResponsibleControls}${primaryAssignedMeta}</section>
+    <section class="detail-section primary-responsible-section">${primaryResponsibleValue}${primaryResponsibleControls}${primaryAssignedMeta}</section>
     ${activitySection}
     <section class="detail-section workflow-section"><h3>${workflowTitle}</h3>${workflowContent}</section>
     <section class="detail-section"><h3>Histórico completo</h3><div class="history">${historyMarkup||'<p>Sem movimentações registradas.</p>'}</div></section>
@@ -351,6 +352,8 @@ async function createActivity(pendenciaId){
   const {error}=await supa.rpc('pendencia_atividade_criar',{p_pendencia_id:pendenciaId,p_titulo:titulo,p_descricao:descricao,p_responsavel_id:responsavelId,p_prazo:$('newActivityDue').value||null});
   if(error){toast('Não foi possível criar a atividade: '+error.message);return;}
   toast('Atividade criada.');
+  const createDisclosure=$('detailBody').querySelector('[data-disclosure-id="activity-create"]');
+  if(createDisclosure)createDisclosure.open=false;
   await loadData();await openDetail(pendenciaId);
 }
 async function updateActivity(activityId,pendenciaId){
