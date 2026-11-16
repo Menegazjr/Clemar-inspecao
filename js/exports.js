@@ -1,11 +1,15 @@
 
-async function obterPendenciasParaExportacao(relatorio) {
+async function obterPendenciasParaExportacao(relatorio, { exigirDados = false, incluirConclusao = false } = {}) {
   if (!relatorio?.id) return [];
+  const campos = incluirConclusao
+    ? 'titulo,descricao,status,correcao_texto'
+    : 'titulo,descricao,status';
   const { data, error } = await supa.from('pendencias')
-    .select('titulo,descricao,status')
+    .select(campos)
     .eq('relatorio_id', relatorio.id).order('criado_em', { ascending: true });
   if (error) {
     console.warn('Pendências do relatório não puderam ser carregadas para exportação:', error.message);
+    if (exigirDados) throw new Error('Não foi possível carregar as pendências deste relatório: ' + error.message);
     return [];
   }
   const statusLabel = { pendente: 'Pendente', aguardando_validacao: 'Aguardando validação', concluida: 'Concluída' };
@@ -13,9 +17,9 @@ async function obterPendenciasParaExportacao(relatorio) {
 }
 
 // ═══════════════════════════════════════════════
-function blocosPdfHtml(html, secao) {
+function blocosPdfHtml(html, secao, cabecalhoHtml = '') {
   const sa = secao ? ` data-secao="${secao}"` : '';
-  if (!html) return `<div class="pdf-section-block"${sa}><p style="color:#999;margin:0">—</p></div>`;
+  if (!html) return `<div class="pdf-section-block"${sa}>${cabecalhoHtml}<p style="color:#999;margin:0">—</p></div>`;
 
   const div = document.createElement('div');
   div.innerHTML = html;
@@ -41,7 +45,7 @@ function blocosPdfHtml(html, secao) {
   });
 
   if (!items.filter(i => i.tipo === 'p').length) {
-    return `<div class="pdf-section-block"${sa}><p style="color:#999;margin:0">—</p></div>`;
+    return `<div class="pdf-section-block"${sa}>${cabecalhoHtml}<p style="color:#999;margin:0">—</p></div>`;
   }
 
   // Agrupar em blocos de ~6 parágrafos — balanceia velocidade e quebra de página
@@ -62,8 +66,31 @@ function blocosPdfHtml(html, secao) {
   return grupos.map((grupo, gi) => {
     const attr = (gi === 0 && secao) ? ` data-secao="${secao}"` : '';
     const html = grupo.map(i => `<p style="margin:0 0 3px;line-height:1.5">${i.html}</p>`).join('');
-    return `<div class="pdf-section-block"${attr}>${html}</div>`;
+    return `<div class="pdf-section-block"${attr}>${gi===0?cabecalhoHtml:''}${html}</div>`;
   }).join('<div class="pdf-section-block" style="height:3px;padding:0"></div>');
+}
+
+function renderizarPendenciasPdf(pendencias) {
+  const cabecalho = '<h2>04 — PENDÊNCIAS IDENTIFICADAS</h2>';
+  if (!pendencias.length) {
+    return `<div class="pdf-section-block">${cabecalho}<p>Nenhuma pendência registrada nesta visita.</p></div>`;
+  }
+  return pendencias.map((p, index) => `
+    <div class="pdf-section-block pdf-pendencia-block">
+      ${index===0?cabecalho:''}
+      <div class="pdf-pendencia-grid">
+        <div>
+          <strong class="pdf-pendencia-label">Pendência</strong>
+          ${p.titulo?`<strong class="pdf-pendencia-title">${escHtml(p.titulo)}</strong>`:''}
+          <p>${escHtml(p.descricao||'—')}</p>
+          <small>${escHtml(p.status_label)}</small>
+        </div>
+        <div>
+          <strong class="pdf-pendencia-label">Conclusão</strong>
+          <p>${escHtml(p.correcao_texto||'Ainda não registrada.')}</p>
+        </div>
+      </div>
+    </div>`).join('');
 }
 
 function htmlParaPdfParas(html) {
@@ -120,47 +147,39 @@ async function exportarPDF() {
 
   r.assin_data     = document.getElementById('fieldAssinData').value;
   (r.fotos||[]).forEach(f => { salvarCamposFoto(f.id); });
-  const pendenciasRelatorioPdf = await obterPendenciasParaExportacao(r);
-  const pendenciasPdfHtml = pendenciasRelatorioPdf.length
-    ? pendenciasRelatorioPdf.map(p => `<p style="margin:0 0 5px">${p.titulo ? `<strong>${escHtml(p.titulo)}</strong> — ` : ''}${escHtml(p.descricao)} <em>(${escHtml(p.status_label)})</em></p>`).join('')
-    : '<p style="margin:0 0 5px;color:#999">Nenhuma pendência registrada nesta visita.</p>';
-
   const ov = document.getElementById('exportOverlay');
   const msg = document.getElementById('exportMsg');
+  const area = document.getElementById('pdfArea');
+  area.innerHTML = '';
   ov.classList.add('open'); msg.textContent = 'Preparando PDF...';
   try {
-    const area = document.getElementById('pdfArea');
+    const pendenciasRelatorioPdf = await obterPendenciasParaExportacao(r, { exigirDados: true, incluirConclusao: true });
     // Cada foto vira um bloco separado para evitar corte entre páginas
-    const fotosHtml = (r.fotos||[]).flatMap((grupo, gi) => {
+    const fotosHtml = (r.fotos||[]).flatMap(grupo => {
       const fotosDo = (grupo.fotos||[]).filter(f=>f.base64);
       if (fotosDo.length === 0) return [];
       const blocos = [];
       // Título e descrição do grupo
       if (grupo.titulo || grupo.descricao) {
         blocos.push(`<div class="pdf-section-block" data-tipo="foto-titulo" style="margin-bottom:2px">
-          ${grupo.titulo ? `<p style="font-weight:bold;margin:0 0 2px">${grupo.titulo}</p>` : ''}
-          ${grupo.descricao ? `<p style="margin:0;color:#555">${grupo.descricao}</p>` : ''}
+          ${grupo.titulo ? `<p style="font-weight:bold;margin:0 0 2px">${escHtml(grupo.titulo)}</p>` : ''}
+          ${grupo.descricao ? `<p style="margin:0;color:#555">${escHtml(grupo.descricao)}</p>` : ''}
         </div>`);
       }
       // Cada foto é um bloco separado com data-base64 para renderizar direto
-      fotosDo.forEach((f, fi) => {
+      fotosDo.forEach(f => {
         blocos.push(`<div class="pdf-section-block pdf-foto-block" data-tipo="foto" data-base64="${f.base64}" data-w="${f.largura||0}" data-h="${f.altura||0}">
           <div style="height:4px"></div>
         </div>`);
       });
       return blocos;
     }).join('');
-    const _fotosHtmlLegacy = (r.fotos||[]).map((f,i) => `
-      <div class="pdf-section-block pdf-foto-block">
-        <div class="pdf-foto-label">Foto ${String(i+1).padStart(2,'0')}</div>
-        ${f.base64?`<img src="${f.base64}" alt="Foto ${i+1}">`:'<p style="color:#aaa;font-size:11px">[Sem foto]</p>'}
-        <div class="pdf-foto-loc">📍 ${f.local||'—'}</div>
-        <div class="pdf-foto-desc">${f.descricao||'—'}</div>
-      </div>`).join('');
-    // Logo para o PDF (mesma base64 do cabeçalho)
-    const _logoB64 = //Link logo retirado
+    const secaoFotosHtml = fotosHtml
+      ? `<div class="pdf-section-block" data-manter-proximo="true"><h2>03 — REGISTRO FOTOGRÁFICO</h2></div>${fotosHtml}`
+      : '<div class="pdf-section-block"><h2>03 — REGISTRO FOTOGRÁFICO</h2><p>Nenhuma foto registrada.</p></div>';
+    const pendenciasHtml = renderizarPendenciasPdf(pendenciasRelatorioPdf);
     area.innerHTML = `
-      <div class="pdf-section-block"><div class="pdf-header">
+      <div class="pdf-section-block" data-manter-proximo="true"><div class="pdf-header">
         <img src="assets/brand/logo-clemar-cores.png" style="height:48px;width:auto;display:block;margin:0 auto 12px" alt="Clemar Engenharia" crossorigin="anonymous">
         <h1>RELATÓRIO DE VISITA DE OBRA</h1>
         <div class="pdf-sub">Clemar Engenharia</div>
@@ -171,34 +190,41 @@ async function exportarPDF() {
         <tr><td>Nº do Relatório</td><td>${String(r.numero).padStart(3,'0')}</td></tr>
         <tr><td>Início da Inspeção</td><td>${r.data?fmtData(r.data):'—'}</td></tr>
         <tr><td>Fim da Inspeção</td><td>${r.data_fim?fmtData(r.data_fim):'—'}</td></tr>
-        <tr><td>Cliente</td><td>${r.cliente||'—'}</td></tr>
-        <tr><td>Obra / Projeto</td><td>${r.obra||'—'}</td></tr>
-        <tr><td>Centro de Custo</td><td>${r.cc||'—'}</td></tr>
-        <tr><td>Localidade</td><td>${r.localidade||'—'}</td></tr>
-        <tr><td>Responsável</td><td>${r.responsavel||'—'}</td></tr>
-        <tr><td>Cargo</td><td>${r.cargo||'—'}</td></tr>
+        <tr><td>Cliente</td><td>${escHtml(r.cliente||'—')}</td></tr>
+        <tr><td>Obra / Projeto</td><td>${escHtml(r.obra||'—')}</td></tr>
+        <tr><td>Centro de Custo</td><td>${escHtml(r.cc||'—')}</td></tr>
+        <tr><td>Localidade</td><td>${escHtml(r.localidade||'—')}</td></tr>
+        <tr><td>Responsável</td><td>${escHtml(r.responsavel||'—')}</td></tr>
+        <tr><td>Cargo</td><td>${escHtml(r.cargo||'—')}</td></tr>
       </table>
       </div>
-      <div class="pdf-section-block"><h2>02 — OBJETIVO</h2></div>
-      ${blocosPdfHtml(r.objetivo)}
-      <h2 style="font-size:14px;color:#1a2940;margin:16px 0 6px;border-bottom:2px solid #e8a020;padding-bottom:4px">03 — REGISTRO FOTOGRÁFICO</h2>
-      ${fotosHtml||'<p>Nenhuma foto registrada.</p>'}
-      <div class="pdf-section-block"><h2>04 — PENDÊNCIAS IDENTIFICADAS</h2>${pendenciasPdfHtml}</div>
-      <div class="pdf-section-block" data-secao="observacoes"><h2>05 — OBSERVAÇÕES</h2></div>
-      ${blocosPdfHtml(r.observacoes, "observacoes")}
+      ${blocosPdfHtml(r.objetivo, null, '<h2>02 — OBJETIVO</h2>')}
+      ${secaoFotosHtml}
+      ${pendenciasHtml}
+      ${blocosPdfHtml(r.observacoes, 'observacoes', '<h2>05 — OBSERVAÇÕES</h2>')}
       <div class="pdf-section-block" data-secao="conclusao"><h2>06 — CONCLUSÃO</h2>
       <table>
-        <tr><td>Situação Geral</td><td>${r.situacao||'—'}</td></tr>
+        <tr><td>Situação Geral</td><td>${escHtml(r.situacao||'—')}</td></tr>
       </table>
       </div>
-      <div class="pdf-section-block"><strong>Parecer:</strong></div>
-      ${blocosPdfHtml(r.parecer, "conclusao")}
-      <div class="pdf-assin">
-        <strong>${r.assin_nome||r.responsavel||'—'}</strong><br>
-        ${r.cargo||''} ${r.assin_registro?'· '+r.assin_registro:''}<br>
+      ${blocosPdfHtml(r.parecer, 'conclusao', '<strong>Parecer:</strong>')}
+      <div class="pdf-section-block pdf-assin" data-manter-anterior="true">
+        <strong>${escHtml(r.assin_nome||r.responsavel||'—')}</strong><br>
+        ${escHtml(r.cargo||'')} ${r.assin_registro?'· '+escHtml(r.assin_registro):''}<br>
         <span style="color:#888;font-size:11px">Emitido em: ${r.assin_data?fmtData(r.assin_data):fmtData(r.data)}</span>
       </div>`;
-    await new Promise(res=>setTimeout(res,300));
+    const imagensPdf = Array.from(area.querySelectorAll('img'));
+    await Promise.all(imagensPdf.map(image => image.complete
+      ? Promise.resolve()
+      : new Promise(resolve => {
+        const timer = setTimeout(resolve, 5000);
+        const finish = () => { clearTimeout(timer); resolve(); };
+        image.addEventListener('load', finish, { once: true });
+        image.addEventListener('error', finish, { once: true });
+      })));
+    if (imagensPdf.some(image => !image.naturalWidth)) {
+      throw new Error('Não foi possível carregar todas as imagens do relatório.');
+    }
     msg.textContent = 'Renderizando...';
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
@@ -239,6 +265,13 @@ async function exportarPDF() {
       if (isMobile) await new Promise(r => setTimeout(r, 0));
     }
 
+    const heightMm = item => {
+      if (item.tipo === 'canvas') return item.h;
+      const imgW = item.w || 800, imgH = item.h || 600;
+      const scale = Math.min((A4w * 0.35) / imgW, (A4h * 0.35) / imgH);
+      return imgH * scale;
+    };
+
     for (let ri = 0; ri < rendered.length; ri++) {
       const item = rendered[ri];
 
@@ -274,7 +307,7 @@ if (item.tipo === 'foto') {
 
 
       const { canvas: bc, h: blockH } = item;
-      if (blockH < 2) continue; // ignorar blocos vazios/invisíveis
+      if (blockH < 0.5) continue; // ignorar somente blocos sem altura visível
 
       // Espaço extra antes das seções + regra 50%
       if (ri === idxObs || ri === idxConc) {
@@ -289,6 +322,15 @@ if (item.tipo === 'foto') {
       // Se o bloco é o título/descrição de um grupo de fotos, considerar também a altura
       // da primeira foto do grupo, para não separar o título da foto entre páginas
       let blockHParaQuebra = blockH;
+      if (blocks[ri].getAttribute('data-manter-proximo') === 'true' && rendered[ri + 1]) {
+        blockHParaQuebra += 2 + heightMm(rendered[ri + 1]);
+        if (rendered[ri + 1].isTituloFoto && rendered[ri + 2]?.tipo === 'foto') {
+          blockHParaQuebra += heightMm(rendered[ri + 2]) + 4;
+        }
+      }
+      if (blocks[ri + 1]?.getAttribute('data-manter-anterior') === 'true') {
+        blockHParaQuebra += 2 + heightMm(rendered[ri + 1]);
+      }
       if (item.isTituloFoto && rendered[ri + 1] && rendered[ri + 1].tipo === 'foto') {
         const proxFoto = rendered[ri + 1];
         const imgW = proxFoto.w || 800, imgH = proxFoto.h || 600;
@@ -306,13 +348,14 @@ if (item.tipo === 'foto') {
       // Se o bloco é maior que a página inteira, divide
       if (blockH > A4h) {
         const pages = Math.ceil(blockH / A4h);
-        const sliceH = Math.floor(bc.height / pages);
+        const sliceH = Math.ceil(bc.height / pages);
         for (let p = 0; p < pages; p++) {
           if (p > 0) { pdf.addPage(); curY = margin; }
           const tmp = document.createElement('canvas');
           tmp.width  = bc.width;
-          tmp.height = Math.min(sliceH, bc.height - p * sliceH);
-          tmp.getContext('2d').drawImage(bc, 0, -p * sliceH);
+          const sourceY = p * sliceH;
+          tmp.height = Math.min(sliceH, bc.height - sourceY);
+          tmp.getContext('2d').drawImage(bc, 0, sourceY, bc.width, tmp.height, 0, 0, bc.width, tmp.height);
           const sd = tmp.toDataURL('image/jpeg', 0.88);
           const sh = (tmp.height * A4w) / bc.width;
           pdf.addImage(sd, 'JPEG', margin, curY, A4w, sh);

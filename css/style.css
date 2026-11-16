@@ -364,6 +364,14 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 #pdfArea .pdf-sub { color: #888; font-size: 12px; margin-top: 4px; }
 #pdfArea .pdf-num { color: #e8a020; font-weight: 700; font-size: 16px; }
 #pdfArea .pdf-assin { margin-top: 40px; border-top: 2px solid #1a2940; padding-top: 14px; }
+#pdfArea .pdf-pendencia-block { break-inside: avoid; page-break-inside: avoid; }
+#pdfArea .pdf-pendencia-grid { display: flex; margin: 0 0 8px; border: 1px solid #dce3eb; border-radius: 4px; }
+#pdfArea .pdf-pendencia-grid > div { flex: 1 1 50%; width: 50%; min-width: 0; padding: 8px 10px; }
+#pdfArea .pdf-pendencia-grid > div + div { border-left: 1px solid #dce3eb; }
+#pdfArea .pdf-pendencia-label { display: block; color: #1a2940; font-size: 11px; }
+#pdfArea .pdf-pendencia-title { display: block; margin-top: 4px; }
+#pdfArea .pdf-pendencia-grid p { margin: 3px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+#pdfArea .pdf-pendencia-grid small { display: inline-block; margin-top: 5px; color: #687789; font-size: 10px; }
 @media (max-width: 900px) {
   .sidebar { display: none; }
   .foto-registro-body { flex-direction: column; }
