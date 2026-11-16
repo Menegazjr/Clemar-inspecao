@@ -227,32 +227,37 @@ function renderActivityCard(activity, history){
   const id=esc(activity.id),mine=activity.responsavel_id===currentUser?.id;
   const activityHistory=history.filter(item=>item.atividade_id===activity.id);
   const historyRows=activityHistory.map(item=>`<div class="activity-history-row"><b>${esc(activityEventText(item.evento))}</b><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small>${activityEventDetails(item)?`<p>${activityEventDetails(item)}</p>`:''}</div>`).join('');
+  const commentsMarkup=renderActivityComments(activity,history);
   const statusOptions=Object.entries(ACTIVITY_STATUS).map(([value,label])=>`<option value="${value}"${activity.status===value?' selected':''}>${label}</option>`).join('');
+  const meta=[`Responsável: ${activity.responsavel_nome||'Não atribuído'}`,activity.prazo?`Prazo: ${activity.prazo}`:'Sem prazo'].join(' · ');
   return `<article class="activity-card${mine?' mine':''}">
-    <div class="activity-card-heading"><div><h4>${esc(activity.titulo)}</h4><small>Criada por ${esc(activity.criado_por_nome)} · ${fmtDateTime(activity.criado_em)}</small></div>${mine?'<span class="activity-mine-badge">Atribuída a você</span>':''}</div>
-    <div class="activity-form-grid">
-      <label>Título<input id="activityTitle-${id}" type="text" maxlength="160" value="${esc(activity.titulo)}"></label>
-      <label>Responsável<select id="activityAssignee-${id}">${responsibleOptions(activity.responsavel_id)}</select></label>
-      <label class="activity-description-field">Descrição<textarea id="activityDescription-${id}" rows="3" maxlength="5000">${esc(activity.descricao)}</textarea></label>
-      <label>Status<select id="activityStatus-${id}">${statusOptions}</select></label>
-      <label>Prazo (opcional)<input id="activityDue-${id}" type="date" value="${esc(activity.prazo||'')}"></label>
-    </div>
-    <div class="activity-completion">${activity.concluido_em?`Concluída em ${fmtDateTime(activity.concluido_em)}`:''}</div>
-    <div class="activity-actions"><button class="primary" type="button" onclick="updateActivity('${id}','${esc(activity.pendencia_id)}')">Salvar atividade</button></div>
-    <details class="activity-history"><summary>Histórico da atividade (${activityHistory.length})</summary><div>${historyRows||'<p>Sem alterações registradas.</p>'}</div></details>
+    <div class="activity-card-heading"><div><h4>${esc(activity.titulo)}</h4><small>${esc(meta)}</small></div><span class="pill activity-${esc(activity.status)}">${esc(ACTIVITY_STATUS[activity.status]||activity.status)}</span></div>
+    ${activity.descricao?`<p class="activity-card-description">${esc(activity.descricao)}</p>`:''}
+    <div class="activity-card-footer"><small>Criada por ${esc(activity.criado_por_nome)} · ${fmtDateTime(activity.criado_em)}</small>${mine?'<span class="activity-mine-badge">Atribuída a você</span>':''}</div>
+    ${activity.concluido_em?`<p class="activity-completion">Concluída em ${fmtDateTime(activity.concluido_em)}</p>`:''}
+    <details class="activity-disclosure activity-edit-disclosure" data-disclosure-id="activity-edit-${id}">
+      <summary>Editar atividade</summary>
+      <div class="activity-form-grid">
+        <label><span>Título</span><input id="activityTitle-${id}" type="text" maxlength="160" value="${esc(activity.titulo)}"></label>
+        <label><span>Responsável</span><select id="activityAssignee-${id}">${responsibleOptions(activity.responsavel_id)}</select></label>
+        <label class="activity-description-field"><span>Descrição</span><textarea id="activityDescription-${id}" rows="3" maxlength="5000">${esc(activity.descricao)}</textarea></label>
+        <label><span>Status</span><select id="activityStatus-${id}">${statusOptions}</select></label>
+        <label><span>Prazo (opcional)</span><input id="activityDue-${id}" type="date" value="${esc(activity.prazo||'')}"></label>
+      </div>
+      <div class="activity-actions"><button class="primary" type="button" onclick="updateActivity('${id}','${esc(activity.pendencia_id)}')">Salvar alterações</button></div>
+    </details>
+    ${commentsMarkup}
+    <details class="activity-disclosure activity-history" data-disclosure-id="activity-history-${id}"><summary>Histórico da atividade <span>${activityHistory.length}</span></summary><div>${historyRows||'<p>Sem alterações registradas.</p>'}</div></details>
   </article>`;
 }
-function renderActivityComments(activities, history){
-  if(!activities.length)return '<p class="activity-empty">Ainda não há atividades para comentar.</p>';
-  return activities.map(activity=>{
-    const id=esc(activity.id);
-    const comments=history.filter(item=>item.atividade_id===activity.id&&item.evento==='comentario');
-    return `<article class="activity-comments-card"><h4>${esc(activity.titulo)}</h4><div class="activity-comment-list">${comments.length?comments.map(item=>`<div class="activity-comment"><p>${esc(item.comentario)}</p><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small></div>`).join(''):'<p class="activity-empty">Nenhum comentário nesta atividade.</p>'}</div><label>Adicionar comentário<textarea id="activityComment-${id}" rows="2" maxlength="5000" placeholder="Registre uma atualização sobre esta atividade..."></textarea></label><button class="ghost" type="button" onclick="addActivityComment('${id}','${esc(activity.pendencia_id)}')">Adicionar comentário</button></article>`;
-  }).join('');
+function renderActivityComments(activity, history){
+  const id=esc(activity.id);
+  const comments=history.filter(item=>item.atividade_id===activity.id&&item.evento==='comentario');
+  return `<details class="activity-disclosure activity-comments-disclosure" data-disclosure-id="activity-comments-${id}"><summary>Comentários e atualizações <span>${comments.length}</span></summary><div class="activity-comment-list">${comments.length?comments.map(item=>`<div class="activity-comment"><p>${esc(item.comentario)}</p><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small></div>`).join(''):'<p class="activity-empty">Nenhum comentário registrado.</p>'}</div><form onsubmit="event.preventDefault();addActivityComment('${id}','${esc(activity.pendencia_id)}')"><label>Adicionar comentário<textarea id="activityComment-${id}" rows="2" maxlength="5000" required placeholder="Registre uma atualização sobre esta atividade..."></textarea></label><button class="ghost" type="submit">Adicionar comentário</button></form></details>`;
 }
 async function renderFullHistory(mainHistory, activityHistory, activities){
   const activityById=new Map(activities.map(item=>[item.id,item]));
-  const mainLabels={criada:'Pendência cadastrada',responsavel_atribuido:'Responsável principal atribuído',responsavel_alterado:'Responsável principal alterado',responsavel_removido:'Responsável principal removido',correcao_enviada:'Correção enviada para validação',devolvida:'Pendência devolvida para correção',aprovada:'Pendência aprovada'};
+  const mainLabels={criada:'Pendência cadastrada',responsavel_atribuido:'Responsável principal atribuído',responsavel_alterado:'Responsável principal alterado',responsavel_removido:'Responsável principal removido',titulo_alterado:'Título alterado',descricao_alterada:'Descrição alterada',correcao_enviada:'Correção enviada para validação',devolvida:'Pendência devolvida para correção',aprovada:'Pendência aprovada'};
   const mainRows=await Promise.all(mainHistory.map(async item=>{
     const photos=await signedPhotos(item.fotos||[]);
     return {date:item.criado_em,html:`<div class="history-item"><b>${esc(mainLabels[item.evento]||item.evento)}</b><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small>${item.descricao?`<p>${esc(item.descricao)}</p>`:''}${item.motivo?`<p><b>Motivo:</b> ${esc(item.motivo)}</p>`:''}${photos?`<div class="photo-grid">${photos}</div>`:''}</div>`};
@@ -265,6 +270,9 @@ async function renderFullHistory(mainHistory, activityHistory, activities){
   return [...mainRows,...activityRows].sort((a,b)=>new Date(a.date)-new Date(b.date)).map(item=>item.html).join('');
 }
 async function openDetail(id){
+  const expandedDisclosures=selected?.id===id
+    ? [...$('detailBody').querySelectorAll('details[open][data-disclosure-id]')].map(item=>item.dataset.disclosureId)
+    : [];
   selected=pendencias.find(p=>p.id===id);if(!selected)return;
   const p=selected,obra=p.obras_mapa?.nome||'Obra';
   $('detailMeta').textContent=`${obra} · ${STATUS[p.status]?.[0]||p.status}`;
@@ -292,14 +300,43 @@ async function openDetail(id){
     : `<p>${esc(p.responsavel_nome||'Ainda não atribuído')}</p>`;
   const primaryAssignedMeta=p.responsavel_atribuido_em?`<small>Atribuído por ${esc(p.responsavel_atribuido_por_nome||'—')} · ${fmtDateTime(p.responsavel_atribuido_em)}</small>`:'';
   const activityErrorMarkup=featureErrorMessage?`<div class="activity-feature-error">Não foi possível carregar o módulo de atividades: ${esc(featureErrorMessage)}. Execute a migração <code>sql/supabase_pendencias_ajustes_v5.sql</code>.</div>`:'';
-  const activitiesMarkup=featureErrorMessage?'':`<p class="activity-section-note">Concluir uma atividade não conclui a pendência. A aprovação final continua sendo feita por administrador ou supervisor.</p>${activities.map(item=>renderActivityCard(item,activityHistory)).join('')||'<p class="activity-empty">Ainda não há atividades nesta pendência.</p>'}`;
-  const createActivityMarkup=featureErrorMessage?'':`<form class="activity-create" onsubmit="event.preventDefault();createActivity('${esc(p.id)}')"><h4>Nova atividade</h4><div class="activity-form-grid"><label>Título<em>*</em><input id="newActivityTitle" type="text" maxlength="160" required placeholder="Ex.: Comprar materiais"></label><label>Responsável<em>*</em><select id="newActivityAssignee" required>${responsibleOptions('',false)}</select></label><label class="activity-description-field">Descrição<em>*</em><textarea id="newActivityDescription" rows="3" maxlength="5000" required placeholder="Descreva o que precisa ser feito..."></textarea></label><label>Prazo (opcional)<input id="newActivityDue" type="date"></label></div><button class="primary" type="submit">Criar atividade</button></form>`;
-  const commentsMarkup=featureErrorMessage?'':renderActivityComments(activities,activityHistory);
+  const activitiesMarkup=featureErrorMessage?'':`<p class="activity-section-note">As atividades extras ajudam a dividir a execução. Concluir uma atividade não conclui a pendência.</p>${activities.map(item=>renderActivityCard(item,activityHistory)).join('')||'<p class="activity-empty">Ainda não há atividades extras.</p>'}`;
+  const createActivityMarkup=featureErrorMessage?'':`<details class="activity-create-disclosure" data-disclosure-id="activity-create"><summary>＋ Adicionar atividade extra</summary><form class="activity-create" onsubmit="event.preventDefault();createActivity('${esc(p.id)}')"><div class="activity-form-grid"><label><span>Título <em>*</em></span><input id="newActivityTitle" type="text" maxlength="160" required placeholder="Ex.: Comprar materiais"></label><label><span>Responsável <em>*</em></span><select id="newActivityAssignee" required>${responsibleOptions('',false)}</select></label><label class="activity-description-field"><span>Descrição <em>*</em></span><textarea id="newActivityDescription" rows="3" maxlength="5000" required placeholder="Descreva o que precisa ser feito..."></textarea></label><label><span>Prazo (opcional)</span><input id="newActivityDue" type="date"></label></div><button class="primary" type="submit">Criar atividade</button></form></details>`;
+  const activityCount=activities.length;
+  const activitySection=featureErrorMessage
+    ? `<section class="detail-section"><h3>Atividades extras</h3>${activityErrorMarkup}</section>`
+    : `<details class="detail-section detail-accordion activity-accordion" data-disclosure-id="activities"><summary class="detail-accordion-summary"><span><strong>Atividades extras</strong><small>Detalhes e criação são opcionais</small></span><span class="accordion-count">${activityCount}</span></summary><div class="detail-accordion-content">${activitiesMarkup}${createActivityMarkup}</div></details>`;
   const historyMarkup=await renderFullHistory(history||[],activityHistory,activities);
   const review=p.status==='aguardando_validacao'&&supervisor?`<div class="review-actions"><button class="danger" onclick="returnCorrection('${p.id}')">Devolver para correção</button><button class="primary" onclick="approveCorrection('${p.id}')">Aprovar correção</button></div>`:'';
-  const correctionForm=p.status==='pendente'?`<div class="correction-box"><h3>Registrar correção</h3><label>Descreva o que foi corrigido <em>*</em><textarea id="correctionText" placeholder="Informe o serviço realizado e o resultado..."></textarea></label><div class="photo-field"><div class="photo-label">Fotos da correção (opcional)</div>${photoPicker('correction')}</div><div class="correction-actions"><button class="primary" onclick="submitCorrection('${p.id}')">Enviar para validação</button></div></div>`:'';
-  const adminAction=isAdmin()?`<div class="admin-delete-actions"><button class="danger" onclick="deletePending('${p.id}')">Excluir pendência</button></div>`:'';
-  $('detailBody').innerHTML=`<section class="detail-section"><h3>Dados gerais</h3><div class="detail-grid"><div><small>SITUAÇÃO GERAL</small><b>${STATUS[p.status]?.[0]||p.status}</b></div><div><small>CADASTRADA POR</small><b>${esc(p.criado_por_nome)}</b></div><div><small>DATA DE ABERTURA</small><b>${fmtDateTime(p.criado_em)}</b></div><div><small>ORIGEM</small><b>${report}</b></div></div><div class="detail-description">${p.titulo?`<strong>${esc(p.titulo)}</strong><br>`:''}${esc(p.descricao)}${originalPhotos?`<div class="photo-grid">${originalPhotos}</div>`:''}</div>${p.correcao_texto?`<div class="detail-description"><b>Última correção enviada por ${esc(p.corrigido_por_nome||'—')}:</b><br>${esc(p.correcao_texto)}${correctionPhotos?`<div class="photo-grid">${correctionPhotos}</div>`:''}</div>`:''}${p.motivo_devolucao?`<div class="detail-description"><b>Última devolução:</b><br>${esc(p.motivo_devolucao)}</div>`:''}${correctionForm}${review}${adminAction}</section><section class="detail-section"><h3>Responsável principal</h3>${primaryResponsibleControls}${primaryAssignedMeta}</section><section class="detail-section"><h3>Atividades e responsáveis</h3>${activityErrorMarkup}${activitiesMarkup}${createActivityMarkup}</section><section class="detail-section"><h3>Comentários e atualizações</h3>${commentsMarkup}</section><section class="detail-section"><h3>Histórico completo</h3><div class="history">${historyMarkup||'<p>Sem movimentações registradas.</p>'}</div></section>${p.status==='concluida'?`<div class="detail-description detail-completed"><b>Pendência aprovada por ${esc(p.aprovado_por_nome||'Supervisor')}</b><br>${fmtDateTime(p.aprovado_em)}</div>`:''}`;
+  const correctionForm=p.status==='pendente'?`<div class="correction-box"><p>Descreva o que foi corrigido. O envio encaminha a pendência para validação.</p><label><span>Correção realizada <em>*</em></span><textarea id="correctionText" placeholder="Informe o serviço realizado e o resultado..."></textarea></label><div class="photo-field"><div class="photo-label">Fotos da correção (opcional)</div>${photoPicker('correction')}</div><div class="correction-actions"><button class="primary" onclick="submitCorrection('${p.id}')">Enviar para validação</button></div></div>`:'';
+  const workflowContent=p.status==='pendente'
+    ? correctionForm
+    : p.status==='aguardando_validacao'
+    ? review||'<p class="workflow-note">Correção enviada. A pendência aguarda a validação de um administrador ou supervisor.</p>'
+    : `<div class="workflow-complete"><b>Pendência aprovada</b><span>Por ${esc(p.aprovado_por_nome||'Supervisor')} · ${fmtDateTime(p.aprovado_em)}</span></div>`;
+  const workflowTitle=p.status==='pendente'?'Registrar correção':p.status==='aguardando_validacao'?'Validação final':'Conclusão';
+  const adminAction=isAdmin()?`<details class="detail-section danger-zone" data-disclosure-id="danger-zone"><summary class="detail-accordion-summary"><span><strong>Ações administrativas</strong><small>Exclusão permanente da pendência</small></span><span class="danger-zone-chevron" aria-hidden="true">›</span></summary><div class="danger-zone-content"><p>Esta ação não pode ser desfeita e remove a pendência do sistema.</p><button class="danger" onclick="deletePending('${p.id}')">Excluir pendência</button></div></details>`:'';
+  $('detailBody').innerHTML=`
+    <section class="detail-section">
+      <h3>Dados gerais</h3>
+      <div class="detail-grid">
+        <div><small>SITUAÇÃO GERAL</small><b>${STATUS[p.status]?.[0]||p.status}</b></div>
+        <div><small>CADASTRADA POR</small><b>${esc(p.criado_por_nome)}</b></div>
+        <div><small>DATA DE ABERTURA</small><b>${fmtDateTime(p.criado_em)}</b></div>
+        <div><small>ORIGEM</small><b>${report}</b></div>
+      </div>
+      <div class="detail-description">${p.titulo?`<strong>${esc(p.titulo)}</strong><br>`:''}${esc(p.descricao)}${originalPhotos?`<div class="photo-grid">${originalPhotos}</div>`:''}</div>
+      ${p.correcao_texto?`<div class="detail-description"><b>Última correção enviada por ${esc(p.corrigido_por_nome||'—')}:</b><br>${esc(p.correcao_texto)}${correctionPhotos?`<div class="photo-grid">${correctionPhotos}</div>`:''}</div>`:''}
+      ${p.motivo_devolucao?`<div class="detail-description"><b>Última devolução:</b><br>${esc(p.motivo_devolucao)}</div>`:''}
+    </section>
+    <section class="detail-section"><h3>Responsável principal</h3>${primaryResponsibleControls}${primaryAssignedMeta}</section>
+    ${activitySection}
+    <section class="detail-section workflow-section"><h3>${workflowTitle}</h3>${workflowContent}</section>
+    <section class="detail-section"><h3>Histórico completo</h3><div class="history">${historyMarkup||'<p>Sem movimentações registradas.</p>'}</div></section>
+    ${adminAction}`;
+  for(const disclosure of $('detailBody').querySelectorAll('details[data-disclosure-id]')){
+    if(expandedDisclosures.includes(disclosure.dataset.disclosureId))disclosure.open=true;
+  }
 }
 async function updatePrimaryResponsible(pendenciaId){
   if(!supervisor)return;

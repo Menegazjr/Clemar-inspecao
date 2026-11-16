@@ -409,6 +409,7 @@ function fecharViewerBtn() {
 // Pendências vinculadas ao relatório; cada item pode ter título, descrição e fotos.
 let _linhasPendencia = 0;
 let _rascunhoPendenciaRelatorioId = null;
+let _pendenciasRelatorioPorId = new Map();
 function adicionarLinhaPendencia(titulo = '', descricao = '') {
   const box = document.getElementById('pendenciasRascunho'); if (!box) return;
   const id = `pendenciaNova_${++_linhasPendencia}`;
@@ -460,10 +461,11 @@ async function carregarPendenciasRelatorio(relatorio) {
     _linhasPendencia = 0;
     _rascunhoPendenciaRelatorioId = relatorio.id;
   }
-  if (!relatorio.id) { box.innerHTML = ''; return; }
+  if (!relatorio.id) { _pendenciasRelatorioPorId.clear(); box.innerHTML = ''; return; }
   const { data, error } = await supa.from('pendencias').select('id,titulo,descricao,status,fotos')
     .eq('relatorio_id', relatorio.id).order('criado_em', { ascending: true });
-  if (error) { box.innerHTML = `<small style="color:var(--signal)">Não foi possível carregar as pendências vinculadas: ${escHtml(error.message)}</small>`; return; }
+  if (error) { _pendenciasRelatorioPorId.clear(); box.innerHTML = `<small style="color:var(--signal)">Não foi possível carregar as pendências vinculadas: ${escHtml(error.message)}</small>`; return; }
+  _pendenciasRelatorioPorId = new Map((data || []).map(p => [p.id, p]));
   renderizarResumoPendencias(data || []);
   if (!data?.length) { box.innerHTML = '<small style="color:var(--ink-light)">Nenhuma pendência cadastrada neste relatório.</small>'; return; }
   const labels = { pendente: 'Pendente', aguardando_validacao: 'Aguardando validação', concluida: 'Concluída' };
@@ -477,7 +479,10 @@ async function carregarPendenciasRelatorio(relatorio) {
     const acaoExcluir = currentUser?.role === 'admin'
       ? `<button type="button" class="btn btn-danger btn-sm" onclick="excluirPendenciaRelatorio('${p.id}')">Excluir</button>`
       : '';
-    return `<div class="pendencia-existente"><div>${p.titulo ? `<strong>${escHtml(p.titulo)}</strong>` : ''}<span>${escHtml(p.descricao)}</span><strong class="pendencia-status status-${p.status}">${labels[p.status] || p.status}</strong>${thumbs}</div>${acaoExcluir}</div>`;
+    const acaoEditar = !_relatorioSomenteLeitura
+      ? `<button type="button" class="btn btn-outline btn-sm" onclick="editarPendenciaRelatorio('${p.id}')">Editar</button>`
+      : '';
+    return `<div class="pendencia-existente" data-pendencia-id="${escHtml(p.id)}"><div class="pendencia-existente-info">${p.titulo ? `<strong>${escHtml(p.titulo)}</strong>` : ''}<span>${escHtml(p.descricao)}</span><strong class="pendencia-status status-${p.status}">${labels[p.status] || p.status}</strong><div class="pendencia-thumbnails">${thumbs}</div></div><div class="pendencia-existente-actions">${acaoEditar}${acaoExcluir}</div></div>`;
   }));
   box.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:7px">Já cadastradas neste relatório</div>` + linhas.join('');
 }
@@ -496,6 +501,63 @@ function renderizarResumoPendencias(pendencias) {
   }).join('');
   resumo.innerHTML = `<div class="pendencias-resumo-head"><strong>Resumo das pendências</strong></div><div class="pendencias-resumo-descricoes">${descricoes}</div>`;
   resumo.style.display = '';
+}
+function editarPendenciaRelatorio(id) {
+  if (_relatorioSomenteLeitura) {
+    showAlert('Você não pode alterar pendências deste relatório.', 'err');
+    return;
+  }
+  const pendencia = _pendenciasRelatorioPorId.get(id);
+  const card = [...document.querySelectorAll('.pendencia-existente')].find(item => item.dataset.pendenciaId === id);
+  if (!pendencia || !card) {
+    showAlert('Não foi possível localizar esta pendência. Atualize o relatório e tente novamente.', 'err');
+    return;
+  }
+  const fotos = card.querySelector('.pendencia-thumbnails')?.innerHTML || '';
+  card.innerHTML = `
+    <form class="pendencia-edit-form" onsubmit="event.preventDefault();salvarEdicaoPendenciaRelatorio('${escHtml(id)}',this)">
+      <label class="pendencia-edit-field">Título
+        <input name="titulo" type="text" maxlength="160" required value="${escHtml(pendencia.titulo || '')}">
+      </label>
+      <label class="pendencia-edit-field">Descrição
+        <textarea name="descricao" rows="3" required>${escHtml(pendencia.descricao || '')}</textarea>
+      </label>
+      ${fotos ? `<div class="pendencia-thumbnails">${fotos}</div>` : ''}
+      <small class="pendencia-edit-note">As fotos existentes serão mantidas.</small>
+      <div class="pendencia-edit-actions">
+        <button type="button" class="btn btn-steel btn-sm" onclick="carregarPendenciasRelatorio(getRelatorioAtual())">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm">Salvar alterações</button>
+      </div>
+    </form>`;
+}
+async function salvarEdicaoPendenciaRelatorio(id, form) {
+  const relatorio = getRelatorioAtual();
+  if (_relatorioSomenteLeitura || !relatorio?.id || !_pendenciasRelatorioPorId.has(id)) {
+    showAlert('Você não tem permissão para alterar esta pendência.', 'err');
+    return;
+  }
+  const titulo = form.elements.titulo.value.trim();
+  const descricao = form.elements.descricao.value.trim();
+  if (!titulo || !descricao) {
+    showAlert('Preencha o título e a descrição da pendência.', 'err');
+    return;
+  }
+  const submit = form.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  submit.textContent = 'Salvando…';
+  const { error } = await supa.rpc('pendencia_editar_conteudo', {
+    p_pendencia_id: id,
+    p_titulo: titulo,
+    p_descricao: descricao
+  });
+  if (error) {
+    showAlert('Não foi possível salvar as alterações: ' + error.message, 'err');
+    submit.disabled = false;
+    submit.textContent = 'Salvar alterações';
+    return;
+  }
+  showAlert('Pendência atualizada.', 'ok');
+  await carregarPendenciasRelatorio(relatorio);
 }
 function atualizarFotosPendenciaDraft(input) {
   const picker = input.closest('.pendencia-foto-picker');

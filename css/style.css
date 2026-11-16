@@ -911,6 +911,16 @@ button, .btn { touch-action: manipulation; cursor: pointer; }
 .pendencia-status{font-size:11px}
 .status-pendente{color:#b33a31}.status-aguardando_validacao{color:#a66a12}.status-concluida{color:#16865b}
 @media(max-width:600px){.pendencia-existente{align-items:flex-start;flex-direction:column}.pendencia-existente .btn{width:100%;justify-content:center}.pendencia-draft{padding:9px}}
+.pendencia-existente > .pendencia-existente-info{flex:1}
+.pendencia-existente > .pendencia-existente-actions{display:flex;flex-direction:row;align-items:center;gap:7px;white-space:normal}
+.pendencia-thumbnails{display:flex;flex-direction:row;flex-wrap:wrap;gap:5px;white-space:normal}
+.pendencia-edit-form{display:grid;gap:10px;width:100%}
+.pendencia-edit-field{display:flex;flex-direction:column;gap:5px;margin:0;color:var(--ink-light);font-size:12px;font-weight:600}
+.pendencia-edit-field input,.pendencia-edit-field textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:5px;background:#fff;color:var(--ink);font:14px var(--font)}
+.pendencia-edit-field textarea{min-height:86px;resize:vertical}
+.pendencia-edit-note{color:var(--ink-light);font-size:11px}
+.pendencia-edit-actions{display:flex;justify-content:flex-end;gap:8px}
+@media(max-width:600px){.pendencia-existente > .pendencia-existente-actions{width:100%;flex-direction:column}.pendencia-edit-actions{flex-direction:column-reverse}.pendencia-edit-actions .btn{width:100%;justify-content:center}}
 
 .pendencias-resumo {
   margin: 0 0 14px;

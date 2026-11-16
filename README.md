@@ -29,7 +29,7 @@ A página `pendencias.html` reúne as pendências por obra, com indicadores, his
 
 1. Abra o SQL Editor do projeto Supabase usado pela aplicação.
 2. Execute `sql/supabase_pendencias.sql` depois de `sql/supabase_rls_hardening.sql`.
-3. Execute `sql/supabase_pendencias_ajustes_v2.sql`, `sql/supabase_pendencias_ajustes_v3.sql`, `sql/supabase_pendencias_ajustes_v4.sql` e `sql/supabase_pendencias_ajustes_v5.sql`, nessa ordem.
+3. Execute `sql/supabase_pendencias_ajustes_v2.sql`, `sql/supabase_pendencias_ajustes_v3.sql`, `sql/supabase_pendencias_ajustes_v4.sql`, `sql/supabase_pendencias_ajustes_v5.sql` e `sql/supabase_pendencias_ajustes_v6.sql`, nessa ordem.
 4. Na tela Gestão, um administrador pode definir se um usuário aprovado é usuário, supervisor ou administrador.
 5. Publique os arquivos atualizados da aplicação.
 
@@ -38,4 +38,4 @@ Os status do fluxo são somente `pendente`, `aguardando_validacao` e `concluida`
 
 ## Atualização do módulo de pendências
 
-Em instalações que já executaram `sql/supabase_pendencias.sql`, execute `sql/supabase_pendencias_ajustes_v2.sql`, `sql/supabase_pendencias_ajustes_v3.sql`, `sql/supabase_pendencias_ajustes_v4.sql` e `sql/supabase_pendencias_ajustes_v5.sql`, nessa ordem, no SQL Editor do Supabase. A v3 restringe exclusões de pendências e fotos ao perfil **Administrador** e atualiza a função de alteração de usuários para aceitar o perfil **Supervisor**. A v4 adiciona o título às pendências. A v5 adiciona responsáveis e atividades com histórico protegido por RLS e RPCs.
+Em instalações que já executaram `sql/supabase_pendencias.sql`, execute `sql/supabase_pendencias_ajustes_v2.sql`, `sql/supabase_pendencias_ajustes_v3.sql`, `sql/supabase_pendencias_ajustes_v4.sql`, `sql/supabase_pendencias_ajustes_v5.sql` e `sql/supabase_pendencias_ajustes_v6.sql`, nessa ordem, no SQL Editor do Supabase. A v3 restringe exclusões de pendências e fotos ao perfil **Administrador** e atualiza a função de alteração de usuários para aceitar o perfil **Supervisor**. A v4 adiciona o título às pendências. A v5 adiciona responsáveis e atividades com histórico protegido por RLS e RPCs. A v6 permite que o autor do relatório ou um administrador edite título e descrição da pendência, registrando as alterações no histórico.
