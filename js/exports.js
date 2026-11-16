@@ -265,7 +265,7 @@ async function exportarPDF() {
         rendered.push({ tipo: 'foto', ...foto });
       } else {
         const bc = await html2canvas(block, {
-          scale: isMobile ? 1.25 : 1.5,
+          scale: isMobile ? 1 : 1.5,
           useCORS: true, allowTaint: true,
           backgroundColor: '#ffffff', logging: false
         });
