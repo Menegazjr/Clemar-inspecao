@@ -23,13 +23,13 @@ Quando habilitado, o navegador tenta acessar o link a cada 30 minutos enquanto o
 
 ## Módulo de pendências
 
-A página `pendencias.html` reúne as pendências por obra, com indicadores, histórico e validação pelo supervisor. Usuários aprovados podem visualizar as pendências e registrar correções com fotos; supervisores validam as correções; somente administradores podem excluir pendências. Pendências criadas no relatório incluem título e descrição. O módulo permite atribuir responsáveis, criar atividades com responsáveis e andamento próprios e consultar a trilha completa de alterações e comentários.
+A página `pendencias.html` reúne as pendências por obra, com indicadores, histórico e validação pelo supervisor. Usuários aprovados podem visualizar as pendências e registrar correções com fotos; supervisores validam as correções; somente administradores podem excluir pendências. Pendências criadas no relatório incluem título e descrição. O módulo permite atribuir responsáveis e criar atividades com responsáveis e andamento próprios; administradores e supervisores podem excluí-las.
 
 ### Ativação no Supabase
 
 1. Abra o SQL Editor do projeto Supabase usado pela aplicação.
 2. Execute `sql/supabase_pendencias.sql` depois de `sql/supabase_rls_hardening.sql`.
-3. Execute `sql/supabase_pendencias_ajustes_v2.sql`, `sql/supabase_pendencias_ajustes_v3.sql`, `sql/supabase_pendencias_ajustes_v4.sql`, `sql/supabase_pendencias_ajustes_v5.sql` e `sql/supabase_pendencias_ajustes_v6.sql`, nessa ordem.
+3. Execute `sql/supabase_pendencias_ajustes_v2.sql`, `sql/supabase_pendencias_ajustes_v3.sql`, `sql/supabase_pendencias_ajustes_v4.sql`, `sql/supabase_pendencias_ajustes_v5.sql`, `sql/supabase_pendencias_ajustes_v6.sql` e `sql/supabase_pendencias_ajustes_v7.sql`, nessa ordem.
 4. Na tela Gestão, um administrador pode definir se um usuário aprovado é usuário, supervisor ou administrador.
 5. Publique os arquivos atualizados da aplicação.
 
@@ -38,4 +38,4 @@ Os status do fluxo são somente `pendente`, `aguardando_validacao` e `concluida`
 
 ## Atualização do módulo de pendências
 
-Em instalações que já executaram `sql/supabase_pendencias.sql`, execute `sql/supabase_pendencias_ajustes_v2.sql`, `sql/supabase_pendencias_ajustes_v3.sql`, `sql/supabase_pendencias_ajustes_v4.sql`, `sql/supabase_pendencias_ajustes_v5.sql` e `sql/supabase_pendencias_ajustes_v6.sql`, nessa ordem, no SQL Editor do Supabase. A v3 restringe exclusões de pendências e fotos ao perfil **Administrador** e atualiza a função de alteração de usuários para aceitar o perfil **Supervisor**. A v4 adiciona o título às pendências. A v5 adiciona responsáveis e atividades com histórico protegido por RLS e RPCs. A v6 permite que o autor do relatório ou um administrador edite título e descrição da pendência, registrando as alterações no histórico.
+Em instalações que já executaram `sql/supabase_pendencias.sql`, execute `sql/supabase_pendencias_ajustes_v2.sql`, `sql/supabase_pendencias_ajustes_v3.sql`, `sql/supabase_pendencias_ajustes_v4.sql`, `sql/supabase_pendencias_ajustes_v5.sql`, `sql/supabase_pendencias_ajustes_v6.sql` e `sql/supabase_pendencias_ajustes_v7.sql`, nessa ordem, no SQL Editor do Supabase. A v3 restringe exclusões de pendências e fotos ao perfil **Administrador** e atualiza a função de alteração de usuários para aceitar o perfil **Supervisor**. A v4 adiciona o título às pendências. A v5 adiciona responsáveis e atividades com histórico protegido por RLS e RPCs. A v6 permite que o autor do relatório ou um administrador edite título e descrição da pendência, registrando as alterações no histórico. A v7 permite que administradores e supervisores excluam atividades sem apagar os dados de auditoria e desativa a inclusão de novos comentários em atividades.

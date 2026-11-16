@@ -91,7 +91,7 @@ async function loadData(){
   if(workError||pendingError){$('pendingList').innerHTML=`<div class="empty access-denied">Erro ao carregar: ${esc(workError?.message||pendingError?.message)}<br><small>Confira se a migração sql/supabase_pendencias.sql foi executada no Supabase.</small></div>`;return;}
   obras=workData||[];pendencias=pendingData||[];
   const [activitiesResult, usersResult]=await Promise.all([
-    supa.from('pendencias_atividades').select('*').order('criado_em',{ascending:true}),
+    supa.from('pendencias_atividades').select('*').is('excluido_em',null).order('criado_em',{ascending:true}),
     supa.rpc('pendencias_listar_responsaveis')
   ]);
   if(activitiesResult.error||usersResult.error){
@@ -138,7 +138,7 @@ function renderList(){
     });
     $('listCount').textContent=`${rows.length} de ${minhas.length} atividade(s) atribuída(s) a você`;
     $('pendingList').innerHTML=activityFeatureError
-      ? `<div class="empty access-denied">Não foi possível carregar as atividades: ${esc(activityFeatureError)}<br><small>Confira se a migração sql/supabase_pendencias_ajustes_v5.sql foi executada no Supabase.</small></div>`
+      ? `<div class="empty access-denied">Não foi possível carregar as atividades: ${esc(activityFeatureError)}<br><small>Confira se as migrações sql/supabase_pendencias_ajustes_v5.sql e sql/supabase_pendencias_ajustes_v7.sql foram executadas no Supabase.</small></div>`
       : rows.length?rows.map(item=>{
         const pendencia=pendencias.find(p=>p.id===item.pendencia_id);
         const obra=pendencia?.obras_mapa?.nome||'Obra';
@@ -200,34 +200,8 @@ function responsibleOptions(selectedId='', includeEmpty=true){
   const empty=includeEmpty?`<option value="">Sem responsável</option>`:'<option value="">Selecione um responsável...</option>';
   return empty+responsaveis.map(user=>`<option value="${esc(user.id)}"${user.id===selectedId?' selected':''}>${esc(user.nome)}${user.email?` · ${esc(user.email)}`:''}</option>`).join('');
 }
-function activityEventText(event){
-  return ({
-    criada:'Atividade criada',
-    titulo_alterado:'Título alterado',
-    descricao_alterada:'Descrição alterada',
-    responsavel_alterado:'Responsável alterado',
-    status_alterado:'Status alterado',
-    prazo_alterado:'Prazo alterado',
-    comentario:'Comentário'
-  })[event]||event;
-}
-function activityEventDetails(item){
-  if(item.evento==='comentario')return esc(item.comentario||'');
-  const details=item.detalhes||{};
-  if(item.evento==='criada'){
-    return `Descrição: ${esc(details.descricao||'—')} · Responsável: ${esc(details.responsavel||'Sem responsável')}${details.prazo?` · Prazo: ${esc(details.prazo)}`:''}`;
-  }
-  const value=raw=>raw===null||raw===undefined||raw===''?'—':String(raw);
-  const before=item.evento==='status_alterado'?(ACTIVITY_STATUS[details.antes]||value(details.antes)):value(details.antes);
-  const after=item.evento==='status_alterado'?(ACTIVITY_STATUS[details.depois]||value(details.depois)):value(details.depois);
-  const completed=details.concluido_em?` · Concluída em ${fmtDateTime(details.concluido_em)}`:'';
-  return `${esc(before)} → ${esc(after)}${completed}`;
-}
-function renderActivityCard(activity, history, index){
+function renderActivityCard(activity, index){
   const id=esc(activity.id),mine=activity.responsavel_id===currentUser?.id;
-  const activityHistory=history.filter(item=>item.atividade_id===activity.id);
-  const historyRows=activityHistory.map(item=>`<div class="activity-history-row"><b>${esc(activityEventText(item.evento))}</b><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small>${activityEventDetails(item)?`<p>${activityEventDetails(item)}</p>`:''}</div>`).join('');
-  const commentsMarkup=renderActivityComments(activity,history);
   const statusOptions=Object.entries(ACTIVITY_STATUS).map(([value,label])=>`<option value="${value}"${activity.status===value?' selected':''}>${label}</option>`).join('');
   const prazo=activity.prazo?new Date(`${activity.prazo}T00:00:00`).toLocaleDateString('pt-BR'):'';
   return `<details class="activity-card activity-row${mine?' mine':''}" data-disclosure-id="activity-${id}">
@@ -240,7 +214,6 @@ function renderActivityCard(activity, history, index){
       </span>
     </summary>
     <div class="activity-editor-panel">
-      <small class="activity-created">Criada por ${esc(activity.criado_por_nome)} · ${fmtDateTime(activity.criado_em)}${activity.concluido_em?` · Concluída em ${fmtDateTime(activity.concluido_em)}`:''}</small>
       <div class="activity-form-grid">
         <label><span>Título</span><input id="activityTitle-${id}" type="text" maxlength="160" value="${esc(activity.titulo)}"></label>
         <label><span>Responsável</span><select id="activityAssignee-${id}">${responsibleOptions(activity.responsavel_id)}</select></label>
@@ -248,30 +221,20 @@ function renderActivityCard(activity, history, index){
         <label><span>Status</span><select id="activityStatus-${id}">${statusOptions}</select></label>
         <label><span>Prazo (opcional)</span><input id="activityDue-${id}" type="date" value="${esc(activity.prazo||'')}"></label>
       </div>
-      <div class="activity-actions"><button class="primary" type="button" onclick="updateActivity('${id}','${esc(activity.pendencia_id)}')">Salvar</button></div>
-      ${commentsMarkup}
-      <details class="activity-disclosure activity-history" data-disclosure-id="activity-history-${id}"><summary>Histórico <span>${activityHistory.length}</span></summary><div>${historyRows||'<p>Sem alterações registradas.</p>'}</div></details>
+      <div class="activity-actions">
+        ${supervisor?`<button class="danger activity-delete" type="button" onclick="deleteActivity('${id}','${esc(activity.pendencia_id)}')">Excluir atividade</button>`:''}
+        <button class="primary" type="button" onclick="updateActivity('${id}','${esc(activity.pendencia_id)}')">Salvar</button>
+      </div>
     </div>
   </details>`;
 }
-function renderActivityComments(activity, history){
-  const id=esc(activity.id);
-  const comments=history.filter(item=>item.atividade_id===activity.id&&item.evento==='comentario');
-  return `<details class="activity-disclosure activity-comments-disclosure" data-disclosure-id="activity-comments-${id}"><summary>Comentários e atualizações <span>${comments.length}</span></summary><div class="activity-comment-list">${comments.length?comments.map(item=>`<div class="activity-comment"><p>${esc(item.comentario)}</p><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small></div>`).join(''):'<p class="activity-empty">Nenhum comentário registrado.</p>'}</div><form onsubmit="event.preventDefault();addActivityComment('${id}','${esc(activity.pendencia_id)}')"><label>Adicionar comentário<textarea id="activityComment-${id}" rows="2" maxlength="5000" required placeholder="Registre uma atualização sobre esta atividade..."></textarea></label><button class="ghost" type="submit">Adicionar comentário</button></form></details>`;
-}
-async function renderFullHistory(mainHistory, activityHistory, activities){
-  const activityById=new Map(activities.map(item=>[item.id,item]));
+async function renderFullHistory(mainHistory){
   const mainLabels={criada:'Pendência cadastrada',responsavel_atribuido:'Responsável principal atribuído',responsavel_alterado:'Responsável principal alterado',responsavel_removido:'Responsável principal removido',titulo_alterado:'Título alterado',descricao_alterada:'Descrição alterada',correcao_enviada:'Correção enviada para validação',devolvida:'Pendência devolvida para correção',aprovada:'Pendência aprovada'};
-  const mainRows=await Promise.all(mainHistory.map(async item=>{
+  const rows=await Promise.all(mainHistory.map(async item=>{
     const photos=await signedPhotos(item.fotos||[]);
     return {date:item.criado_em,html:`<div class="history-item"><b>${esc(mainLabels[item.evento]||item.evento)}</b><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small>${item.descricao?`<p>${esc(item.descricao)}</p>`:''}${item.motivo?`<p><b>Motivo:</b> ${esc(item.motivo)}</p>`:''}${photos?`<div class="photo-grid">${photos}</div>`:''}</div>`};
   }));
-  const activityRows=activityHistory.map(item=>{
-    const activity=activityById.get(item.atividade_id);
-    const title=item.detalhes?.titulo||activity?.titulo||'Atividade';
-    return {date:item.criado_em,html:`<div class="history-item activity-global-history"><b>${esc(title)} · ${esc(activityEventText(item.evento))}</b><small>${esc(item.usuario_nome)} · ${fmtDateTime(item.criado_em)}</small>${activityEventDetails(item)?`<p>${activityEventDetails(item)}</p>`:''}</div>`};
-  });
-  return [...mainRows,...activityRows].sort((a,b)=>new Date(a.date)-new Date(b.date)).map(item=>item.html).join('');
+  return rows.sort((a,b)=>new Date(a.date)-new Date(b.date)).map(item=>item.html).join('');
 }
 async function openDetail(id){
   const expandedDisclosures=selected?.id===id
@@ -285,14 +248,9 @@ async function openDetail(id){
   $('detailModal').classList.add('open');
   const {data:history,error}=await supa.from('pendencias_historico').select('*').eq('pendencia_id',id).order('criado_em',{ascending:true});
   if(error){$('detailBody').innerHTML=`<div class="empty">Erro ao carregar histórico: ${esc(error.message)}</div>`;return;}
-  const {data:activityRows,error:activitiesError}=await supa.from('pendencias_atividades').select('*').eq('pendencia_id',id).order('criado_em',{ascending:true});
+  const {data:activityRows,error:activitiesError}=await supa.from('pendencias_atividades').select('*').eq('pendencia_id',id).is('excluido_em',null).order('criado_em',{ascending:true});
   const activities=activitiesError?[]:(activityRows||[]);
-  let activityHistory=[],activityHistoryError=null;
-  if(activities.length){
-    const result=await supa.from('pendencias_atividades_historico').select('*').in('atividade_id',activities.map(item=>item.id)).order('criado_em',{ascending:true});
-    activityHistory=result.data||[];activityHistoryError=result.error;
-  }
-  const featureError=activitiesError||activityHistoryError;
+  const featureError=activitiesError;
   const featureErrorMessage=featureError?.message||activityFeatureError;
   const originalPhotos=await signedPhotos(p.fotos||[]);
   const correctionPhotos=await signedPhotos(p.fotos_correcao||[]);
@@ -304,15 +262,15 @@ async function openDetail(id){
     ? `<details class="responsible-edit-disclosure" data-disclosure-id="primary-responsible"><summary>Alterar responsável</summary><div class="responsible-edit"><select id="principalResponsible">${responsibleOptions(p.responsavel_id)}</select><button class="ghost" type="button" onclick="updatePrimaryResponsible('${esc(p.id)}')">Salvar</button></div></details>`
     : '';
   const primaryAssignedMeta=p.responsavel_atribuido_em?`<small>Atribuído por ${esc(p.responsavel_atribuido_por_nome||'—')} · ${fmtDateTime(p.responsavel_atribuido_em)}</small>`:'';
-  const activityErrorMarkup=featureErrorMessage?`<div class="activity-feature-error">Não foi possível carregar o módulo de atividades: ${esc(featureErrorMessage)}. Execute a migração <code>sql/supabase_pendencias_ajustes_v5.sql</code>.</div>`:'';
+  const activityErrorMarkup=featureErrorMessage?`<div class="activity-feature-error">Não foi possível carregar o módulo de atividades: ${esc(featureErrorMessage)}. Confira as migrações <code>sql/supabase_pendencias_ajustes_v5.sql</code> e <code>sql/supabase_pendencias_ajustes_v7.sql</code>.</div>`:'';
   const activitiesMarkup=featureErrorMessage?'':activities.length
-    ? `<div class="activity-list">${activities.map((item,index)=>renderActivityCard(item,activityHistory,index)).join('')}</div>`
+    ? `<div class="activity-list">${activities.map((item,index)=>renderActivityCard(item,index)).join('')}</div>`
     : '<p class="activity-empty">Nenhuma atividade adicional.</p>';
-  const createActivityMarkup=featureErrorMessage?'':`<details class="activity-create-disclosure" data-disclosure-id="activity-create"><summary class="activity-add-button">＋ Adicionar atividade</summary><form class="activity-create" onsubmit="event.preventDefault();createActivity('${esc(p.id)}')"><div class="activity-form-grid"><label><span>Título <em>*</em></span><input id="newActivityTitle" type="text" maxlength="160" required placeholder="Ex.: Comprar materiais"></label><label><span>Responsável <em>*</em></span><select id="newActivityAssignee" required>${responsibleOptions('',false)}</select></label><label class="activity-description-field"><span>Descrição <em>*</em></span><textarea id="newActivityDescription" rows="3" maxlength="5000" required placeholder="Descreva o que precisa ser feito..."></textarea></label><label><span>Prazo (opcional)</span><input id="newActivityDue" type="date"></label></div><div class="activity-create-actions"><button class="ghost" type="button" onclick="this.closest('details').open=false">Cancelar</button><button class="primary" type="submit">Adicionar</button></div></form></details>`;
+  const createActivityMarkup=featureErrorMessage?'':`<details class="activity-create-disclosure" data-disclosure-id="activity-create"><summary class="activity-add-button"><span class="activity-add-icon" aria-hidden="true">+</span><span>Adicionar atividade</span></summary><form class="activity-create" onsubmit="event.preventDefault();createActivity('${esc(p.id)}')"><div class="activity-form-grid"><label><span>Título <em>*</em></span><input id="newActivityTitle" type="text" maxlength="160" required placeholder="Ex.: Comprar materiais"></label><label><span>Responsável <em>*</em></span><select id="newActivityAssignee" required>${responsibleOptions('',false)}</select></label><label class="activity-description-field"><span>Descrição <em>*</em></span><textarea id="newActivityDescription" rows="3" maxlength="5000" required placeholder="Descreva o que precisa ser feito..."></textarea></label><label><span>Prazo (opcional)</span><input id="newActivityDue" type="date"></label></div><div class="activity-create-actions"><button class="ghost" type="button" onclick="this.closest('details').open=false">Cancelar</button><button class="primary" type="submit">Adicionar</button></div></form></details>`;
   const activitySection=featureErrorMessage
     ? `<section class="detail-section"><h3>Atividades e responsáveis</h3>${activityErrorMarkup}</section>`
     : `<section class="detail-section activity-section"><h3>Atividades e responsáveis</h3>${activitiesMarkup}${createActivityMarkup}</section>`;
-  const historyMarkup=await renderFullHistory(history||[],activityHistory,activities);
+  const historyMarkup=await renderFullHistory(history||[]);
   const review=p.status==='aguardando_validacao'&&supervisor?`<div class="review-actions"><button class="danger" onclick="returnCorrection('${p.id}')">Devolver para correção</button><button class="primary" onclick="approveCorrection('${p.id}')">Aprovar correção</button></div>`:'';
   const correctionForm=p.status==='pendente'?`<div class="correction-box"><p>Descreva o que foi corrigido. O envio encaminha a pendência para validação.</p><label><span>Correção realizada <em>*</em></span><textarea id="correctionText" placeholder="Informe o serviço realizado e o resultado..."></textarea></label><div class="photo-field"><div class="photo-label">Fotos da correção (opcional)</div>${photoPicker('correction')}</div><div class="correction-actions"><button class="primary" onclick="submitCorrection('${p.id}')">Enviar para validação</button></div></div>`:'';
   const workflowContent=p.status==='pendente'
@@ -369,12 +327,14 @@ async function updateActivity(activityId,pendenciaId){
   toast('Atividade atualizada.');
   await loadData();await openDetail(pendenciaId);
 }
-async function addActivityComment(activityId,pendenciaId){
-  const input=$(`activityComment-${activityId}`),comentario=input?.value.trim()||'';
-  if(!comentario){toast('Escreva um comentário antes de adicionar.');return;}
-  const {error}=await supa.rpc('pendencia_atividade_comentar',{p_atividade_id:activityId,p_comentario:comentario});
-  if(error){toast('Não foi possível adicionar o comentário: '+error.message);return;}
-  toast('Comentário adicionado.');
+async function deleteActivity(activityId,pendenciaId){
+  if(!supervisor){toast('Somente administradores e supervisores podem excluir atividades.');return;}
+  const activity=atividades.find(item=>item.id===activityId);
+  if(!activity){toast('Não foi possível localizar a atividade para excluir.');return;}
+  if(!confirm(`Excluir a atividade "${activity.titulo}"? Ela deixará de aparecer na lista.`))return;
+  const {error}=await supa.rpc('pendencia_atividade_excluir',{p_atividade_id:activityId});
+  if(error){toast('Não foi possível excluir a atividade: '+error.message);return;}
+  toast('Atividade excluída.');
   await loadData();await openDetail(pendenciaId);
 }
 async function signedPhotos(paths){

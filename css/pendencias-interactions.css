@@ -843,10 +843,16 @@ body.session-pending #sessionLoaderPendencias {
   font-size: 11px;
 }
 .activity-editor-panel .activity-actions {
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin: 10px 0 0;
 }
 .activity-editor-panel .activity-actions .primary {
   min-width: 110px;
+}
+.activity-editor-panel .activity-actions .activity-delete {
+  margin-right: auto;
 }
 .activity-create-disclosure {
   margin-top: 14px;
@@ -857,17 +863,34 @@ body.session-pending #sessionLoaderPendencias {
 .activity-create-disclosure > summary.activity-add-button {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  gap: 9px;
   min-height: 42px;
-  padding: 9px 16px;
-  border: 0;
-  border-radius: 999px;
-  background: #111;
-  color: #fff;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
   cursor: pointer;
   font-size: 14px;
   font-weight: 700;
   list-style: none;
+  transition: border-color .15s, background-color .15s;
+}
+.activity-create-disclosure > summary.activity-add-button:hover {
+  border-color: var(--blue);
+  background: #fffdf7;
+}
+.activity-add-icon {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff3d6;
+  color: #9c6900;
+  font-size: 18px;
+  line-height: 1;
 }
 .activity-create-disclosure > summary.activity-add-button::-webkit-details-marker {
   display: none;
@@ -908,6 +931,13 @@ body.session-pending #sessionLoaderPendencias {
   .activity-create-actions .btn,
   .activity-create-actions .primary {
     width: 100%;
+  }
+  .activity-editor-panel .activity-actions {
+    flex-direction: row;
+  }
+  .activity-editor-panel .activity-actions .primary,
+  .activity-editor-panel .activity-actions .activity-delete {
+    width: auto;
   }
   .activity-create-actions {
     flex-direction: column-reverse;
